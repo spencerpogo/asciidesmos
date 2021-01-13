@@ -12,6 +12,8 @@ pub(self) mod parsers {
     use super::*;
 
     pub fn parse_ident(i: &str) -> IResult<&str, &str> {
+        // Recognize returns everything consumed by the child parser, 
+        //  combining the two subparsers without re-allocation (I think)
         let (input, output) = recognize(pair(
             take_while_m_n(1, 1, chars::is_ident_leading_char),
             take_while(chars::is_ident_char),
