@@ -1,14 +1,9 @@
-use nom::character::{is_digit, is_alphabetic};
-
-#[inline]
-pub fn is_underscore(chr: u8) -> bool {
-    chr == 0x5f
-}
+use nom::character::is_alphabetic;
 
 // No digits in leading char
 #[inline]
 pub fn is_ident_leading_char(chr: char) -> bool {
-    !chr.is_ascii() || is_alphabetic(chr as u8) || is_underscore(chr as u8)
+    !chr.is_ascii() || is_alphabetic(chr as u8) || chr == '_'
 }
 
 #[inline]
@@ -18,7 +13,7 @@ pub fn is_ident_char(chr: char) -> bool {
 
 #[inline]
 pub fn is_space(chr: u8) -> bool {
-    chr == 0x20 || chr == 0x9 // tab
+    chr == b' ' || chr == b'\t' // tab
 }
 
 #[inline]
@@ -27,13 +22,8 @@ pub fn is_space_char(chr: char) -> bool {
 }
 
 #[inline]
-pub fn is_newline(chr: u8) -> bool {
-    chr == 0xa
-}
-
-#[inline]
 pub fn is_space_newline(chr: u8) -> bool {
-    is_space(chr) || is_newline(chr)
+    is_space(chr) || chr == b'\n'
 }
 
 #[inline]
@@ -42,24 +32,13 @@ pub fn is_space_newline_char(chr: char) -> bool {
 }
 
 #[inline]
-pub fn is_comma(chr: u8) -> bool {
-    chr == 0x2c
-}
-
-#[inline]
 pub fn is_arg_sep(chr: char) -> bool {
-    chr.is_ascii() && is_comma(chr as u8) || is_space_newline(chr as u8)
-}
-
-#[inline]
-pub fn is_close_paren(chr: u8) -> bool {
-    chr == 0x29
+    chr.is_ascii() && chr == ',' || is_space_newline(chr as u8)
 }
 
 #[inline]
 pub fn is_arg_char(chr: char) -> bool {
-    !chr.is_ascii()
-        || (!is_comma(chr as u8) && !is_space_newline(chr as u8) && !is_close_paren(chr as u8))
+    !chr.is_ascii() || (chr == ',' && !is_space_newline(chr as u8) && chr != ')')
 }
 
 #[cfg(test)]
