@@ -1,10 +1,12 @@
 use super::{ast::AST, chars};
 use nom;
 use nom::{
+    branch::alt,
     bytes::complete::{tag, take_while, take_while1, take_while_m_n},
+    character::complete::char as nom_char,
     combinator::{opt, recognize},
     multi::separated_list0,
-    sequence::{pair, tuple},
+    sequence::{delimited, pair, tuple},
     IResult,
 };
 
@@ -49,14 +51,14 @@ pub(self) mod parsers {
         ) = tuple((
             parse_ident,
             parse_space_newline,
-            tag("("),
+            nom_char('('),
             parse_space_newline,
             separated_list0(
                 take_while1(chars::is_arg_sep),
                 take_while1(chars::is_arg_char),
             ),
             parse_space_newline,
-            tag(")"),
+            nom_char(')'),
         ))(i)?;
         return Ok((inp, AST::Call(func, args)));
     }
@@ -69,6 +71,18 @@ pub(self) mod parsers {
             opt(pair(tag("."), take_while(chars::is_digit_char))),
         )))(i)?;
         return Ok((rest, AST::Num(n)));
+    }
+
+    #[allow(dead_code)]
+    pub fn parse_paren_exp(i: &str) -> IResult<&str, AST> {
+        let (res, n) = delimited(nom_char('('), parse_exp, nom_char(')'))(i)?;
+        return Ok((res, n));
+    }
+
+    #[allow(dead_code)]
+    pub fn parse_exp(i: &str) -> IResult<&str, AST> {
+        let (rest, n) = alt((parse_num, parse_paren_exp))(i)?;
+        return Ok((rest, n));
     }
 
     #[cfg(test)]
@@ -142,6 +156,18 @@ pub(self) mod parsers {
                 }))
             );
             assert_eq!(parse_num("-123.456"), Ok(("", AST::Num("-123.456"))));
+        }
+
+        #[test]
+        fn test_parse_exp() {
+            // It parses numbers
+            assert_eq!(parse_exp("1"), Ok(("", AST::Num("1"))));
+        }
+
+        #[test]
+        fn test_parse_paren_exp() {
+            assert_eq!(parse_paren_exp("(1)"), Ok(("", AST::Num("1"))));
+            assert_eq!(parse_exp("(1)"), Ok(("", AST::Num("1"))));
         }
     }
 }
