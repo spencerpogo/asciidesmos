@@ -2,7 +2,7 @@ use super::{ast::AST, chars};
 use nom;
 use nom::{
     bytes::complete::{tag, take_while, take_while1, take_while_m_n},
-    combinator::recognize,
+    combinator::{opt, recognize},
     multi::separated_list0,
     sequence::{pair, tuple},
     IResult,
@@ -61,6 +61,15 @@ pub(self) mod parsers {
         return Ok((inp, AST::Call(func, args)));
     }
 
+    #[allow(dead_code)]
+    pub fn parse_num(i: &str) -> IResult<&str, AST> {
+        let (rest, n) = recognize(pair(
+            take_while1(chars::is_digit_char),
+            opt(pair(tag("."), take_while(chars::is_digit_char))),
+        ))(i)?;
+        return Ok((rest, AST::Num(n)));
+    }
+
     #[cfg(test)]
     mod tests {
         use super::*;
@@ -103,6 +112,20 @@ pub(self) mod parsers {
                 parse_call("_3b \n ( a72n, \n\t 123 , 45,67 )\n"),
                 Ok(("\n", AST::Call("_3b", vec!["a72n", "123", "45", "67"])))
             )
+        }
+
+        #[test]
+        fn test_parse_num() {
+            assert_eq!(parse_num("0"), Ok(("", AST::Num("0"))));
+            assert_eq!(parse_num("0.1234"), Ok(("", AST::Num("0.1234"))));
+            assert_eq!(parse_num("12345."), Ok(("", AST::Num("12345."))));
+            assert_eq!(
+                parse_num(""),
+                Err(nom::Err::Error(error::Error {
+                    input: "",
+                    code: error::ErrorKind::TakeWhile1
+                }))
+            );
         }
     }
 }

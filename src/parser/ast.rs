@@ -1,5 +1,5 @@
 #[derive(Clone, Debug, PartialEq)]
 pub enum AST<'a> {
     Call(&'a str, Vec<&'a str>),
-    Int(i64),
+    Num(&'a str), // We don't care about the value of the int, desmos can figure that out
 }

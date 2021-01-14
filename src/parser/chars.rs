@@ -1,4 +1,4 @@
-use nom::character::is_alphabetic;
+use nom::character::{is_alphabetic, is_digit};
 
 // No digits in leading char
 #[inline]
@@ -39,6 +39,11 @@ pub fn is_arg_sep(chr: char) -> bool {
 #[inline]
 pub fn is_arg_char(chr: char) -> bool {
     !chr.is_ascii() || (chr == ',' && !is_space_newline(chr as u8) && chr != ')')
+}
+
+#[inline]
+pub fn is_digit_char(chr: char) -> bool {
+    chr.is_ascii() && is_digit(chr as u8)
 }
 
 #[cfg(test)]
