@@ -12,7 +12,7 @@ pub(self) mod parsers {
     use super::*;
 
     pub fn parse_ident(i: &str) -> IResult<&str, &str> {
-        // Recognize returns everything consumed by the child parser, 
+        // Recognize returns everything consumed by the child parser,
         //  combining the two subparsers without re-allocation (I think)
         let (input, output) = recognize(pair(
             take_while_m_n(1, 1, chars::is_ident_leading_char),
@@ -21,16 +21,19 @@ pub(self) mod parsers {
         return Ok((input, output));
     }
 
+    #[allow(dead_code)]
     pub fn parse_space(i: &str) -> IResult<&str, &str> {
         let (inp, out) = take_while(chars::is_space_char)(i)?;
         return Ok((inp, out));
     }
 
+    #[allow(dead_code)]
     pub fn parse_space_newline(i: &str) -> IResult<&str, &str> {
         let (inp, out) = take_while(chars::is_space_newline_char)(i)?;
         return Ok((inp, out));
     }
 
+    #[allow(dead_code)]
     pub fn parse_call(i: &str) -> IResult<&str, AST> {
         let (
             inp,
