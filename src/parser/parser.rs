@@ -80,8 +80,30 @@ pub(self) mod parsers {
     }
 
     #[allow(dead_code)]
+    pub fn parse_add_exp(i: &str) -> IResult<&str, AST> {
+        let (
+            rest,
+            (
+                left,
+                _, // space
+                _, // operator
+                _, // space
+                right,
+            ),
+        ) = tuple((
+            parse_exp,
+            parse_space,
+            nom_char('+'),
+            parse_space,
+            parse_exp,
+        ))(i)?;
+        return Ok((rest, AST::Add(Box::new(left), Box::new(right))));
+    }
+
+    #[allow(dead_code)]
     pub fn parse_exp(i: &str) -> IResult<&str, AST> {
-        let (rest, n) = alt((parse_num, parse_paren_exp))(i)?;
+        println!("parse_exp {:#?}", i);
+        let (rest, n) = alt((parse_paren_exp, parse_add_exp, parse_num))(i)?;
         return Ok((rest, n));
     }
 
@@ -166,8 +188,18 @@ pub(self) mod parsers {
 
         #[test]
         fn test_parse_paren_exp() {
-            assert_eq!(parse_paren_exp("(1)"), Ok(("", AST::Num("1"))));
             assert_eq!(parse_exp("(1)"), Ok(("", AST::Num("1"))));
+        }
+
+        #[test]
+        fn test_parse_add_exp() {
+            assert_eq!(
+                parse_exp("1 + 2"),
+                Ok((
+                    "",
+                    AST::Add(Box::new(AST::Num("1")), Box::new(AST::Num("2")))
+                ))
+            );
         }
     }
 }
@@ -176,6 +208,6 @@ pub(self) mod parsers {
 //  take_while!(p)
 //}
 
-pub fn parse(inp: &str) -> IResult<&str, &str> {
-    return parsers::parse_ident(inp);
+pub fn parse(inp: &str) -> IResult<&str, AST> {
+    return parsers::parse_exp(inp);
 }
