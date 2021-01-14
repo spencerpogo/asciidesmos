@@ -63,10 +63,11 @@ pub(self) mod parsers {
 
     #[allow(dead_code)]
     pub fn parse_num(i: &str) -> IResult<&str, AST> {
-        let (rest, n) = recognize(pair(
+        let (rest, n) = recognize(tuple((
+            take_while_m_n(0, 1, |c| c == '+' || c == '-'),
             take_while1(chars::is_digit_char),
             opt(pair(tag("."), take_while(chars::is_digit_char))),
-        ))(i)?;
+        )))(i)?;
         return Ok((rest, AST::Num(n)));
     }
 
@@ -117,6 +118,7 @@ pub(self) mod parsers {
         #[test]
         fn test_parse_num() {
             assert_eq!(parse_num("0"), Ok(("", AST::Num("0"))));
+            assert_eq!(parse_num("0aaa"), Ok(("aaa", AST::Num("0"))));
             assert_eq!(parse_num("0.1234"), Ok(("", AST::Num("0.1234"))));
             assert_eq!(parse_num("12345."), Ok(("", AST::Num("12345."))));
             assert_eq!(
@@ -126,6 +128,20 @@ pub(self) mod parsers {
                     code: error::ErrorKind::TakeWhile1
                 }))
             );
+        }
+
+        #[test]
+        fn test_parse_num_signed() {
+            assert_eq!(parse_num("-1"), Ok(("", AST::Num("-1"))));
+            assert_eq!(parse_num("+1"), Ok(("", AST::Num("+1"))));
+            assert_eq!(
+                parse_num("-+0"),
+                Err(nom::Err::Error(error::Error {
+                    input: "+0",
+                    code: error::ErrorKind::TakeWhile1
+                }))
+            );
+            assert_eq!(parse_num("-123.456"), Ok(("", AST::Num("-123.456"))));
         }
     }
 }
