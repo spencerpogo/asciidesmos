@@ -1,11 +1,14 @@
-use super::{ast::AST, chars};
+use super::{
+    ast::{Operation, AST},
+    chars,
+};
 use nom;
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_while, take_while1, take_while_m_n},
     character::complete::char as nom_char,
     combinator::{opt, recognize},
-    multi::separated_list0,
+    multi::{fold_many1, separated_list0},
     sequence::{delimited, pair, tuple},
     IResult,
 };
@@ -80,30 +83,39 @@ pub(self) mod parsers {
     }
 
     #[allow(dead_code)]
-    pub fn parse_add_exp(i: &str) -> IResult<&str, AST> {
+    pub fn parse_add_exp(i: &str) -> IResult<&str, (Operation, AST)> {
         let (
             rest,
             (
-                left,
                 _, // space
                 _, // operator
                 _, // space
                 right,
             ),
         ) = tuple((
-            parse_exp,
             parse_space,
             nom_char('+'),
             parse_space,
-            parse_exp,
+            parse_exp_non_recursive,
         ))(i)?;
-        return Ok((rest, AST::Add(Box::new(left), Box::new(right))));
+        return Ok((rest, (Operation::Add, right)));
+    }
+
+    #[allow(dead_code)]
+    pub fn parse_exp_non_recursive(i: &str) -> IResult<&str, AST> {
+        println!("parse_exp {:#?}", i);
+        let (rest, n) = alt((parse_paren_exp, parse_num))(i)?;
+        return Ok((rest, n));
     }
 
     #[allow(dead_code)]
     pub fn parse_exp(i: &str) -> IResult<&str, AST> {
-        println!("parse_exp {:#?}", i);
-        let (rest, n) = alt((parse_paren_exp, parse_add_exp, parse_num))(i)?;
+        println!("parse_exp_no_add {:#?}", i);
+        let (inp, first) = parse_exp_non_recursive(i)?;
+        let (rest, n) = fold_many1(parse_add_exp, first, |l: AST, item| {
+            let (op, r) = item;
+            AST::BinOp(op, Box::new(l), Box::new(r))
+        })(inp)?;
         return Ok((rest, n));
     }
 
@@ -197,9 +209,14 @@ pub(self) mod parsers {
                 parse_exp("1 + 2"),
                 Ok((
                     "",
-                    AST::Add(Box::new(AST::Num("1")), Box::new(AST::Num("2")))
+                    AST::BinOp(
+                        Operation::Add,
+                        Box::new(AST::Num("1")),
+                        Box::new(AST::Num("2"))
+                    )
                 ))
             );
+            // TODO: More tests for adding
         }
     }
 }

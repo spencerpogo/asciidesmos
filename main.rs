@@ -1,5 +1,5 @@
 use desmos_lang;
 
 fn main() {
-    println!("{:#?}", desmos_lang::parse("1 + 1"))
+    println!("{:#?}", desmos_lang::parse("1 + 2 + 3"))
 }
