@@ -92,26 +92,21 @@ pub(self) mod parsers {
                 _, // space
                 right,
             ),
-        ) = tuple((
-            parse_space,
-            nom_char('+'),
-            parse_space,
-            parse_exp_non_recursive,
-        ))(i)?;
+        ) = tuple((parse_space, nom_char('+'), parse_space, parse_term))(i)?;
         return Ok((rest, (Operation::Add, right)));
     }
 
     #[allow(dead_code)]
-    pub fn parse_exp_non_recursive(i: &str) -> IResult<&str, AST> {
-        println!("parse_exp {:#?}", i);
+    pub fn parse_term(i: &str) -> IResult<&str, AST> {
+        println!("parse_term {:#?}", i);
         let (rest, n) = alt((parse_paren_exp, parse_num))(i)?;
         return Ok((rest, n));
     }
 
     #[allow(dead_code)]
     pub fn parse_exp(i: &str) -> IResult<&str, AST> {
-        println!("parse_exp_no_add {:#?}", i);
-        let (inp, first) = parse_exp_non_recursive(i)?;
+        println!("parse_exp {:#?}", i);
+        let (inp, first) = parse_term(i)?;
         let (rest, n) = fold_many1(parse_add_exp, first, |l: AST, item| {
             let (op, r) = item;
             AST::BinOp(op, Box::new(l), Box::new(r))
