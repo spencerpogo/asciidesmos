@@ -120,11 +120,21 @@ pub(self) mod parsers {
         // Require a single term, e.g. the "1" in "1+1" or "1"
         let (inp, first) = parse_term(i)?;
         // Fold in any binop operations from the remaining input
-        let (rest, n) = fold_many0(parse_binop, first, |l: AST, item| {
-            let (op, r) = item;
-            AST::BinOp(op, Box::new(l), Box::new(r))
-        })(inp)?;
-        return Ok((rest, n));
+        let (rest, n) = fold_many0(
+            parse_binop,
+            Vec::new(),
+            |mut l: Vec<(Operation, Box<AST>)>, item| {
+                let (op, r) = item;
+                l.push((op, Box::new(r)));
+                l
+            },
+        )(inp)?;
+
+        if n.len() > 0 {
+            return Ok((rest, AST::BinOp(Box::new(first), n)));
+        } else {
+            return Ok((rest, first));
+        }
     }
 
     #[cfg(test)]
@@ -218,9 +228,8 @@ pub(self) mod parsers {
                 Ok((
                     "",
                     AST::BinOp(
-                        Operation::Add,
                         Box::new(AST::Num("1")),
-                        Box::new(AST::Num("2"))
+                        vec![(Operation::Add, Box::new(AST::Num("2"))),]
                     )
                 ))
             );
@@ -229,13 +238,11 @@ pub(self) mod parsers {
                 Ok((
                     "",
                     AST::BinOp(
-                        Operation::Add,
-                        Box::new(AST::BinOp(
-                            Operation::Add,
-                            Box::new(AST::Num("1")),
-                            Box::new(AST::Num("2"))
-                        )),
-                        Box::new(AST::Num("3"))
+                        Box::new(AST::Num("1")),
+                        vec![
+                            (Operation::Add, Box::new(AST::Num("2"))),
+                            (Operation::Add, Box::new(AST::Num("3")))
+                        ]
                     )
                 ))
             );
@@ -245,13 +252,14 @@ pub(self) mod parsers {
                 Ok((
                     "",
                     AST::BinOp(
-                        Operation::Add,
                         Box::new(AST::Num("1")),
-                        Box::new(AST::BinOp(
+                        vec![(
                             Operation::Add,
-                            Box::new(AST::Num("2")),
-                            Box::new(AST::Num("3"))
-                        )),
+                            Box::new(AST::BinOp(
+                                Box::new(AST::Num("2")),
+                                vec![(Operation::Add, Box::new(AST::Num("3")))]
+                            ))
+                        ),]
                     )
                 ))
             );
@@ -264,15 +272,14 @@ pub(self) mod parsers {
                 Ok((
                     "",
                     AST::BinOp(
-                        Operation::Mul,
                         Box::new(AST::Num("1")),
-                        Box::new(AST::Num("2"))
+                        vec![(Operation::Mul, Box::new(AST::Num("2")))]
                     )
                 ))
             );
             assert_eq!(
                 parse_exp("1 + 2 * 3"),
-                Ok((
+                /*Ok((
                     "",
                     AST::BinOp(
                         Operation::Add,
@@ -282,6 +289,16 @@ pub(self) mod parsers {
                             Box::new(AST::Num("2")),
                             Box::new(AST::Num("3"))
                         )),
+                    )
+                ))*/
+                Ok((
+                    "",
+                    AST::BinOp(
+                        Box::new(AST::Num("1")),
+                        vec![
+                            (Operation::Add, Box::new(AST::Num("2"))),
+                            (Operation::Mul, Box::new(AST::Num("3")))
+                        ]
                     )
                 ))
             );
