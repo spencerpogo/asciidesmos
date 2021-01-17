@@ -82,19 +82,24 @@ pub(self) mod parsers {
         return Ok((res, n));
     }
 
-    #[allow(dead_code)]
-    pub fn parse_add_exp(i: &str) -> IResult<&str, (Operation, AST)> {
-        let (
-            rest,
-            (
-                _, // space
-                _, // operator
-                _, // space
-                right,
-            ),
-        ) = tuple((parse_space, nom_char('+'), parse_space, parse_term))(i)?;
-        return Ok((rest, (Operation::Add, right)));
+    macro_rules! binop_parser {
+        ($name:ident, $c:expr, $op:expr) => {
+            pub fn $name(i: &str) -> IResult<&str, (Operation, AST)> {
+                let (
+                    rest,
+                    (
+                        _, // space
+                        _, // operator
+                        _, // space
+                        right,
+                    ),
+                ) = tuple((parse_space, nom_char($c), parse_space, parse_term))(i)?;
+                Ok((rest, ($op, right)))
+            }
+        };
     }
+
+    binop_parser!(parse_add_exp, '+', Operation::Add);
 
     #[allow(dead_code)]
     pub fn parse_term(i: &str) -> IResult<&str, AST> {
