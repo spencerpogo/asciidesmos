@@ -216,7 +216,37 @@ pub(self) mod parsers {
                     )
                 ))
             );
-            // TODO: More tests for adding
+            assert_eq!(
+                parse_exp("1 + 2 + 3"),
+                Ok((
+                    "",
+                    AST::BinOp(
+                        Operation::Add,
+                        Box::new(AST::BinOp(
+                            Operation::Add,
+                            Box::new(AST::Num("1")),
+                            Box::new(AST::Num("2"))
+                        )),
+                        Box::new(AST::Num("3"))
+                    )
+                ))
+            );
+            assert_eq!(parse_exp("1 + "), Ok((" + ", AST::Num("1"))));
+            assert_eq!(
+                parse_exp("1 + (2 + 3)"),
+                Ok((
+                    "",
+                    AST::BinOp(
+                        Operation::Add,
+                        Box::new(AST::Num("1")),
+                        Box::new(AST::BinOp(
+                            Operation::Add,
+                            Box::new(AST::Num("2")),
+                            Box::new(AST::Num("3"))
+                        )),
+                    )
+                ))
+            );
         }
     }
 }
