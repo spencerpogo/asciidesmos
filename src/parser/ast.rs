@@ -1,7 +1,9 @@
 #[derive(Clone, Debug, PartialEq)]
 pub enum Operation {
-    Add,
     Mul,
+    Div,
+    Add,
+    Sub,
 }
 
 #[derive(Clone, Debug, PartialEq)]

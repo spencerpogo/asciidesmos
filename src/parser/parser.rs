@@ -99,8 +99,10 @@ pub(self) mod parsers {
         };
     }
 
-    binop_parser!(parse_add_exp, '+', Operation::Add);
     binop_parser!(parse_mul_exp, '*', Operation::Mul);
+    binop_parser!(parse_div_exp, '/', Operation::Div);
+    binop_parser!(parse_add_exp, '+', Operation::Add);
+    binop_parser!(parse_mul_exp, '-', Operation::Sub);
 
     #[allow(dead_code)]
     pub fn parse_term(i: &str) -> IResult<&str, AST> {
@@ -111,7 +113,7 @@ pub(self) mod parsers {
 
     #[allow(dead_code)]
     pub fn parse_binop(i: &str) -> IResult<&str, (Operation, AST)> {
-        alt((parse_mul_exp, parse_add_exp))(i)
+        alt((parse_mul_exp, parse_div_exp, parse_add_exp, parse_sub_exp))(i)
     }
 
     #[allow(dead_code)]
