@@ -8,7 +8,7 @@ use nom::{
     bytes::complete::{tag, take_while, take_while1, take_while_m_n},
     character::complete::char as nom_char,
     combinator::{opt, recognize},
-    multi::{fold_many1, separated_list0},
+    multi::{fold_many0, separated_list0},
     sequence::{delimited, pair, tuple},
     IResult,
 };
@@ -112,7 +112,7 @@ pub(self) mod parsers {
     pub fn parse_exp(i: &str) -> IResult<&str, AST> {
         println!("parse_exp {:#?}", i);
         let (inp, first) = parse_term(i)?;
-        let (rest, n) = fold_many1(parse_add_exp, first, |l: AST, item| {
+        let (rest, n) = fold_many0(parse_add_exp, first, |l: AST, item| {
             let (op, r) = item;
             AST::BinOp(op, Box::new(l), Box::new(r))
         })(inp)?;
