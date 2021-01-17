@@ -271,17 +271,17 @@ pub(self) mod parsers {
                 ))
             );
             assert_eq!(
-                parse_exp("2 * 3 + 4"),
+                parse_exp("1 + 2 * 3"),
                 Ok((
                     "",
                     AST::BinOp(
                         Operation::Add,
+                        Box::new(AST::Num("1")),
                         Box::new(AST::BinOp(
                             Operation::Mul,
                             Box::new(AST::Num("2")),
                             Box::new(AST::Num("3"))
                         )),
-                        Box::new(AST::Num("4"))
                     )
                 ))
             );
