@@ -102,7 +102,7 @@ pub(self) mod parsers {
     binop_parser!(parse_mul_exp, '*', Operation::Mul);
     binop_parser!(parse_div_exp, '/', Operation::Div);
     binop_parser!(parse_add_exp, '+', Operation::Add);
-    binop_parser!(parse_mul_exp, '-', Operation::Sub);
+    binop_parser!(parse_sub_exp, '-', Operation::Sub);
 
     #[allow(dead_code)]
     pub fn parse_term(i: &str) -> IResult<&str, AST> {
