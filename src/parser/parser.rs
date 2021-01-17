@@ -100,6 +100,7 @@ pub(self) mod parsers {
     }
 
     binop_parser!(parse_add_exp, '+', Operation::Add);
+    binop_parser!(parse_mul_exp, '*', Operation::Mul);
 
     #[allow(dead_code)]
     pub fn parse_term(i: &str) -> IResult<&str, AST> {
@@ -109,10 +110,17 @@ pub(self) mod parsers {
     }
 
     #[allow(dead_code)]
+    pub fn parse_binop(i: &str) -> IResult<&str, (Operation, AST)> {
+        alt((parse_mul_exp, parse_add_exp))(i)
+    }
+
+    #[allow(dead_code)]
     pub fn parse_exp(i: &str) -> IResult<&str, AST> {
         println!("parse_exp {:#?}", i);
+        // Require a single term, e.g. the "1" in "1+1" or "1"
         let (inp, first) = parse_term(i)?;
-        let (rest, n) = fold_many0(parse_add_exp, first, |l: AST, item| {
+        // Fold in any binop operations from the remaining input
+        let (rest, n) = fold_many0(parse_binop, first, |l: AST, item| {
             let (op, r) = item;
             AST::BinOp(op, Box::new(l), Box::new(r))
         })(inp)?;
@@ -244,6 +252,36 @@ pub(self) mod parsers {
                             Box::new(AST::Num("2")),
                             Box::new(AST::Num("3"))
                         )),
+                    )
+                ))
+            );
+        }
+
+        #[test]
+        fn test_mul_exp() {
+            assert_eq!(
+                parse_exp("1 * 2"),
+                Ok((
+                    "",
+                    AST::BinOp(
+                        Operation::Mul,
+                        Box::new(AST::Num("1")),
+                        Box::new(AST::Num("2"))
+                    )
+                ))
+            );
+            assert_eq!(
+                parse_exp("2 * 3 + 4"),
+                Ok((
+                    "",
+                    AST::BinOp(
+                        Operation::Add,
+                        Box::new(AST::BinOp(
+                            Operation::Mul,
+                            Box::new(AST::Num("2")),
+                            Box::new(AST::Num("3"))
+                        )),
+                        Box::new(AST::Num("4"))
                     )
                 ))
             );

@@ -1,6 +1,7 @@
 #[derive(Clone, Debug, PartialEq)]
 pub enum Operation {
     Add,
+    Mul,
 }
 
 #[derive(Clone, Debug, PartialEq)]
