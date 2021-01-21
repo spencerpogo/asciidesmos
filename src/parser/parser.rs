@@ -125,7 +125,7 @@ pub(self) mod parsers {
     pub fn parse_exp(i: &str) -> IResult<&str, AST> {
         println!("parse_exp {:#?}", i);
         // Require a single term, e.g. the "1" in "1+1" or "1"
-        let (inp, (_, first)) = tuple((parse_space, parse_term))(i)?;
+        let (inp, (_, first)) = tuple((parse_space_newline, parse_term))(i)?;
         // Fold in any binop operations from the remaining input
         let (rest, n) = fold_many0(
             parse_binop,
