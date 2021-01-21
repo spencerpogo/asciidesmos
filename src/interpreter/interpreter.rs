@@ -1,4 +1,4 @@
-use crate::parser::ast::AST;
+use crate::parser::ast::{Operation, AST};
 
 pub fn ident_to_latex(v: &str) -> String {
   let mut chars = v.chars();
@@ -15,6 +15,16 @@ pub fn ident_to_latex(v: &str) -> String {
   }
 }
 
+pub fn operation_to_latex(left: &String, op: &Operation, right: &String) -> String {
+  match op {
+    Operation::Mul => format!("{}\\cdot2{}", left, right),
+    Operation::Div => format!("\\frac{{{}}}{{{}}}", left, right),
+    Operation::Add => format!("{}+{}", left, right),
+    Operation::Sub => format!("{}-{}", left, right),
+    Operation::Factorial => format!("{}!", left),
+  }
+}
+
 pub fn ast_to_latex(ast: &AST) -> String {
   match ast {
     AST::Ident(x) => ident_to_latex(x),
@@ -27,6 +37,18 @@ pub fn ast_to_latex(ast: &AST) -> String {
         s
       })
     ),
+    AST::BinOp(first, terms) => {
+      let (r, _) = terms.iter().fold(
+        (String::new(), ast_to_latex(&*first)),
+        |(mut s, left), (op, rbox)| {
+          let rstr = ast_to_latex(&**rbox);
+          s.push_str(&operation_to_latex(&left, op, &rstr));
+          (s, rstr)
+        },
+      );
+      r
+    }
+    AST::FactorialLeft => "".to_string(),
     _ => unimplemented!(),
   }
 }
@@ -65,6 +87,67 @@ mod tests {
     assert_eq!(
       ast_to_latex(&AST::Call("a", vec![Box::new(AST::Num("1"))])),
       "a\\left(1\\right)".to_string(),
+    );
+  }
+
+  #[test]
+  fn test_binop_add() {
+    assert_eq!(
+      ast_to_latex(&AST::BinOp(
+        Box::new(AST::Num("1")),
+        vec![(Operation::Add, Box::new(AST::Ident("abc")))]
+      )),
+      "1+a_{bc}".to_string()
+    );
+  }
+
+  #[test]
+  fn test_binop_sub() {
+    assert_eq!(
+      ast_to_latex(&AST::BinOp(
+        Box::new(AST::Num("1")),
+        vec![(Operation::Sub, Box::new(AST::Ident("abc")))]
+      )),
+      "1-a_{bc}".to_string()
+    );
+  }
+
+  #[test]
+  fn test_binop_mul() {
+    let call = AST::Call("f", vec![Box::new(AST::Num("1"))]);
+    let callstr = ast_to_latex(&call);
+
+    assert_eq!(
+      ast_to_latex(&AST::BinOp(
+        Box::new(call),
+        vec![(Operation::Mul, Box::new(AST::Ident("abc")))]
+      )),
+      format!("{}\\cdot2a_{{bc}}", callstr)
+    );
+  }
+
+  #[test]
+  fn test_binop_div() {
+    assert_eq!(
+      ast_to_latex(&AST::BinOp(
+        Box::new(AST::Ident("abc")),
+        vec![(Operation::Div, Box::new(AST::Ident("def")))]
+      )),
+      "\\frac{a_{bc}}{d_{ef}}".to_string()
+    );
+  }
+
+  #[test]
+  fn test_binop_factorial() {
+    assert_eq!(
+      ast_to_latex(&AST::BinOp(
+        Box::new(AST::Num("3")),
+        vec![
+          (Operation::Factorial, Box::new(AST::FactorialLeft)),
+          (Operation::Mul, Box::new(AST::Ident("abc")))
+        ]
+      )),
+      "3!\\cdot2a_{bc}".to_string()
     );
   }
 }
