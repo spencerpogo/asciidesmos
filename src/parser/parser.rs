@@ -61,10 +61,8 @@ pub(self) mod parsers {
             parse_space,
             nom_char('('),
             parse_space_newline,
-            separated_list0(
-                take_while1(chars::is_arg_sep),
-                take_while1(chars::is_arg_char),
-            ),
+            // is_arg_sep accepts commas, spaces, and newlines
+            separated_list0(take_while1(chars::is_arg_sep), parse_exp_boxed),
             parse_space_newline,
             nom_char(')'),
         ))(i)?;
@@ -144,6 +142,12 @@ pub(self) mod parsers {
         }
     }
 
+    #[allow(dead_code)]
+    pub fn parse_exp_boxed(i: &str) -> IResult<&str, Box<AST>> {
+        let (rest, ast) = parse_exp(i)?;
+        return Ok((rest, Box::new(ast)));
+    }
+
     #[cfg(test)]
     mod tests {
         use super::*;
@@ -179,12 +183,23 @@ pub(self) mod parsers {
         #[test]
         fn test_parse_call() {
             assert_eq!(
-                parse_call("a \n\t(\n  \t1\n\t )"),
-                Ok(("", AST::Call("a", vec!["1"])))
+                parse_call("a \t(\n  \t1\n\t ) \na"),
+                Ok((" \na", AST::Call("a", vec![Box::new(AST::Num("1"))])))
             );
             assert_eq!(
-                parse_call("_3b \n ( a72n, \n\t 123 , 45,67 )\n"),
-                Ok(("\n", AST::Call("_3b", vec!["a72n", "123", "45", "67"])))
+                parse_call("_3b ( a72n, \n\t 123 , 45,67 )\n"),
+                Ok((
+                    "\n",
+                    AST::Call(
+                        "_3b",
+                        vec![
+                            Box::new(AST::Ident("a72n")),
+                            Box::new(AST::Num("123")),
+                            Box::new(AST::Num("45")),
+                            Box::new(AST::Num("67"))
+                        ]
+                    )
+                ))
             )
         }
 
@@ -220,7 +235,7 @@ pub(self) mod parsers {
         #[test]
         fn test_parse_exp() {
             // It parses numbers
-            assert_eq!(parse_exp(" 1 "), Ok(("", AST::Num("1"))));
+            assert_eq!(parse_exp(" 1 "), Ok((" ", AST::Num("1"))));
         }
 
         #[test]
@@ -306,8 +321,11 @@ pub(self) mod parsers {
                 Ok((
                     "",
                     AST::BinOp(
-                        Box::new(AST::Call("a", vec!["1"])),
-                        vec![(Operation::Add, Box::new(AST::Call("b", vec!["2"])))]
+                        Box::new(AST::Call("a", vec![Box::new(AST::Num("1"))])),
+                        vec![(
+                            Operation::Add,
+                            Box::new(AST::Call("b", vec![Box::new(AST::Num("2"))]))
+                        )]
                     )
                 ))
             )

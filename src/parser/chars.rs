@@ -37,11 +37,6 @@ pub fn is_arg_sep(chr: char) -> bool {
 }
 
 #[inline]
-pub fn is_arg_char(chr: char) -> bool {
-    !chr.is_ascii() || (chr != ',' && !is_space_newline(chr as u8) && chr != ')')
-}
-
-#[inline]
 pub fn is_digit_char(chr: char) -> bool {
     chr.is_ascii() && is_digit(chr as u8)
 }
@@ -60,17 +55,5 @@ mod test {
         assert_eq!(is_arg_sep(','), true);
         assert_eq!(is_arg_sep(' '), true);
         assert_eq!(is_arg_sep('\n'), true);
-    }
-
-    #[test]
-    fn test_is_arg_char() {
-        assert_eq!(is_arg_char('1'), true);
-        assert_eq!(is_arg_char('a'), true);
-        // umlaut
-        assert_eq!(is_arg_char('\u{00fc}'), true);
-        assert_eq!(is_arg_char(','), false);
-        assert_eq!(is_arg_char(' '), false);
-        assert_eq!(is_arg_char('\n'), false);
-        assert_eq!(is_arg_char(')'), false);
     }
 }
