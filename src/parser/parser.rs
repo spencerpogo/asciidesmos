@@ -107,6 +107,11 @@ pub(self) mod parsers {
     binop_parser!(parse_add_exp, '+', Operation::Add);
     binop_parser!(parse_sub_exp, '-', Operation::Sub);
 
+    pub fn parse_factorial_exp(i: &str) -> IResult<&str, (Operation, AST)> {
+        let (rest, _) = tuple((parse_space, nom_char('!')))(i)?;
+        Ok((rest, (Operation::Factorial, AST::FactorialLeft)))
+    }
+
     #[allow(dead_code)]
     pub fn parse_term(i: &str) -> IResult<&str, AST> {
         println!("parse_term {:#?}", i);
@@ -116,7 +121,13 @@ pub(self) mod parsers {
 
     #[allow(dead_code)]
     pub fn parse_binop(i: &str) -> IResult<&str, (Operation, AST)> {
-        alt((parse_mul_exp, parse_div_exp, parse_add_exp, parse_sub_exp))(i)
+        alt((
+            parse_factorial_exp,
+            parse_mul_exp,
+            parse_div_exp,
+            parse_add_exp,
+            parse_sub_exp,
+        ))(i)
     }
 
     #[allow(dead_code)]
@@ -359,6 +370,23 @@ pub(self) mod parsers {
                     )
                 ))
             );
+        }
+
+        #[test]
+        fn test_factorial_exp() {
+            assert_eq!(
+                parse_exp(" 3 ! + 2 "),
+                Ok((
+                    " ",
+                    AST::BinOp(
+                        Box::new(AST::Num("3")),
+                        vec![
+                            (Operation::Factorial, Box::new(AST::FactorialLeft)),
+                            (Operation::Add, Box::new(AST::Num("2")))
+                        ]
+                    )
+                ))
+            )
         }
 
         #[test]

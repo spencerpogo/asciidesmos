@@ -4,6 +4,7 @@ pub enum Operation {
     Div,
     Add,
     Sub,
+    Factorial,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -22,4 +23,5 @@ pub enum AST<'a> {
     Num(&'a str), // We don't care about the value of the int, desmos can figure that out
     BinOp(Box<AST<'a>>, Vec<(Operation, Box<AST<'a>>)>),
     Equation(&'a str, EquationType, Box<AST<'a>>),
+    FactorialLeft, // empty node
 }
