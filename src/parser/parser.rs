@@ -148,6 +148,27 @@ pub(self) mod parsers {
         return Ok((rest, Box::new(ast)));
     }
 
+    #[allow(dead_code)]
+    pub fn parse_equation(i: &str) -> IResult<&str, AST> {
+        let (
+            rest,
+            (
+                _, // space
+                ident,
+                _, // space
+                _, // equal sign
+                expr,
+            ),
+        ) = tuple((
+            parse_space,
+            parse_ident,
+            parse_space,
+            nom_char('='),
+            parse_exp,
+        ))(i)?;
+        return Ok((rest, AST::Equation(ident, Box::new(expr))));
+    }
+
     #[cfg(test)]
     mod tests {
         use super::*;
@@ -342,6 +363,14 @@ pub(self) mod parsers {
                         vec![(Operation::Add, Box::new(AST::Ident("b")))]
                     )
                 ))
+            )
+        }
+
+        #[test]
+        fn test_parse_equation() {
+            assert_eq!(
+                parse_equation(" a = 1 "),
+                Ok((" ", AST::Equation("a", Box::new(AST::Num("1")))))
             )
         }
     }
