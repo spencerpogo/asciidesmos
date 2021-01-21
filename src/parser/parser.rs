@@ -26,6 +26,11 @@ pub(self) mod parsers {
         return Ok((input, output));
     }
 
+    pub fn parse_ident_ast(i: &str) -> IResult<&str, AST> {
+        let (rest, ident) = parse_ident(i)?;
+        return Ok((rest, AST::Ident(ident)));
+    }
+
     #[allow(dead_code)]
     pub fn parse_space(i: &str) -> IResult<&str, &str> {
         let (inp, out) = take_while(chars::is_space_char)(i)?;
@@ -107,7 +112,7 @@ pub(self) mod parsers {
     #[allow(dead_code)]
     pub fn parse_term(i: &str) -> IResult<&str, AST> {
         println!("parse_term {:#?}", i);
-        let (rest, n) = alt((parse_paren_exp, parse_num))(i)?;
+        let (rest, n) = alt((parse_paren_exp, parse_num, parse_call, parse_ident_ast))(i)?;
         return Ok((rest, n));
     }
 
@@ -292,6 +297,34 @@ pub(self) mod parsers {
                     )
                 ))
             );
+        }
+
+        #[test]
+        fn test_call_term() {
+            assert_eq!(
+                parse_exp("a(1) + b(2)"),
+                Ok((
+                    "",
+                    AST::BinOp(
+                        Box::new(AST::Call("a", vec!["1"])),
+                        vec![(Operation::Add, Box::new(AST::Call("b", vec!["2"])))]
+                    )
+                ))
+            )
+        }
+
+        #[test]
+        fn test_ident_term() {
+            assert_eq!(
+                parse_exp("a + b "),
+                Ok((
+                    " ",
+                    AST::BinOp(
+                        Box::new(AST::Ident("a")),
+                        vec![(Operation::Add, Box::new(AST::Ident("b")))]
+                    )
+                ))
+            )
         }
     }
 }
