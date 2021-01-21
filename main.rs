@@ -51,7 +51,7 @@ fn main() {
         )
         .arg(
             Arg::with_name("ast")
-                .short("ast")
+                .long("ast")
                 .help("Prints parsed AST. Useful for debugging."),
         );
 
