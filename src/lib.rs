@@ -1,6 +1,5 @@
 pub mod interpreter;
 pub mod parser;
 
-pub fn parse(inp: &str) {
-    println!("{:#?}", parser::parser::parse(inp));
-}
+pub use interpreter::interpreter::ast_to_latex;
+pub use parser::parser::parse;
