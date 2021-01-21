@@ -1,4 +1,4 @@
-use crate::parser::ast::{Operation, AST};
+use crate::parser::ast::{EquationType, Operation, AST};
 
 pub fn ident_to_latex(v: &str) -> String {
   let mut chars = v.chars();
@@ -22,6 +22,18 @@ pub fn operation_to_latex(left: &String, op: &Operation, right: &String) -> Stri
     Operation::Add => format!("{}+{}", left, right),
     Operation::Sub => format!("{}-{}", left, right),
     Operation::Factorial => format!("{}!", left),
+  }
+}
+
+// Whats the point of even testing this?
+#[cfg(not(tarpaulin_include))]
+pub fn equationtype_to_latex(eqt: &EquationType) -> &str {
+  match eqt {
+    EquationType::Equal => "=",
+    EquationType::GreaterThan => ">",
+    EquationType::GreaterThanEqualTo => "\\ge",
+    EquationType::LessThan => "<",
+    EquationType::LessThanEqualTo => "\\le",
   }
 }
 
@@ -49,7 +61,9 @@ pub fn ast_to_latex(ast: &AST) -> String {
       r
     }
     AST::FactorialLeft => "".to_string(),
-    _ => unimplemented!(),
+    AST::Equation(v, eqt, expr) => {
+      format!("{}{}{}", v, equationtype_to_latex(eqt), ast_to_latex(expr))
+    }
   }
 }
 
@@ -149,5 +163,17 @@ mod tests {
       )),
       "3!\\cdot2a_{bc}".to_string()
     );
+  }
+
+  #[test]
+  fn test_equation() {
+    assert_eq!(
+      ast_to_latex(&AST::Equation(
+        "a",
+        EquationType::Equal,
+        Box::new(AST::Num("1"))
+      )),
+      "a=1".to_string(),
+    )
   }
 }
