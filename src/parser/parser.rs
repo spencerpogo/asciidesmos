@@ -114,7 +114,6 @@ pub(self) mod parsers {
 
     #[allow(dead_code)]
     pub fn parse_term(i: &str) -> IResult<&str, AST> {
-        println!("parse_term {:#?}", i);
         let (rest, n) = alt((parse_paren_exp, parse_num, parse_call, parse_ident_ast))(i)?;
         return Ok((rest, n));
     }
@@ -132,7 +131,6 @@ pub(self) mod parsers {
 
     #[allow(dead_code)]
     pub fn parse_exp(i: &str) -> IResult<&str, AST> {
-        println!("parse_exp {:#?}", i);
         // Require a single term, e.g. the "1" in "1+1" or "1"
         let (inp, (_, first)) = tuple((parse_space_newline, parse_term))(i)?;
         // Fold in any binop operations from the remaining input
