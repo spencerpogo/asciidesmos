@@ -7,10 +7,19 @@ pub enum Operation {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum EquationType {
+    Equal,
+    LessThan,
+    LessThanEqualTo,
+    GreaterThan,
+    GreaterThanEqualTo,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum AST<'a> {
     Ident(&'a str),
     Call(&'a str, Vec<Box<AST<'a>>>),
     Num(&'a str), // We don't care about the value of the int, desmos can figure that out
     BinOp(Box<AST<'a>>, Vec<(Operation, Box<AST<'a>>)>),
-    Equation(&'a str, Box<AST<'a>>),
+    Equation(&'a str, EquationType, Box<AST<'a>>),
 }
