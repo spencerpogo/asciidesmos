@@ -58,7 +58,7 @@ pub(self) mod parsers {
             ),
         ) = tuple((
             parse_ident,
-            parse_space_newline,
+            parse_space,
             nom_char('('),
             parse_space_newline,
             separated_list0(
