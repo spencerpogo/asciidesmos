@@ -13,7 +13,9 @@ use nom::{
     IResult,
 };
 
-pub fn parse_ident(i: &str) -> IResult<&str, &str> {
+type ParseResult<'a, T> = IResult<&'a str, T>;
+
+pub fn parse_ident(i: &str) -> ParseResult<&str> {
     // Recognize returns everything consumed by the child parser,
     //  combining the two subparsers without re-allocation (I think)
     let (input, output) = recognize(pair(
@@ -23,25 +25,25 @@ pub fn parse_ident(i: &str) -> IResult<&str, &str> {
     return Ok((input, output));
 }
 
-pub fn parse_ident_ast(i: &str) -> IResult<&str, AST> {
+pub fn parse_ident_ast(i: &str) -> ParseResult<AST> {
     let (rest, ident) = parse_ident(i)?;
     return Ok((rest, AST::Ident(ident)));
 }
 
 #[allow(dead_code)]
-pub fn parse_space(i: &str) -> IResult<&str, &str> {
+pub fn parse_space(i: &str) -> ParseResult<&str> {
     let (inp, out) = take_while(chars::is_space_char)(i)?;
     return Ok((inp, out));
 }
 
 #[allow(dead_code)]
-pub fn parse_space_newline(i: &str) -> IResult<&str, &str> {
+pub fn parse_space_newline(i: &str) -> ParseResult<&str> {
     let (inp, out) = take_while(chars::is_space_newline_char)(i)?;
     return Ok((inp, out));
 }
 
 #[allow(dead_code)]
-pub fn parse_call(i: &str) -> IResult<&str, AST> {
+pub fn parse_call(i: &str) -> ParseResult<AST> {
     let (
         inp,
         (
@@ -67,7 +69,7 @@ pub fn parse_call(i: &str) -> IResult<&str, AST> {
 }
 
 #[allow(dead_code)]
-pub fn parse_num(i: &str) -> IResult<&str, AST> {
+pub fn parse_num(i: &str) -> ParseResult<AST> {
     let (rest, n) = recognize(tuple((
         take_while_m_n(0, 1, |c| c == '+' || c == '-'),
         take_while1(chars::is_digit_char),
@@ -77,14 +79,14 @@ pub fn parse_num(i: &str) -> IResult<&str, AST> {
 }
 
 #[allow(dead_code)]
-pub fn parse_paren_exp(i: &str) -> IResult<&str, AST> {
+pub fn parse_paren_exp(i: &str) -> ParseResult<AST> {
     let (res, n) = delimited(nom_char('('), parse_exp, nom_char(')'))(i)?;
     return Ok((res, n));
 }
 
 macro_rules! binop_parser {
     ($name:ident, $c:expr, $op:expr) => {
-        pub fn $name(i: &str) -> IResult<&str, (Operation, AST)> {
+        pub fn $name(i: &str) -> ParseResult<(Operation, AST)> {
             let (
                 rest,
                 (
@@ -104,19 +106,19 @@ binop_parser!(parse_div_exp, '/', Operation::Div);
 binop_parser!(parse_add_exp, '+', Operation::Add);
 binop_parser!(parse_sub_exp, '-', Operation::Sub);
 
-pub fn parse_factorial_exp(i: &str) -> IResult<&str, (Operation, AST)> {
+pub fn parse_factorial_exp(i: &str) -> ParseResult<(Operation, AST)> {
     let (rest, _) = tuple((parse_space, nom_char('!')))(i)?;
     Ok((rest, (Operation::Factorial, AST::FactorialLeft)))
 }
 
 #[allow(dead_code)]
-pub fn parse_term(i: &str) -> IResult<&str, AST> {
+pub fn parse_term(i: &str) -> ParseResult<AST> {
     let (rest, n) = alt((parse_paren_exp, parse_num, parse_call, parse_ident_ast))(i)?;
     return Ok((rest, n));
 }
 
 #[allow(dead_code)]
-pub fn parse_binop(i: &str) -> IResult<&str, (Operation, AST)> {
+pub fn parse_binop(i: &str) -> ParseResult<(Operation, AST)> {
     alt((
         parse_factorial_exp,
         parse_mul_exp,
@@ -127,7 +129,7 @@ pub fn parse_binop(i: &str) -> IResult<&str, (Operation, AST)> {
 }
 
 #[allow(dead_code)]
-pub fn parse_exp(i: &str) -> IResult<&str, AST> {
+pub fn parse_exp(i: &str) -> ParseResult<AST> {
     // Require a single term, e.g. the "1" in "1+1" or "1"
     let (inp, (_, first)) = tuple((parse_space_newline, parse_term))(i)?;
     // Fold in any binop operations from the remaining input
@@ -149,14 +151,14 @@ pub fn parse_exp(i: &str) -> IResult<&str, AST> {
 }
 
 #[allow(dead_code)]
-pub fn parse_exp_boxed(i: &str) -> IResult<&str, Box<AST>> {
+pub fn parse_exp_boxed(i: &str) -> ParseResult<Box<AST>> {
     let (rest, ast) = parse_exp(i)?;
     return Ok((rest, Box::new(ast)));
 }
 
 macro_rules! eq_sep_parser {
     ($name:ident, $c:expr, $val:expr) => {
-        pub fn $name(i: &str) -> IResult<&str, EquationType> {
+        pub fn $name(i: &str) -> ParseResult<EquationType> {
             let (rest, _) = tag($c)(i)?;
             Ok((rest, $val))
         }
@@ -170,7 +172,7 @@ eq_sep_parser!(parse_eq_lt, "<", EquationType::LessThan);
 eq_sep_parser!(parse_eq_lte, "<=", EquationType::LessThanEqualTo);
 
 #[allow(dead_code)]
-pub fn parse_equation_sep(i: &str) -> IResult<&str, EquationType> {
+pub fn parse_equation_sep(i: &str) -> ParseResult<EquationType> {
     alt((
         parse_eq_gte,
         parse_eq_lte,
@@ -181,7 +183,7 @@ pub fn parse_equation_sep(i: &str) -> IResult<&str, EquationType> {
 }
 
 #[allow(dead_code)]
-pub fn parse_equation(i: &str) -> IResult<&str, AST> {
+pub fn parse_equation(i: &str) -> ParseResult<AST> {
     let (
         rest,
         (
@@ -202,7 +204,7 @@ pub fn parse_equation(i: &str) -> IResult<&str, AST> {
 }
 
 #[allow(dead_code)]
-pub fn parse_comment(i: &str) -> IResult<&str, ()> {
+pub fn parse_comment(i: &str) -> ParseResult<()> {
     let (rest, _) = tuple((tag("//"), take_while(|c| c != '\n'), nom_char('\n')))(i)?;
     return Ok((rest, ()));
 }
@@ -449,6 +451,6 @@ mod tests {
 //  take_while!(p)
 //}
 
-pub fn parse(inp: &str) -> IResult<&str, AST> {
+pub fn parse(inp: &str) -> ParseResult<AST> {
     return parse_exp(inp);
 }
