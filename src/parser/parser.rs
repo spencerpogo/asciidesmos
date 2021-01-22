@@ -201,6 +201,12 @@ pub fn parse_equation(i: &str) -> IResult<&str, AST> {
     return Ok((rest, AST::Equation(ident, eq_type, Box::new(expr))));
 }
 
+#[allow(dead_code)]
+pub fn parse_comment(i: &str) -> IResult<&str, ()> {
+    let (rest, _) = tuple((tag("//"), take_while(|c| c != '\n'), nom_char('\n')))(i)?;
+    return Ok((rest, ()));
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -431,6 +437,11 @@ mod tests {
         asert_eq_parse!(">=", EquationType::GreaterThanEqualTo);
         asert_eq_parse!("<", EquationType::LessThan);
         asert_eq_parse!("<=", EquationType::LessThanEqualTo);
+    }
+
+    #[test]
+    fn test_parse_comment() {
+        assert_eq!(parse_comment("// a\n "), Ok((" ", ())));
     }
 }
 
