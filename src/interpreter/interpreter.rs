@@ -53,17 +53,20 @@ pub fn ast_to_latex(ast: &AST) -> String {
       let (r, _) = terms.iter().fold(
         (String::new(), ast_to_latex(&*first)),
         |(mut s, left), (op, rbox)| {
-          let rstr = ast_to_latex(&**rbox);
+          let rstr = match &**rbox {
+            AST::FactorialLeft => String::from(""),
+            r => ast_to_latex(r),
+          };
           s.push_str(&operation_to_latex(&left, op, &rstr));
           (s, rstr)
         },
       );
       r
     }
-    AST::FactorialLeft => "".to_string(),
     AST::Equation(v, eqt, expr) => {
       format!("{}{}{}", v, equationtype_to_latex(eqt), ast_to_latex(expr))
     }
+    AST::FactorialLeft => unreachable!(),
   }
 }
 
