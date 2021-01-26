@@ -13,7 +13,7 @@ use nom::{
     IResult,
 };
 
-type ParseResult<'a, T> = IResult<&'a str, T>;
+pub type ParseResult<'a, T> = IResult<&'a str, T>;
 
 pub fn parse_ident(i: &str) -> ParseResult<&str> {
     // Recognize returns everything consumed by the child parser,
