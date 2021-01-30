@@ -213,8 +213,8 @@ mod tests {
 
     #[test]
     fn test_parse_ident() {
-        assert_eq!(parse_ident("a1b_c3d"), Ok(("", "a1b_c3d")));
-        assert_eq!(parse_ident("_as2df()"), Ok(("()", "_as2df")));
+        assert_eq!(parse_ident("a1bc3d"), Ok(("", "a1bc3d")));
+        assert_eq!(parse_ident("as2df()"), Ok(("()", "as2df")));
         // umlaut
         assert_eq!(parse_ident("a\u{00fc}b"), Ok(("", "a\u{00fc}b")));
         // No leading numbers
@@ -245,11 +245,11 @@ mod tests {
             Ok((" \na", AST::Call("a", vec![Box::new(AST::Num("1"))])))
         );
         assert_eq!(
-            parse_call("_3b ( a72n, \n\t 123 , 45,67 )\n"),
+            parse_call("3b ( a72n, \n\t 123 , 45,67 )\n"),
             Ok((
                 "\n",
                 AST::Call(
-                    "_3b",
+                    "3b",
                     vec![
                         Box::new(AST::Ident("a72n")),
                         Box::new(AST::Num("123")),
