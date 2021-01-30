@@ -245,11 +245,11 @@ mod tests {
             Ok((" \na", AST::Call("a", vec![Box::new(AST::Num("1"))])))
         );
         assert_eq!(
-            parse_call("3b ( a72n, \n\t 123 , 45,67 )\n"),
+            parse_call("b3 ( a72n, \n\t 123 , 45,67 )\n"),
             Ok((
                 "\n",
                 AST::Call(
-                    "3b",
+                    "b3",
                     vec![
                         Box::new(AST::Ident("a72n")),
                         Box::new(AST::Num("123")),
