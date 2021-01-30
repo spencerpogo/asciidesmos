@@ -1,6 +1,6 @@
 use super::{
     ast::{EquationType, Operation, AST},
-    chars,
+    chars, ParseResult,
 };
 use nom;
 use nom::{
@@ -10,10 +10,7 @@ use nom::{
     combinator::{opt, recognize},
     multi::{fold_many0, separated_list0},
     sequence::{delimited, pair, tuple},
-    IResult,
 };
-
-pub type ParseResult<'a, T> = IResult<&'a str, T>;
 
 pub fn parse_ident(i: &str) -> ParseResult<&str> {
     // Recognize returns everything consumed by the child parser,
