@@ -42,7 +42,7 @@ mod tests {
     assert_eq!(parse_ident("a1bc3d"), Ok(("", "a1bc3d")));
     assert_eq!(parse_ident("as2df()"), Ok(("()", "as2df")));
     // umlaut
-    assert_eq!(parse_ident("a\u{00fc}b"), Ok(("", "a\u{00fc}b")));
+    assert_eq!(parse_ident("a\u{00fc}b"), Ok(("\u{00fc}b", "a")));
     // No leading numbers
     assert_eq!(
       parse_ident("3abc"),
