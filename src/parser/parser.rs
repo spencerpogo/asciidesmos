@@ -1,7 +1,7 @@
 use super::{
     ast::{EquationType, Operation, AST},
     chars,
-    simple::{parse_ident, parse_ident_ast, parse_space, parse_space_newline},
+    simple::{parse_ident, parse_ident_ast, parse_num, parse_space, parse_space_newline},
     ParseResult,
 };
 use nom;
@@ -38,16 +38,6 @@ pub fn parse_call(i: &str) -> ParseResult<AST> {
         nom_char(')'),
     ))(i)?;
     return Ok((inp, AST::Call(func, args)));
-}
-
-#[allow(dead_code)]
-pub fn parse_num(i: &str) -> ParseResult<AST> {
-    let (rest, n) = recognize(tuple((
-        take_while_m_n(0, 1, |c| c == '+' || c == '-'),
-        take_while1(chars::is_digit_char),
-        opt(pair(tag("."), take_while(chars::is_digit_char))),
-    )))(i)?;
-    return Ok((rest, AST::Num(n)));
 }
 
 #[allow(dead_code)]
@@ -184,7 +174,6 @@ pub fn parse_comment(i: &str) -> ParseResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nom::error;
 
     #[test]
     fn test_parse_call() {
@@ -207,35 +196,6 @@ mod tests {
                 )
             ))
         )
-    }
-
-    #[test]
-    fn test_parse_num() {
-        assert_eq!(parse_num("0"), Ok(("", AST::Num("0"))));
-        assert_eq!(parse_num("0aaa"), Ok(("aaa", AST::Num("0"))));
-        assert_eq!(parse_num("0.1234"), Ok(("", AST::Num("0.1234"))));
-        assert_eq!(parse_num("12345."), Ok(("", AST::Num("12345."))));
-        assert_eq!(
-            parse_num(""),
-            Err(nom::Err::Error(error::Error {
-                input: "",
-                code: error::ErrorKind::TakeWhile1
-            }))
-        );
-    }
-
-    #[test]
-    fn test_parse_num_signed() {
-        assert_eq!(parse_num("-1"), Ok(("", AST::Num("-1"))));
-        assert_eq!(parse_num("+1"), Ok(("", AST::Num("+1"))));
-        assert_eq!(
-            parse_num("-+0"),
-            Err(nom::Err::Error(error::Error {
-                input: "+0",
-                code: error::ErrorKind::TakeWhile1
-            }))
-        );
-        assert_eq!(parse_num("-123.456"), Ok(("", AST::Num("-123.456"))));
     }
 
     #[test]
