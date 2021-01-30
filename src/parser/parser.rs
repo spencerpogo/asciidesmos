@@ -7,11 +7,10 @@ use super::{
 use nom;
 use nom::{
     branch::alt,
-    bytes::complete::{tag, take_while, take_while1, take_while_m_n},
+    bytes::complete::{tag, take_while, take_while1},
     character::complete::char as nom_char,
-    combinator::{opt, recognize},
     multi::{fold_many0, separated_list0},
-    sequence::{delimited, pair, tuple},
+    sequence::{delimited, tuple},
 };
 
 #[allow(dead_code)]
