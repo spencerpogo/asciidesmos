@@ -1,4 +1,4 @@
-use crate::parser::ast::{EquationType, Operation, AST};
+use crate::parser::ast::{EquationType, Operation, Statement, AST};
 
 pub fn ident_to_latex(v: &str) -> String {
   let mut chars = v.chars();
@@ -63,10 +63,16 @@ pub fn ast_to_latex(ast: &AST) -> String {
       );
       r
     }
-    AST::Equation(v, eqt, expr) => {
+    AST::FactorialLeft => unreachable!(),
+  }
+}
+
+pub fn stmt_to_latex(stmt: &Statement) -> String {
+  match stmt {
+    Statement::Equation(v, eqt, expr) => {
       format!("{}{}{}", v, equationtype_to_latex(eqt), ast_to_latex(expr))
     }
-    AST::FactorialLeft => unreachable!(),
+    _ => unimplemented!(),
   }
 }
 
@@ -171,7 +177,7 @@ mod tests {
   #[test]
   fn test_equation() {
     assert_eq!(
-      ast_to_latex(&AST::Equation(
+      stmt_to_latex(&Statement::Equation(
         "a",
         EquationType::Equal,
         Box::new(AST::Num("1"))

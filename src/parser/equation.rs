@@ -1,5 +1,5 @@
 use super::{
-    ast::{EquationType, AST},
+    ast::{EquationType, Statement},
     binop::parse_exp,
     simple::{parse_ident, parse_space},
     ParseResult,
@@ -31,7 +31,7 @@ pub fn parse_equation_sep(i: &str) -> ParseResult<EquationType> {
     ))(i)
 }
 
-pub fn parse_equation(i: &str) -> ParseResult<AST> {
+pub fn parse_equation(i: &str) -> ParseResult<Statement> {
     let (
         rest,
         (
@@ -48,11 +48,12 @@ pub fn parse_equation(i: &str) -> ParseResult<AST> {
         parse_equation_sep,
         parse_exp,
     ))(i)?;
-    return Ok((rest, AST::Equation(ident, eq_type, Box::new(expr))));
+    return Ok((rest, Statement::Equation(ident, eq_type, Box::new(expr))));
 }
 
 #[cfg(test)]
 mod tests {
+    use super::super::ast::AST;
     use super::*;
 
     #[test]
@@ -61,7 +62,7 @@ mod tests {
             ($sep:expr, $t:expr) => {
                 assert_eq!(
                     parse_equation(concat!(" a ", $sep, " 1 ")),
-                    Ok((" ", AST::Equation("a", $t, Box::new(AST::Num("1")))))
+                    Ok((" ", Statement::Equation("a", $t, Box::new(AST::Num("1")))))
                 )
             };
         }
