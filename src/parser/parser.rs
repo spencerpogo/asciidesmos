@@ -1,5 +1,5 @@
 use super::{
-    ast::{EquationType, AST},
+    ast::AST,
     binop::{parse_exp, parse_exp_boxed},
     chars,
     simple::{parse_ident, parse_space, parse_space_newline},
@@ -7,7 +7,6 @@ use super::{
 };
 use nom;
 use nom::{
-    branch::alt,
     bytes::complete::{tag, take_while, take_while1},
     character::complete::char as nom_char,
     multi::separated_list0,

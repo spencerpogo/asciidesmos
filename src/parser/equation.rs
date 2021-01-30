@@ -1,17 +1,10 @@
 use super::{
-    ast::{EquationType, Operation, AST},
+    ast::{EquationType, AST},
     binop::parse_exp,
-    parser::parse_call,
-    simple::{parse_ident, parse_num, parse_space, parse_space_newline},
+    simple::{parse_ident, parse_space},
     ParseResult,
 };
-use nom::{
-    branch::alt,
-    bytes::complete::{tag, take_while, take_while1},
-    character::complete::char as nom_char,
-    multi::separated_list0,
-    sequence::tuple,
-};
+use nom::{branch::alt, bytes::complete::tag, sequence::tuple};
 
 macro_rules! eq_sep_parser {
     ($name:ident, $c:expr, $val:expr) => {
