@@ -3,7 +3,7 @@ use nom::character::{is_alphabetic, is_digit};
 // No digits in leading char
 #[inline]
 pub fn is_ident_leading_char(chr: char) -> bool {
-    !chr.is_ascii() || is_alphabetic(chr as u8) || chr == '_'
+    chr.is_ascii() && is_alphabetic(chr as u8)
 }
 
 #[inline]
