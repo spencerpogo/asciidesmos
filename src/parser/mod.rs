@@ -1,4 +1,5 @@
 pub mod ast;
+pub mod binop;
 pub mod chars;
 pub mod parser;
 pub mod simple;
