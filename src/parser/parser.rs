@@ -13,7 +13,6 @@ use nom::{
     sequence::tuple,
 };
 
-#[allow(dead_code)]
 pub fn parse_call(i: &str) -> ParseResult<AST> {
     let (
         inp,
@@ -39,7 +38,6 @@ pub fn parse_call(i: &str) -> ParseResult<AST> {
     return Ok((inp, AST::Call(func, args)));
 }
 
-#[allow(dead_code)]
 pub fn parse_comment(i: &str) -> ParseResult<()> {
     let (rest, _) = tuple((tag("//"), take_while(|c| c != '\n'), nom_char('\n')))(i)?;
     return Ok((rest, ()));

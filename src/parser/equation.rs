@@ -21,7 +21,6 @@ eq_sep_parser!(parse_eq_gte, ">=", EquationType::GreaterThanEqualTo);
 eq_sep_parser!(parse_eq_lt, "<", EquationType::LessThan);
 eq_sep_parser!(parse_eq_lte, "<=", EquationType::LessThanEqualTo);
 
-#[allow(dead_code)]
 pub fn parse_equation_sep(i: &str) -> ParseResult<EquationType> {
     alt((
         parse_eq_gte,
@@ -32,7 +31,6 @@ pub fn parse_equation_sep(i: &str) -> ParseResult<EquationType> {
     ))(i)
 }
 
-#[allow(dead_code)]
 pub fn parse_equation(i: &str) -> ParseResult<AST> {
     let (
         rest,

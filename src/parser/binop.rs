@@ -11,7 +11,6 @@ use nom::{
     sequence::{delimited, tuple},
 };
 
-#[allow(dead_code)]
 pub fn parse_paren_exp(i: &str) -> ParseResult<AST> {
     let (res, n) = delimited(nom_char('('), parse_exp, nom_char(')'))(i)?;
     return Ok((res, n));
@@ -50,7 +49,6 @@ pub fn parse_term(i: &str) -> ParseResult<AST> {
     return Ok((rest, n));
 }
 
-#[allow(dead_code)]
 pub fn parse_binop(i: &str) -> ParseResult<(Operation, AST)> {
     alt((
         parse_factorial_exp,
@@ -61,7 +59,6 @@ pub fn parse_binop(i: &str) -> ParseResult<(Operation, AST)> {
     ))(i)
 }
 
-#[allow(dead_code)]
 pub fn parse_exp(i: &str) -> ParseResult<AST> {
     // Require a single term, e.g. the "1" in "1+1" or "1"
     let (inp, (_, first)) = tuple((parse_space_newline, parse_term))(i)?;
@@ -83,7 +80,6 @@ pub fn parse_exp(i: &str) -> ParseResult<AST> {
     }
 }
 
-#[allow(dead_code)]
 pub fn parse_exp_boxed(i: &str) -> ParseResult<Box<AST>> {
     let (rest, ast) = parse_exp(i)?;
     return Ok((rest, Box::new(ast)));
