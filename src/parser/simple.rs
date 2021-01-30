@@ -21,19 +21,16 @@ pub fn parse_ident_ast(i: &str) -> ParseResult<AST> {
     return Ok((rest, AST::Ident(ident)));
 }
 
-#[allow(dead_code)]
 pub fn parse_space(i: &str) -> ParseResult<&str> {
     let (inp, out) = take_while(chars::is_space_char)(i)?;
     return Ok((inp, out));
 }
 
-#[allow(dead_code)]
 pub fn parse_space_newline(i: &str) -> ParseResult<&str> {
     let (inp, out) = take_while(chars::is_space_newline_char)(i)?;
     return Ok((inp, out));
 }
 
-#[allow(dead_code)]
 pub fn parse_num(i: &str) -> ParseResult<AST> {
     let (rest, n) = recognize(tuple((
         take_while_m_n(0, 1, |c| c == '+' || c == '-'),
