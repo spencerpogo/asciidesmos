@@ -1,6 +1,7 @@
 use super::{ast::AST, chars, ParseResult};
 use nom::{
     bytes::complete::{tag, take_while, take_while1, take_while_m_n},
+    character::complete::char as nom_char,
     combinator::{opt, recognize},
     sequence::{pair, tuple},
 };
@@ -40,6 +41,11 @@ pub fn parse_num(i: &str) -> ParseResult<AST> {
         opt(pair(tag("."), take_while(chars::is_digit_char))),
     )))(i)?;
     return Ok((rest, AST::Num(n)));
+}
+
+pub fn parse_comment(i: &str) -> ParseResult<()> {
+    let (rest, _) = tuple((tag("//"), take_while(|c| c != '\n'), nom_char('\n')))(i)?;
+    return Ok((rest, ()));
 }
 
 #[cfg(test)]
@@ -101,5 +107,10 @@ mod tests {
             }))
         );
         assert_eq!(parse_num("-123.456"), Ok(("", AST::Num("-123.456"))));
+    }
+
+    #[test]
+    fn test_parse_comment() {
+        assert_eq!(parse_comment("// a\n "), Ok((" ", ())));
     }
 }

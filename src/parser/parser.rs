@@ -7,9 +7,7 @@ use super::{
 };
 use nom;
 use nom::{
-    bytes::complete::{tag, take_while, take_while1},
-    character::complete::char as nom_char,
-    multi::separated_list0,
+    bytes::complete::take_while1, character::complete::char as nom_char, multi::separated_list0,
     sequence::tuple,
 };
 
@@ -38,11 +36,6 @@ pub fn parse_call(i: &str) -> ParseResult<AST> {
     return Ok((inp, AST::Call(func, args)));
 }
 
-pub fn parse_comment(i: &str) -> ParseResult<()> {
-    let (rest, _) = tuple((tag("//"), take_while(|c| c != '\n'), nom_char('\n')))(i)?;
-    return Ok((rest, ()));
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -68,11 +61,6 @@ mod tests {
                 )
             ))
         )
-    }
-
-    #[test]
-    fn test_parse_comment() {
-        assert_eq!(parse_comment("// a\n "), Ok((" ", ())));
     }
 }
 
