@@ -25,3 +25,9 @@ pub enum AST<'a> {
     Equation(&'a str, EquationType, Box<AST<'a>>),
     FactorialLeft, // empty node
 }
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Statement<'a> {
+    // TODO: Move equation here
+    ConstAssign(&'a str, Box<AST<'a>>),
+}

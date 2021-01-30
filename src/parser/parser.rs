@@ -1,5 +1,5 @@
 use super::{
-    ast::AST,
+    ast::{Statement, AST},
     binop::{parse_exp, parse_exp_boxed},
     chars,
     simple::{parse_ident, parse_space, parse_space_newline},
@@ -7,7 +7,9 @@ use super::{
 };
 use nom;
 use nom::{
-    bytes::complete::take_while1, character::complete::char as nom_char, multi::separated_list0,
+    bytes::complete::{tag, take_while1},
+    character::complete::char as nom_char,
+    multi::separated_list0,
     sequence::tuple,
 };
 
@@ -36,6 +38,32 @@ pub fn parse_call(i: &str) -> ParseResult<AST> {
     return Ok((inp, AST::Call(func, args)));
 }
 
+pub fn parse_const_stmt(i: &str) -> ParseResult<Statement> {
+    let (
+        r,
+        (
+            _, // const
+            _, // space
+            ident,
+            _, // space
+            _, // equals
+            _, // space
+            expr,
+            _, // end
+        ),
+    ) = tuple((
+        tag("const "),
+        parse_space,
+        parse_ident,
+        parse_space,
+        nom_char('='),
+        parse_space,
+        parse_exp,
+        nom_char('\n'),
+    ))(i)?;
+    return Ok((r, Statement::ConstAssign(ident, Box::new(expr))));
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -62,12 +90,21 @@ mod tests {
             ))
         )
     }
+
+    #[test]
+    fn test_parse_const_stmt() {
+        assert_eq!(
+            parse_const_stmt("const  a1   =   2\n"),
+            Ok(("", Statement::ConstAssign("a1", Box::new(AST::Num("2")))))
+        );
+    }
 }
 
 //pub fn parse_call() -> Parser {
 //  take_while!(p)
 //}
 
+#[cfg(not(tarpaulin_include))]
 pub fn parse(inp: &str) -> ParseResult<AST> {
     return parse_exp(inp);
 }
