@@ -6,9 +6,8 @@ use super::{
 };
 use nom::{
     branch::alt,
-    bytes::complete::{tag, take_while, take_while1},
     character::complete::char as nom_char,
-    multi::{fold_many0, separated_list0},
+    multi::fold_many0,
     sequence::{delimited, tuple},
 };
 
