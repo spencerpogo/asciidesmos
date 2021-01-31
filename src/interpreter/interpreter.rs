@@ -60,8 +60,10 @@ pub fn equationtype_to_latex(eqt: &EquationType) -> &str {
 
 pub fn ast_to_latex(ast: &AST) -> String {
   match ast {
+    // TODO: Resolve the constant
     AST::Ident(x) => ident_to_latex(x),
     AST::Num(x) => x.to_string(),
+    // TODO: Resolve the function
     AST::Call(f, args) => format!(
       "{}\\left({}\\right)",
       ident_to_latex(f),
