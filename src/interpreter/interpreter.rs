@@ -1,4 +1,25 @@
 use crate::parser::ast::{EquationType, Operation, Statement, AST};
+use std::collections::HashMap;
+
+pub enum ConstVal {
+  Num,
+  NumList,
+}
+
+pub struct InterpretationContext<'a> {
+  constants: HashMap<String, (ConstVal, Box<AST<'a>>)>,
+}
+
+impl<'a> InterpretationContext<'a> {
+  fn new() -> Box<InterpretationContext<'a>> {
+    let constants = HashMap::new();
+    // TODO: Add builtins
+
+    Box::new(InterpretationContext {
+      constants: constants,
+    })
+  }
+}
 
 pub fn ident_to_latex(v: &str) -> String {
   let mut chars = v.chars();
@@ -67,12 +88,22 @@ pub fn ast_to_latex(ast: &AST) -> String {
   }
 }
 
-pub fn stmt_to_latex(stmt: &Statement) -> String {
+pub fn stmt_to_latex<'a>(ctx: &'a mut InterpretationContext<'a>, stmt: Statement<'a>) -> String {
   match stmt {
     Statement::Equation(v, eqt, expr) => {
-      format!("{}{}{}", v, equationtype_to_latex(eqt), ast_to_latex(expr))
+      format!(
+        "{}{}{}",
+        v,
+        equationtype_to_latex(&eqt),
+        ast_to_latex(&expr)
+      )
     }
-    _ => unimplemented!(),
+    Statement::ConstAssign(ident, val) => {
+      ctx
+        .constants
+        .insert(ident.to_string(), (ConstVal::Num, val));
+      "".to_string()
+    }
   }
 }
 
@@ -176,13 +207,25 @@ mod tests {
 
   #[test]
   fn test_equation() {
+    let mut ctx = InterpretationContext::new();
     assert_eq!(
-      stmt_to_latex(&Statement::Equation(
-        "a",
-        EquationType::Equal,
-        Box::new(AST::Num("1"))
-      )),
+      stmt_to_latex(
+        &mut ctx,
+        Statement::Equation("a", EquationType::Equal, Box::new(AST::Num("1")))
+      ),
       "a=1".to_string(),
     )
+  }
+
+  #[test]
+  fn test_const() {
+    let mut ctx = InterpretationContext::new();
+    assert_eq!(
+      stmt_to_latex(
+        &mut ctx,
+        Statement::ConstAssign("a", Box::new(AST::Num("1"))),
+      ),
+      ""
+    );
   }
 }
