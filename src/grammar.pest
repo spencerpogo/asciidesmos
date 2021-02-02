@@ -1,0 +1,30 @@
+Program = _{ SOI ~ Expression ~ EOF }
+
+Term = _{ Float | Int | "(" ~ Expression ~ ")" }
+Expression = { UnaryExpression | BinaryExpression }
+
+Factorial = @{ "!" }
+
+UnaryOperator = { Factorial }
+UnaryExpression = { Term ~ UnaryOperator }
+
+Add =      @{ "+" }
+Subtract = @{ "-" }
+Multiply = @{ "*" }
+Divide =   @{ "/" }
+
+BinaryOperator = @{ Add | Subtract | Multiply | Divide }
+BinaryExpression = { Term ~ (BinaryOperator ~ Term)* }
+
+PositiveSign = @{ "+" }
+NegativeSign = @{ "-" }
+NumberSign = @{ PositiveSign | NegativeSign }
+
+Int = @{ NumberSign? ~ ASCII_DIGIT+ }
+
+DecimalPoint = @{ "." }
+Float = @{ NumberSign? ~ ASCII_DIGIT+ ~ DecimalPoint ~ ASCII_DIGIT+ }
+
+WHITESPACE = _{ " " | "\t" }
+
+EOF = _{ EOI | ";" }

@@ -4,28 +4,7 @@ use std::fs::File;
 use std::io::prelude::*;
 
 fn process(inp: &str, show_ast: bool) {
-    let parse_result = desmos_lang::parse(inp);
-    let ast = match parse_result {
-        Ok((unparsed, ast)) => {
-            if unparsed.len() > 0 {
-                // TODO: handle this better
-                println!("Parse Error: Unable to parse full input");
-                return;
-            }
-            ast
-        }
-        Err(err) => {
-            // TODO: Better error handling
-            println!("Parse Error: {:#?}", err);
-            return;
-        }
-    };
-
-    if show_ast {
-        println!("Parsed AST: {:#?}", ast);
-    }
-    let latex = desmos_lang::ast_to_latex(&ast);
-    println!("{}", latex);
+    unimplemented!();
 }
 
 fn main() {
