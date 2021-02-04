@@ -9,6 +9,7 @@ pub struct AssertionError;
 // Note that we don't store any extra info about the errors. This means we can't state
 // which string failed to parse without modifying our types to carry that information.
 impl fmt::Display for AssertionError {
+    #[cfg(not(tarpaulin_include))]
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "assertion error while processing tokens")
     }
