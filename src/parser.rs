@@ -34,6 +34,15 @@ pub fn process_token(t: Pair<'_, Rule>) -> Result<Expression, AssertionError> {
                 right: Box::new(right),
             })
         }
+        Rule::UnaryExpression => {
+            let mut inner = t.into_inner();
+            let val = process_token(try_unwrap(inner.next())?)?;
+            let operator = try_unwrap(inner.next())?.as_str();
+            Ok(Expression::UnaryExpr {
+                val: Box::new(val),
+                operator: operator,
+            })
+        }
         _ => unimplemented!(),
     }
 }

@@ -10,7 +10,7 @@ pub struct AssertionError;
 // which string failed to parse without modifying our types to carry that information.
 impl fmt::Display for AssertionError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "assert error while processing tokens")
+        write!(f, "assertion error while processing tokens")
     }
 }
 
@@ -26,5 +26,9 @@ pub enum Expression<'a> {
         //  it just to stringify it again later
         operator: &'a str,
         right: Box<Expression<'a>>,
+    },
+    UnaryExpr {
+        val: Box<Expression<'a>>,
+        operator: &'a str,
     },
 }
