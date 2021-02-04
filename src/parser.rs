@@ -74,3 +74,81 @@ pub fn process_token(t: Pair<'_, Rule>) -> Result<Expression, AssertionError> {
         _ => unimplemented!(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    macro_rules! parse_test {
+        ($i:expr, $r:expr) => {
+            assert_eq!(
+                process_token(parse($i).unwrap().next().unwrap()).unwrap(),
+                $r
+            );
+        };
+    }
+
+    #[test]
+    fn number() {
+        macro_rules! num_test {
+            ($v:expr) => {
+                parse_test!($v, Expression::Num { val: $v });
+            };
+        }
+
+        num_test!("1");
+        num_test!("-2");
+        num_test!("+3");
+    }
+
+    #[test]
+    fn variable() {
+        parse_test!("w3c", Expression::Variable { val: "w3c" });
+        assert_eq!(parse("3wc").is_err(), true);
+    }
+
+    #[test]
+    fn binary_expression() {
+        parse_test!(
+            "1 + 2",
+            Expression::BinaryExpr {
+                left: Box::new(Expression::Num { val: "1" }),
+                operator: "+",
+                right: Box::new(Expression::Num { val: "2" })
+            }
+        );
+    }
+
+    #[test]
+    fn unary_expression() {
+        parse_test!(
+            "1!",
+            Expression::UnaryExpr {
+                val: Box::new(Expression::Num { val: "1" }),
+                operator: "!",
+            }
+        );
+    }
+
+    #[test]
+    fn call() {
+        parse_test!(
+            "a()",
+            Expression::Call {
+                func: "a",
+                args: Vec::new(),
+            }
+        );
+        parse_test!(
+            "a(1, 2, 3)",
+            Expression::Call {
+                func: "a",
+                args: vec![
+                    Box::new(Expression::Num { val: "1" }),
+                    Box::new(Expression::Num { val: "2" }),
+                    Box::new(Expression::Num { val: "3" }),
+                ]
+            }
+        );
+    }
+}
