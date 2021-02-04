@@ -44,6 +44,33 @@ pub fn process_token(t: Pair<'_, Rule>) -> Result<Expression, AssertionError> {
                 operator: operator,
             })
         }
+        Rule::Call => {
+            let mut inner = t.into_inner();
+            let func = try_unwrap(inner.next())?.as_str();
+            let arg_tokens_result = inner.next();
+
+            match arg_tokens_result {
+                // Arguments were supplied
+                Some(arg_tokens) => {
+                    // parse arguments
+                    let mut args_ast = Vec::new();
+
+                    for arg_token in arg_tokens.into_inner() {
+                        args_ast.push(Box::new(process_token(arg_token)?));
+                    }
+
+                    Ok(Expression::Call {
+                        func: func,
+                        args: args_ast,
+                    })
+                }
+                // No arguments were supplied
+                _ => Ok(Expression::Call {
+                    func: func,
+                    args: Vec::new(),
+                }),
+            }
+        }
         _ => unimplemented!(),
     }
 }

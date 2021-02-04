@@ -34,4 +34,8 @@ pub enum Expression<'a> {
         val: Box<Expression<'a>>,
         operator: &'a str,
     },
+    Call {
+        func: &'a str,
+        args: Vec<Box<Expression<'a>>>,
+    },
 }

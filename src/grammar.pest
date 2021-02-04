@@ -1,7 +1,7 @@
 Program = _{ SOI ~ Expression ~ EOF }
 
 Expression = { UnaryExpression | BinaryExpression | Term }
-Term = _{ Variable | Number | "(" ~ Expression ~ ")" }
+Term = _{ Call | Variable | Number | "(" ~ Expression ~ ")" }
 
 Factorial = @{ "!" }
 UnaryOperator = @{ Factorial }
@@ -23,7 +23,11 @@ Number = @{ NumberSign? ~ ASCII_DIGIT+ ~ (DecimalPoint ~ ASCII_DIGIT+)? }
 
 Letter = { 'a'..'z' | 'A'..'Z' }
 Identifier = @{ Letter ~ (Letter | ASCII_DIGIT)* }
+
 Variable = @{ Identifier }
+
+Arguments = { Expression ~ ("," ~ Expression)* }
+Call = { Identifier ~ "(" ~ Arguments? ~ ")" }
 
 WHITESPACE = _{ " " | "\t" }
 
