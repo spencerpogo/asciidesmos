@@ -4,7 +4,7 @@ Expression = { UnaryExpression | BinaryExpression | Number }
 Term = _{ Number | "(" ~ Expression ~ ")" }
 
 Factorial = @{ "!" }
-UnaryOperator = { Factorial }
+UnaryOperator = @{ Factorial }
 UnaryExpression = { Term ~ UnaryOperator }
 
 Add =      @{ "+" }
