@@ -30,6 +30,10 @@ pub fn compile_expr(ctx: &mut Context, expr: Expression) -> String {
             operator: op,
             right: r,
         } => format!("{}{}{}", compile_expr(ctx, *l), op, compile_expr(ctx, *r)),
+        Expression::UnaryExpr {
+            val: v,
+            operator: op,
+        } => format!("{}{}", compile_expr(ctx, *v), op),
         _ => unimplemented!(),
     }
 }
@@ -65,5 +69,16 @@ mod tests {
             },
             "1+2",
         )
+    }
+
+    #[test]
+    fn unary_expression() {
+        check(
+            Expression::UnaryExpr {
+                val: Box::new(Expression::Num { val: "2" }),
+                operator: "!",
+            },
+            "2!",
+        );
     }
 }
