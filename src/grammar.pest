@@ -1,6 +1,6 @@
 Program = _{ SOI ~ Expression ~ EOF }
 
-Expression = { Number | UnaryExpression | BinaryExpression }
+Expression = { UnaryExpression | BinaryExpression | Number }
 Term = _{ Number | "(" ~ Expression ~ ")" }
 
 Factorial = @{ "!" }

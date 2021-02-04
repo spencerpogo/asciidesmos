@@ -17,5 +17,14 @@ impl fmt::Display for AssertionError {
 // Expression is a component of a statement
 #[derive(Clone, Debug, PartialEq)]
 pub enum Expression<'a> {
-    Num { val: &'a str },
+    Num {
+        val: &'a str,
+    },
+    BinaryExpr {
+        left: Box<Expression<'a>>,
+        // Should probably make an enum for this, but its not worth the work to encode
+        //  it just to stringify it again later
+        operator: &'a str,
+        right: Box<Expression<'a>>,
+    },
 }

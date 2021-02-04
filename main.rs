@@ -5,7 +5,10 @@ use std::io::prelude::*;
 
 fn process(inp: &str, _show_ast: bool) {
     let mut r = desmos_lang::parser::parse(inp).unwrap();
-    desmos_lang::parser::process_token(r.next().unwrap()).unwrap();
+    println!(
+        "{:#?}",
+        desmos_lang::parser::process_token(r.next().unwrap()).unwrap()
+    );
 }
 
 fn main() {
