@@ -23,6 +23,7 @@ pub fn process_token(t: Pair<'_, Rule>) -> Result<Expression, AssertionError> {
     match t.as_rule() {
         Rule::Expression => process_token(try_unwrap(t.into_inner().next())?),
         Rule::Number => Ok(Expression::Num { val: t.as_str() }),
+        Rule::Variable => Ok(Expression::Variable { val: t.as_str() }),
         Rule::BinaryExpression => {
             let mut inner = t.into_inner();
             let left = process_token(try_unwrap(inner.next())?)?;

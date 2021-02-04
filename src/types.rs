@@ -20,6 +20,9 @@ pub enum Expression<'a> {
     Num {
         val: &'a str,
     },
+    Variable {
+        val: &'a str,
+    },
     BinaryExpr {
         left: Box<Expression<'a>>,
         // Should probably make an enum for this, but its not worth the work to encode
