@@ -33,7 +33,7 @@ pub fn resolve_function<'a>(_ctx: &mut Context, func: &str) -> Option<&'a Functi
 pub fn resolve_func<'a>(
     ctx: &mut Context,
     fname: &'a str,
-    args: Vec<Box<Expression<'a>>>,
+    args: &Vec<Box<Expression<'a>>>,
 ) -> Result<(), CompileError<'a>> {
     match resolve_function(ctx, fname) {
         None => Err(CompileError::UnknownFunction(fname)),
@@ -89,7 +89,10 @@ pub fn compile_expr<'a>(
             val: v,
             operator: op,
         } => Ok(format!("{}{}", compile_expr(ctx, *v)?, op)),
-        Expression::Call { func, args } => compile_call(ctx, func, args),
+        Expression::Call { func, args } => {
+            resolve_func(ctx, func, &args)?;
+            compile_call(ctx, func, args)
+        }
         _ => unimplemented!(),
     }
 }
@@ -98,8 +101,16 @@ pub fn compile_expr<'a>(
 mod tests {
     use super::*;
 
-    fn check(i: Expression, r: &str) {
-        assert_eq!(compile_expr(&mut Context {}, i).unwrap(), r.to_string());
+    fn new_ctx() -> Context {
+        Context {}
+    }
+
+    fn compile(exp: Expression) -> Result<String, CompileError> {
+        compile_expr(&mut new_ctx(), exp)
+    }
+
+    fn check(exp: Expression, r: &str) {
+        assert_eq!(compile(exp).unwrap(), r.to_string());
     }
 
     #[test]
@@ -140,14 +151,59 @@ mod tests {
 
     #[test]
     fn call() {
-        check(
-            Expression::Call {
-                func: "abc",
-                args: vec![Box::new(Expression::Num { val: "1" })],
-            },
+        assert_eq!(
+            compile_call(
+                &mut new_ctx(),
+                "abc",
+                vec![Box::new(Expression::Num { val: "1" })]
+            ),
             "a_{bc}\\left(1\\right)",
         );
     }
 
-    // TODO: Test function resolution
+    #[test]
+    fn func_resolution() {
+        check(
+            Expression::Call {
+                func: "sin",
+                args: vec![Box::new(Expression::Num { val: "1" })],
+            },
+            // TODO: Should start with "\\sin"
+            "s_{in}\\left(1\\right)",
+        );
+        assert_eq!(
+            compile(Expression::Call {
+                func: "abc",
+                args: vec![],
+            }),
+            Err(CompileError::UnknownFunction("abc"))
+        );
+    }
+
+    #[test]
+    fn argc_validation() {
+        assert_eq!(
+            compile(Expression::Call {
+                func: "sin",
+                args: vec![],
+            }),
+            Err(CompileError::WrongArgCount {
+                got: 0,
+                expected: 1
+            })
+        );
+        assert_eq!(
+            compile(Expression::Call {
+                func: "sin",
+                args: vec![
+                    Box::new(Expression::Num { val: "1" }),
+                    Box::new(Expression::Num { val: "2" })
+                ]
+            }),
+            Err(CompileError::WrongArgCount {
+                got: 2,
+                expected: 1,
+            })
+        );
+    }
 }
