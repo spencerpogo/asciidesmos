@@ -58,4 +58,5 @@ pub struct Function<'a> {
 pub enum CompileError<'a> {
     UnknownFunction(&'a str),
     WrongArgCount { got: ArgCount, expected: ArgCount },
+    TypeMismatch { got: ValType, expected: ValType },
 }

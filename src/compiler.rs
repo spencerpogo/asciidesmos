@@ -72,6 +72,28 @@ pub fn compile_call<'a>(
     ))
 }
 
+pub fn check_type<'a>(got: ValType, expect: ValType) -> Result<(), CompileError<'a>> {
+    if got != expect {
+        Err(CompileError::TypeMismatch {
+            got: got,
+            expected: expect,
+        })
+    } else {
+        Ok(())
+    }
+}
+
+// Combination of compile_expr and check_type
+pub fn compile_expect<'a>(
+    ctx: &mut Context,
+    expr: Expression<'a>,
+    expect: ValType,
+) -> Result<String, CompileError<'a>> {
+    let (s, t) = compile_expr(ctx, expr)?;
+    check_type(t, expect)?;
+    Ok(s)
+}
+
 pub fn compile_expr<'a>(
     ctx: &mut Context,
     expr: Expression<'a>,
@@ -86,16 +108,19 @@ pub fn compile_expr<'a>(
             right,
         } => Ok(format!(
             "{}{}{}",
-            // TODO: Type check
-            compile_expr(ctx, *left)?.0,
+            // Expect number because cannot do math on lists
+            compile_expect(ctx, *left, ValType::Number)?,
             operator,
-            compile_expr(ctx, *right)?.0
+            compile_expect(ctx, *right, ValType::Number)?
         )),
         Expression::UnaryExpr {
             val: v,
             operator: op,
-            // TODO: Type check
-        } => Ok(format!("{}{}", compile_expr(ctx, *v)?.0, op)),
+        } => Ok(format!(
+            "{}{}",
+            compile_expect(ctx, *v, ValType::Number)?,
+            op
+        )),
         Expression::Call { func, args } => {
             resolve_func(ctx, func, &args)?;
             compile_call(ctx, func, args)
@@ -213,5 +238,10 @@ mod tests {
                 expected: 1,
             })
         );
+    }
+
+    #[test]
+    fn binexp_typecheck() {
+        // TODO: Fill this out (currently there is no expression that produces a list)
     }
 }
