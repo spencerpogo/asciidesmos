@@ -1,4 +1,7 @@
-use crate::types::Expression;
+use crate::{
+    builtins,
+    types::{Expression, Function},
+};
 use std::fmt::Write;
 
 pub struct Context {
@@ -20,6 +23,10 @@ pub fn compile_identifier(v: &str) -> String {
         }
         None => "".to_string(),
     }
+}
+
+pub fn resolve_function<'a>(_ctx: &mut Context, func: &str) -> Option<&'a Function> {
+    builtins::BUILTIN_FUNCTIONS.get(func)
 }
 
 pub fn compile_call(ctx: &mut Context, func: &str, args: Vec<Box<Expression>>) -> String {

@@ -10,6 +10,7 @@ edition = "2018"
 pest = "2.1.3"
 pest_derive = "2.1.0"
 clap = "2.33.3"
+phf = { version = "0.8.0", features=["macros"] }
 
 [[bin]]
 name = "desmosc"

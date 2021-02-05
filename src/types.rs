@@ -40,3 +40,9 @@ pub enum Expression<'a> {
         args: Vec<Box<Expression<'a>>>,
     },
 }
+
+// For now, will assume that all paramaters are numbers, so won't store type
+//  information in this struct
+pub struct Function {
+    pub argc: u8,
+}
