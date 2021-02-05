@@ -21,7 +21,9 @@ pub fn try_unwrap<T>(i: Option<T>) -> Result<T, AssertionError> {
 pub fn process_token(t: Pair<'_, Rule>) -> Result<Expression, AssertionError> {
     println!("{:#?}", t);
     match t.as_rule() {
-        Rule::Expression => process_token(try_unwrap(t.into_inner().next())?),
+        Rule::ExpressionNoList | Rule::Expression => {
+            process_token(try_unwrap(t.into_inner().next())?)
+        }
         Rule::Number => Ok(Expression::Num { val: t.as_str() }),
         Rule::Variable => Ok(Expression::Variable { val: t.as_str() }),
         Rule::BinaryExpression => {
@@ -69,6 +71,22 @@ pub fn process_token(t: Pair<'_, Rule>) -> Result<Expression, AssertionError> {
                     func: func,
                     args: Vec::new(),
                 }),
+            }
+        }
+        Rule::List => {
+            let mut inner = t.into_inner();
+
+            match inner.next() {
+                None => Ok(Expression::List(vec![])),
+                Some(val_tokens) => {
+                    let mut vals = Vec::new();
+
+                    for v in val_tokens.into_inner() {
+                        vals.push(Box::new(process_token(v)?))
+                    }
+
+                    Ok(Expression::List(vals))
+                }
             }
         }
         _ => unimplemented!(),
@@ -149,6 +167,18 @@ mod tests {
                     Box::new(Expression::Num { val: "3" }),
                 ]
             }
+        );
+    }
+
+    #[test]
+    fn list() {
+        parse_test!(
+            "[1, 2,3]",
+            Expression::List(vec![
+                Box::new(Expression::Num { val: "1" }),
+                Box::new(Expression::Num { val: "2" }),
+                Box::new(Expression::Num { val: "3" }),
+            ])
         );
     }
 }

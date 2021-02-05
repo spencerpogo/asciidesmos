@@ -1,6 +1,7 @@
 Program = _{ SOI ~ Expression ~ EOF }
 
-Expression = { UnaryExpression | BinaryExpression | Term }
+ExpressionNoList =  { UnaryExpression | BinaryExpression | Term }
+Expression = { List | UnaryExpression | BinaryExpression | Term }
 Term = _{ Call | Variable | Number | "(" ~ Expression ~ ")" }
 
 Factorial = @{ "!" }
@@ -26,7 +27,13 @@ Identifier = @{ Letter ~ (Letter | ASCII_DIGIT)* }
 
 Variable = @{ Identifier }
 
+// Trailing commas ("a(1,)") won't parse
 Arguments = { Expression ~ ("," ~ Expression)* }
+ArgumentsNoList = { ExpressionNoList ~ ("," ~ ExpressionNoList)*  }
+
+// Nested lists are not allowed
+List = { "[" ~ ArgumentsNoList? ~ "]" }
+
 Call = { Identifier ~ "(" ~ Arguments? ~ ")" }
 
 WHITESPACE = _{ " " | "\t" }

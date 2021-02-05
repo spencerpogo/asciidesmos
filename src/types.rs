@@ -39,6 +39,7 @@ pub enum Expression<'a> {
         func: &'a str,
         args: Vec<Box<Expression<'a>>>,
     },
+    List(Vec<Box<Expression<'a>>>),
 }
 
 pub type ArgCount = usize;
