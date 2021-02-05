@@ -156,7 +156,8 @@ mod tests {
                 &mut new_ctx(),
                 "abc",
                 vec![Box::new(Expression::Num { val: "1" })]
-            ),
+            )
+            .unwrap(),
             "a_{bc}\\left(1\\right)",
         );
     }
