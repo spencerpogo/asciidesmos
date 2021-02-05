@@ -30,11 +30,11 @@ pub fn resolve_function<'a>(_ctx: &mut Context, func: &str) -> Option<&'a Functi
     builtins::BUILTIN_FUNCTIONS.get(func)
 }
 
-pub fn compile_call<'a>(
+pub fn resolve_func<'a>(
     ctx: &mut Context,
     fname: &'a str,
     args: Vec<Box<Expression<'a>>>,
-) -> Result<String, CompileError<'a>> {
+) -> Result<(), CompileError<'a>> {
     match resolve_function(ctx, fname) {
         None => Err(CompileError::UnknownFunction(fname)),
         Some(func) => {
@@ -46,17 +46,26 @@ pub fn compile_call<'a>(
                     expected: func.argc,
                 })
             } else {
-                Ok(format!(
-                    "{}\\left({}\\right)",
-                    compile_identifier(fname),
-                    args.into_iter().try_fold(String::new(), |mut s, i| {
-                        write!(s, "{}", compile_expr(ctx, *i)?).unwrap();
-                        Ok(s)
-                    })?
-                ))
+                Ok(())
             }
         }
     }
+}
+
+pub fn compile_call<'a>(
+    ctx: &mut Context,
+    fname: &str,
+    args: Vec<Box<Expression<'a>>>,
+) -> Result<String, CompileError<'a>> {
+    Ok(format!(
+        "{}\\left({}\\right)",
+        compile_identifier(fname),
+        args.into_iter().try_fold(String::new(), |mut s, i| {
+            // Writing the string should never fail
+            write!(s, "{}", compile_expr(ctx, *i)?).unwrap();
+            Ok(s)
+        })?
+    ))
 }
 
 pub fn compile_expr<'a>(
