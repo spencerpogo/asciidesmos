@@ -49,9 +49,9 @@ pub enum ArgType {
     List,
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct Function {
-    pub args: Vec<ArgType>,
+#[derive(Debug, PartialEq)]
+pub struct Function<'a> {
+    pub args: &'a [&'a ArgType],
 }
 
 #[derive(Clone, Debug, PartialEq)]

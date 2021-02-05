@@ -26,7 +26,7 @@ pub fn compile_identifier(v: &str) -> String {
     }
 }
 
-pub fn resolve_function<'a>(_ctx: &mut Context, func: &str) -> Option<&'a Function> {
+pub fn resolve_function<'a>(_ctx: &mut Context, func: &str) -> Option<&'a Function<'a>> {
     builtins::BUILTIN_FUNCTIONS.get(func)
 }
 
