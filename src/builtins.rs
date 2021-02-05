@@ -1,4 +1,4 @@
-use crate::types::{ArgType as AT, Function};
+use crate::types::{Function, ValType as VT};
 use phf::{phf_map, Map};
 
 macro_rules! f {
@@ -9,7 +9,7 @@ macro_rules! f {
 
 macro_rules! n {
     () => {
-        f!([&AT::Number])
+        f!([&VT::Number])
     };
 }
 
