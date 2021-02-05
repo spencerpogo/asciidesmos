@@ -41,13 +41,17 @@ pub enum Expression<'a> {
     },
 }
 
-type ArgCount = u8;
+pub type ArgCount = usize;
 
-// For now, will assume that all paramaters are numbers, so won't store type
-//  information in this struct
+#[derive(Clone, Debug, PartialEq)]
+pub enum ArgType {
+    Number,
+    List,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Function {
-    pub argc: ArgCount,
+    pub args: Vec<ArgType>,
 }
 
 #[derive(Clone, Debug, PartialEq)]

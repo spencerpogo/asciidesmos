@@ -1,13 +1,19 @@
-use crate::types::Function;
+use crate::types::{ArgType as AT, Function};
 use phf::{phf_map, Map};
 
 macro_rules! f {
-    ($argc:expr) => {
-        Function { argc: $argc }
+    ($args:expr) => {
+        Function { args: $args }
+    };
+}
+
+macro_rules! n {
+    () => {
+        f!(vec![AT::Number])
     };
 }
 
 pub static BUILTIN_FUNCTIONS: Map<&'static str, Function> = phf_map! {
-    "sin" => f!(1)
+    "sin" => n!(),
     // TODO: Add more functions here
 };

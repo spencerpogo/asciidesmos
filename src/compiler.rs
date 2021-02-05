@@ -38,14 +38,17 @@ pub fn resolve_func<'a>(
     match resolve_function(ctx, fname) {
         None => Err(CompileError::UnknownFunction(fname)),
         Some(func) => {
-            let argc = u8::try_from(args.len()).unwrap_or(u8::MAX);
+            // Validate arg count
+            let got = args.len();
+            let expect = func.args.len();
 
-            if argc != func.argc {
+            if got != expect {
                 Err(CompileError::WrongArgCount {
-                    got: argc,
-                    expected: func.argc,
+                    got: got,
+                    expected: expect,
                 })
             } else {
+                // TODO: Validate types
                 Ok(())
             }
         }
