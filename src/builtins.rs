@@ -7,7 +7,7 @@ macro_rules! f {
     };
 }
 
-pub static BUILTIN_FUNCTIONS: Map<&'static str, Function> = phf::phf_map! {
+pub static BUILTIN_FUNCTIONS: Map<&'static str, Function> = phf_map! {
     "sin" => f!(1)
     // TODO: Add more functions here
 };
