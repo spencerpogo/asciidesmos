@@ -45,10 +45,12 @@ type ArgCount = u8;
 
 // For now, will assume that all paramaters are numbers, so won't store type
 //  information in this struct
+#[derive(Clone, Debug, PartialEq)]
 pub struct Function {
     pub argc: ArgCount,
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub enum CompileError<'a> {
     UnknownFunction(&'a str),
     WrongArgCount { got: ArgCount, expected: ArgCount },

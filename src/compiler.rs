@@ -90,7 +90,7 @@ mod tests {
     use super::*;
 
     fn check(i: Expression, r: &str) {
-        assert_eq!(compile_expr(&mut Context {}, i), r.to_string());
+        assert_eq!(compile_expr(&mut Context {}, i).unwrap(), r.to_string());
     }
 
     #[test]
