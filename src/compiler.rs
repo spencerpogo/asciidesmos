@@ -60,15 +60,19 @@ pub fn compile_call<'a>(
     fname: &str,
     args: Vec<Box<Expression<'a>>>,
 ) -> Result<(String, ValType), CompileError<'a>> {
-    Ok(format!(
-        "{}\\left({}\\right)",
-        compile_identifier(fname),
-        args.into_iter().try_fold(String::new(), |mut s, i| {
-            // Writing the string should never fail
-            // TODO: Type check
-            write!(s, "{}", compile_expr(ctx, *i)?.0).unwrap();
-            Ok(s)
-        })?
+    Ok((
+        format!(
+            "{}\\left({}\\right)",
+            compile_identifier(fname),
+            args.into_iter().try_fold(String::new(), |mut s, i| {
+                // Writing the string should never fail
+                // TODO: Type check
+                write!(s, "{}", compile_expr(ctx, *i)?.0).unwrap();
+                Ok(s)
+            })?
+        ),
+        // TODO: Resolve the return type of the function
+        ValType::Number,
     ))
 }
 
@@ -106,20 +110,22 @@ pub fn compile_expr<'a>(
             left,
             operator,
             right,
-        } => Ok(format!(
-            "{}{}{}",
-            // Expect number because cannot do math on lists
-            compile_expect(ctx, *left, ValType::Number)?,
-            operator,
-            compile_expect(ctx, *right, ValType::Number)?
+        } => Ok((
+            format!(
+                "{}{}{}",
+                // Expect number because cannot do math on lists
+                compile_expect(ctx, *left, ValType::Number)?,
+                operator,
+                compile_expect(ctx, *right, ValType::Number)?
+            ),
+            ValType::Number,
         )),
         Expression::UnaryExpr {
             val: v,
             operator: op,
-        } => Ok(format!(
-            "{}{}",
-            compile_expect(ctx, *v, ValType::Number)?,
-            op
+        } => Ok((
+            format!("{}{}", compile_expect(ctx, *v, ValType::Number)?, op),
+            ValType::Number,
         )),
         Expression::Call { func, args } => {
             resolve_func(ctx, func, &args)?;
@@ -189,7 +195,8 @@ mod tests {
                 "abc",
                 vec![Box::new(Expression::Num { val: "1" })]
             )
-            .unwrap(),
+            .unwrap()
+            .0,
             "a_{bc}\\left(1\\right)",
         );
     }
