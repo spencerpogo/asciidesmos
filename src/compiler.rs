@@ -36,21 +36,23 @@ pub fn compile_call(ctx: &mut Context, func: &str, args: Vec<Box<Expression>>) -
 
 pub fn compile_expr(ctx: &mut Context, expr: Expression) -> String {
     match expr {
-        Expression::Num { val: v } => v.to_string(),
-        Expression::Variable { val: v } => compile_identifier(v),
+        Expression::Num { val } => val.to_string(),
+        Expression::Variable { val } => compile_identifier(val),
         Expression::BinaryExpr {
-            left: l,
-            operator: op,
-            right: r,
-        } => format!("{}{}{}", compile_expr(ctx, *l), op, compile_expr(ctx, *r)),
+            left,
+            operator,
+            right,
+        } => format!(
+            "{}{}{}",
+            compile_expr(ctx, *left),
+            operator,
+            compile_expr(ctx, *right)
+        ),
         Expression::UnaryExpr {
             val: v,
             operator: op,
         } => format!("{}{}", compile_expr(ctx, *v), op),
-        Expression::Call {
-            func: func,
-            args: args,
-        } => compile_call(ctx, func, args),
+        Expression::Call { func, args } => compile_call(ctx, func, args),
         _ => unimplemented!(),
     }
 }
