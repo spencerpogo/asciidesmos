@@ -1,7 +1,8 @@
 use crate::{
     builtins,
-    types::{Expression, Function},
+    types::{CompileError, Expression, Function},
 };
+use std::convert::TryFrom;
 use std::fmt::Write;
 
 pub struct Context {
@@ -29,36 +30,56 @@ pub fn resolve_function<'a>(_ctx: &mut Context, func: &str) -> Option<&'a Functi
     builtins::BUILTIN_FUNCTIONS.get(func)
 }
 
-pub fn compile_call(ctx: &mut Context, func: &str, args: Vec<Box<Expression>>) -> String {
-    // TODO: Resolve function name and prepend with backslash if it is builtin
-    format!(
-        "{}\\left({}\\right)",
-        compile_identifier(func),
-        args.into_iter().fold(String::new(), |mut s, i| {
-            write!(s, "{}", compile_expr(ctx, *i)).unwrap();
-            s
-        })
-    )
+pub fn compile_call<'a>(
+    ctx: &mut Context,
+    fname: &'a str,
+    args: Vec<Box<Expression<'a>>>,
+) -> Result<String, CompileError<'a>> {
+    match resolve_function(ctx, fname) {
+        None => Err(CompileError::UnknownFunction(fname)),
+        Some(func) => {
+            let argc = u8::try_from(args.len()).unwrap_or(u8::MAX);
+
+            if argc != func.argc {
+                Err(CompileError::WrongArgCount {
+                    got: argc,
+                    expected: func.argc,
+                })
+            } else {
+                Ok(format!(
+                    "{}\\left({}\\right)",
+                    compile_identifier(fname),
+                    args.into_iter().try_fold(String::new(), |mut s, i| {
+                        write!(s, "{}", compile_expr(ctx, *i)?).unwrap();
+                        Ok(s)
+                    })?
+                ))
+            }
+        }
+    }
 }
 
-pub fn compile_expr(ctx: &mut Context, expr: Expression) -> String {
+pub fn compile_expr<'a>(
+    ctx: &mut Context,
+    expr: Expression<'a>,
+) -> Result<String, CompileError<'a>> {
     match expr {
-        Expression::Num { val } => val.to_string(),
-        Expression::Variable { val } => compile_identifier(val),
+        Expression::Num { val } => Ok(val.to_string()),
+        Expression::Variable { val } => Ok(compile_identifier(val)),
         Expression::BinaryExpr {
             left,
             operator,
             right,
-        } => format!(
+        } => Ok(format!(
             "{}{}{}",
-            compile_expr(ctx, *left),
+            compile_expr(ctx, *left)?,
             operator,
-            compile_expr(ctx, *right)
-        ),
+            compile_expr(ctx, *right)?
+        )),
         Expression::UnaryExpr {
             val: v,
             operator: op,
-        } => format!("{}{}", compile_expr(ctx, *v), op),
+        } => Ok(format!("{}{}", compile_expr(ctx, *v)?, op)),
         Expression::Call { func, args } => compile_call(ctx, func, args),
         _ => unimplemented!(),
     }
@@ -118,4 +139,6 @@ mod tests {
             "a_{bc}\\left(1\\right)",
         );
     }
+
+    // TODO: Test function resolution
 }
