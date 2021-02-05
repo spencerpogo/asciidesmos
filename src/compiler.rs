@@ -1,6 +1,6 @@
 use crate::{
     builtins,
-    types::{CompileError, Expression, Function},
+    types::{CompileError, Expression, Function, ValType},
 };
 use std::convert::TryFrom;
 use std::fmt::Write;
@@ -59,13 +59,14 @@ pub fn compile_call<'a>(
     ctx: &mut Context,
     fname: &str,
     args: Vec<Box<Expression<'a>>>,
-) -> Result<String, CompileError<'a>> {
+) -> Result<(String, ValType), CompileError<'a>> {
     Ok(format!(
         "{}\\left({}\\right)",
         compile_identifier(fname),
         args.into_iter().try_fold(String::new(), |mut s, i| {
             // Writing the string should never fail
-            write!(s, "{}", compile_expr(ctx, *i)?).unwrap();
+            // TODO: Type check
+            write!(s, "{}", compile_expr(ctx, *i)?.0).unwrap();
             Ok(s)
         })?
     ))
@@ -74,24 +75,27 @@ pub fn compile_call<'a>(
 pub fn compile_expr<'a>(
     ctx: &mut Context,
     expr: Expression<'a>,
-) -> Result<String, CompileError<'a>> {
+) -> Result<(String, ValType), CompileError<'a>> {
     match expr {
-        Expression::Num { val } => Ok(val.to_string()),
-        Expression::Variable { val } => Ok(compile_identifier(val)),
+        Expression::Num { val } => Ok((val.to_string(), ValType::Number)),
+        // TODO: Resolve type of variable
+        Expression::Variable { val } => Ok((compile_identifier(val), ValType::Number)),
         Expression::BinaryExpr {
             left,
             operator,
             right,
         } => Ok(format!(
             "{}{}{}",
-            compile_expr(ctx, *left)?,
+            // TODO: Type check
+            compile_expr(ctx, *left)?.0,
             operator,
-            compile_expr(ctx, *right)?
+            compile_expr(ctx, *right)?.0
         )),
         Expression::UnaryExpr {
             val: v,
             operator: op,
-        } => Ok(format!("{}{}", compile_expr(ctx, *v)?, op)),
+            // TODO: Type check
+        } => Ok(format!("{}{}", compile_expr(ctx, *v)?.0, op)),
         Expression::Call { func, args } => {
             resolve_func(ctx, func, &args)?;
             compile_call(ctx, func, args)
@@ -109,7 +113,7 @@ mod tests {
     }
 
     fn compile(exp: Expression) -> Result<String, CompileError> {
-        compile_expr(&mut new_ctx(), exp)
+        Ok(compile_expr(&mut new_ctx(), exp)?.0)
     }
 
     fn check(exp: Expression, r: &str) {
