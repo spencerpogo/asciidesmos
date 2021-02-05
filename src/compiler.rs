@@ -1,4 +1,5 @@
 use crate::types::Expression;
+use std::fmt::Write;
 
 pub struct Context {
     // TODO
@@ -21,6 +22,18 @@ pub fn compile_identifier(v: &str) -> String {
     }
 }
 
+pub fn compile_call(ctx: &mut Context, func: &str, args: Vec<Box<Expression>>) -> String {
+    // TODO: Resolve function name and prepend with backslash if it is builtin
+    format!(
+        "{}\\left({}\\right)",
+        compile_identifier(func),
+        args.into_iter().fold(String::new(), |mut s, i| {
+            write!(s, "{}", compile_expr(ctx, *i)).unwrap();
+            s
+        })
+    )
+}
+
 pub fn compile_expr(ctx: &mut Context, expr: Expression) -> String {
     match expr {
         Expression::Num { val: v } => v.to_string(),
@@ -34,6 +47,10 @@ pub fn compile_expr(ctx: &mut Context, expr: Expression) -> String {
             val: v,
             operator: op,
         } => format!("{}{}", compile_expr(ctx, *v), op),
+        Expression::Call {
+            func: func,
+            args: args,
+        } => compile_call(ctx, func, args),
         _ => unimplemented!(),
     }
 }
@@ -79,6 +96,17 @@ mod tests {
                 operator: "!",
             },
             "2!",
+        );
+    }
+
+    #[test]
+    fn call() {
+        check(
+            Expression::Call {
+                func: "abc",
+                args: vec![Box::new(Expression::Num { val: "1" })],
+            },
+            "a_{bc}\\left(1\\right)",
         );
     }
 }
