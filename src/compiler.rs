@@ -248,6 +248,18 @@ mod tests {
 
     #[test]
     fn binexp_typecheck() {
-        // TODO: Fill this out (currently there is no expression that produces a list)
+        assert_eq!(
+            compile(Expression::BinaryExpr {
+                left: Box::new(Expression::List(vec![Box::new(Expression::Num {
+                    val: "1"
+                })])),
+                operator: "+",
+                right: Box::new(Expression::Num { val: "2" })
+            }),
+            Err(CompileError::TypeMismatch {
+                got: ValType::List,
+                expected: ValType::Number
+            })
+        );
     }
 }
