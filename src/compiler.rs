@@ -262,4 +262,20 @@ mod tests {
             })
         );
     }
+
+    #[test]
+    fn unary_typecheck() {
+        assert_eq!(
+            compile(Expression::UnaryExpr {
+                val: Box::new(Expression::List(vec![Box::new(Expression::Num {
+                    val: "1"
+                })])),
+                operator: "+",
+            }),
+            Err(CompileError::TypeMismatch {
+                got: ValType::List,
+                expected: ValType::Number
+            })
+        );
+    }
 }
