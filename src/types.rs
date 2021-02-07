@@ -44,7 +44,7 @@ pub enum Expression<'a> {
 
 pub type ArgCount = usize;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum ValType {
     Number,
     List,
@@ -53,6 +53,7 @@ pub enum ValType {
 #[derive(Debug, PartialEq)]
 pub struct Function<'a> {
     pub args: &'a [&'a ValType],
+    pub ret: &'a ValType,
 }
 
 #[derive(Clone, Debug, PartialEq)]

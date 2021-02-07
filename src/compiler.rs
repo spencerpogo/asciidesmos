@@ -30,11 +30,11 @@ pub fn resolve_function<'a>(_ctx: &mut Context, func: &str) -> Option<&'a Functi
     builtins::BUILTIN_FUNCTIONS.get(func)
 }
 
-pub fn resolve_func<'a>(
+pub fn compile_call<'a>(
     ctx: &mut Context,
     fname: &'a str,
-    args: &Vec<Box<Expression<'a>>>,
-) -> Result<(), CompileError<'a>> {
+    args: Vec<Box<Expression<'a>>>,
+) -> Result<(String, ValType), CompileError<'a>> {
     match resolve_function(ctx, fname) {
         None => Err(CompileError::UnknownFunction(fname)),
         Some(func) => {
@@ -48,32 +48,30 @@ pub fn resolve_func<'a>(
                     expected: expect,
                 })
             } else {
-                // TODO: Validate types
-                Ok(())
+                let mut r = compile_identifier(fname);
+                r.push_str("\\left(");
+
+                let mut aiter = args.into_iter();
+                for expect_type in (*func.args).iter() {
+                    // Already checked that they are the same length, so unwrap is safe
+                    let a = aiter.next().unwrap();
+
+                    let (arg_latex, got_type) = compile_expr(ctx, *a)?;
+                    if got_type != **expect_type {
+                        return Err(CompileError::TypeMismatch {
+                            got: got_type,
+                            expected: **expect_type,
+                        });
+                    }
+
+                    write!(r, "{}", arg_latex).unwrap();
+                }
+
+                r.push_str("\\right)");
+                Ok((r, *func.ret))
             }
         }
     }
-}
-
-pub fn compile_call<'a>(
-    ctx: &mut Context,
-    fname: &str,
-    args: Vec<Box<Expression<'a>>>,
-) -> Result<(String, ValType), CompileError<'a>> {
-    Ok((
-        format!(
-            "{}\\left({}\\right)",
-            compile_identifier(fname),
-            args.into_iter().try_fold(String::new(), |mut s, i| {
-                // Writing the string should never fail
-                // TODO: Type check
-                write!(s, "{}", compile_expr(ctx, *i)?.0).unwrap();
-                Ok(s)
-            })?
-        ),
-        // TODO: Resolve the return type of the function
-        ValType::Number,
-    ))
 }
 
 pub fn check_type<'a>(got: ValType, expect: ValType) -> Result<(), CompileError<'a>> {
@@ -127,10 +125,9 @@ pub fn compile_expr<'a>(
             format!("{}{}", compile_expect(ctx, *v, ValType::Number)?, op),
             ValType::Number,
         )),
-        Expression::Call { func, args } => {
-            resolve_func(ctx, func, &args)?;
-            compile_call(ctx, func, args)
-        }
+        Expression::Call { func, args } => compile_call(ctx, func, args),
+        // TODO: Stringify it
+        Expression::List(_) => Ok((String::new(), ValType::List)),
         _ => unimplemented!(),
     }
 }
@@ -188,21 +185,7 @@ mod tests {
     }
 
     #[test]
-    fn call() {
-        assert_eq!(
-            compile_call(
-                &mut new_ctx(),
-                "abc",
-                vec![Box::new(Expression::Num { val: "1" })]
-            )
-            .unwrap()
-            .0,
-            "a_{bc}\\left(1\\right)",
-        );
-    }
-
-    #[test]
-    fn func_resolution() {
+    fn call_resolution() {
         check(
             Expression::Call {
                 func: "sin",
@@ -243,6 +226,22 @@ mod tests {
             Err(CompileError::WrongArgCount {
                 got: 2,
                 expected: 1,
+            })
+        );
+    }
+
+    #[test]
+    fn call_arg_checking() {
+        assert_eq!(
+            compile(Expression::Call {
+                func: "sin",
+                args: vec![Box::new(Expression::List(vec![Box::new(
+                    Expression::Num { val: "1" }
+                )]))]
+            }),
+            Err(CompileError::TypeMismatch {
+                got: ValType::List,
+                expected: ValType::Number
             })
         );
     }
