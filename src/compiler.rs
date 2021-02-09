@@ -3,10 +3,19 @@ use crate::{
     types::{CompileError, CompileErrorKind, Expression, Function, LocatedExpression, ValType},
 };
 use pest::Span;
+use std::collections::HashMap;
 use std::fmt::Write;
 
-pub struct Context {
-    // TODO
+pub struct Context<'a> {
+    pub variables: HashMap<&'a str, ValType>,
+}
+
+impl Context<'_> {
+    pub fn new() -> Self {
+        Context {
+            variables: HashMap::new(),
+        }
+    }
 }
 
 pub fn compile_identifier(v: &str) -> String {
@@ -187,8 +196,8 @@ mod tests {
     use super::*;
     use pest::Span;
 
-    fn new_ctx() -> Context {
-        Context {}
+    fn new_ctx<'a>() -> Context<'a> {
+        Context::new()
     }
 
     fn compile(exp: Expression) -> Result<String, CompileError> {
