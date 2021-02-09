@@ -151,7 +151,6 @@ pub fn compile_expr<'a>(
             ValType::Number,
         )),
         Expression::Call { func, args } => compile_call(ctx, span, func, args),
-        // TODO: Stringify it
         Expression::List(values) => {
             let mut s = String::new();
             let mut first = true;
