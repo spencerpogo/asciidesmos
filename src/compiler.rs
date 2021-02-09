@@ -152,7 +152,23 @@ pub fn compile_expr<'a>(
         )),
         Expression::Call { func, args } => compile_call(ctx, span, func, args),
         // TODO: Stringify it
-        Expression::List(_) => Ok((String::new(), ValType::List)),
+        Expression::List(values) => Ok((
+            format!(
+                "\\left[{}\\right]",
+                values.iter().try_fold(String::new(), |mut s, v| {
+                    // TODO: maybe avoid clones here?
+                    let v2 = v.clone();
+                    write!(
+                        s,
+                        "{},",
+                        compile_expect(ctx, v.clone().0, *v2, ValType::Number)?
+                    )
+                    .unwrap();
+                    Ok(s)
+                })?
+            ),
+            ValType::List,
+        )),
         _ => unimplemented!(),
     }
 }
@@ -319,6 +335,37 @@ mod tests {
                 )),
                 operator: "+",
             })
+            .unwrap_err()
+            .kind,
+            CompileErrorKind::TypeMismatch {
+                got: ValType::List,
+                expected: ValType::Number
+            }
+        );
+    }
+
+    #[test]
+    fn list() {
+        check(
+            Expression::List(vec![Box::new((spn(), Expression::Num { val: "1" }))]),
+            "\\left[1\\right]",
+        );
+        check(
+            Expression::List(vec![
+                Box::new((spn(), Expression::Num { val: "1" })),
+                Box::new((spn(), Expression::Num { val: "2" })),
+            ]),
+            "\\left[1,2\\right]",
+        );
+    }
+
+    #[test]
+    fn list_typecheck() {
+        assert_eq!(
+            compile(Expression::List(vec![Box::new((
+                spn(),
+                Expression::List(vec![Box::new((spn(), Expression::Num { val: "1" }))])
+            ))]))
             .unwrap_err()
             .kind,
             CompileErrorKind::TypeMismatch {
