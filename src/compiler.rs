@@ -232,8 +232,10 @@ mod tests {
             compile(Expression::Call {
                 func: "abc",
                 args: vec![],
-            }),
-            Err(CompileError::UnknownFunction("abc"))
+            })
+            .unwrap_err()
+            .kind,
+            CompileErrorKind::UnknownFunction("abc")
         );
     }
 
@@ -243,11 +245,13 @@ mod tests {
             compile(Expression::Call {
                 func: "sin",
                 args: vec![],
-            }),
-            Err(CompileError::WrongArgCount {
+            })
+            .unwrap_err()
+            .kind,
+            CompileErrorKind::WrongArgCount {
                 got: 0,
                 expected: 1
-            })
+            }
         );
         assert_eq!(
             compile(Expression::Call {
@@ -256,11 +260,13 @@ mod tests {
                     Box::new((spn(), Expression::Num { val: "1" })),
                     Box::new((spn(), Expression::Num { val: "2" }))
                 ]
-            }),
-            Err(CompileError::WrongArgCount {
+            })
+            .unwrap_err()
+            .kind,
+            CompileErrorKind::WrongArgCount {
                 got: 2,
                 expected: 1,
-            })
+            }
         );
     }
 
@@ -273,11 +279,13 @@ mod tests {
                     spn(),
                     Expression::List(vec![Box::new((spn(), Expression::Num { val: "1" }))])
                 ))]
-            }),
-            Err(CompileError::TypeMismatch {
+            })
+            .unwrap_err()
+            .kind,
+            CompileErrorKind::TypeMismatch {
                 got: ValType::List,
                 expected: ValType::Number
-            })
+            }
         );
     }
 
@@ -291,11 +299,13 @@ mod tests {
                 )),
                 operator: "+",
                 right: Box::new((spn(), Expression::Num { val: "2" }))
-            }),
-            Err(CompileError::TypeMismatch {
+            })
+            .unwrap_err()
+            .kind,
+            CompileErrorKind::TypeMismatch {
                 got: ValType::List,
                 expected: ValType::Number
-            })
+            }
         );
     }
 
@@ -308,11 +318,13 @@ mod tests {
                     Expression::List(vec![Box::new((spn(), Expression::Num { val: "1" }))])
                 )),
                 operator: "+",
-            }),
-            Err(CompileError::TypeMismatch {
+            })
+            .unwrap_err()
+            .kind,
+            CompileErrorKind::TypeMismatch {
                 got: ValType::List,
                 expected: ValType::Number
-            })
+            }
         );
     }
 }
