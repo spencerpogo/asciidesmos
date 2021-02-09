@@ -152,23 +152,25 @@ pub fn compile_expr<'a>(
         )),
         Expression::Call { func, args } => compile_call(ctx, span, func, args),
         // TODO: Stringify it
-        Expression::List(values) => Ok((
-            format!(
-                "\\left[{}\\right]",
-                values.iter().try_fold(String::new(), |mut s, v| {
-                    // TODO: maybe avoid clones here?
-                    let v2 = v.clone();
-                    write!(
-                        s,
-                        "{},",
-                        compile_expect(ctx, v.clone().0, *v2, ValType::Number)?
-                    )
-                    .unwrap();
-                    Ok(s)
-                })?
-            ),
-            ValType::List,
-        )),
+        Expression::List(values) => {
+            let mut s = String::new();
+            let mut first = true;
+
+            for v in values.iter() {
+                let v1 = v.clone();
+                let v2 = v.clone();
+
+                let val_str = compile_expect(ctx, v1.0, *v2, ValType::Number)?;
+                if first {
+                    write!(s, "{}", val_str).unwrap();
+                    first = false;
+                } else {
+                    write!(s, ",{}", val_str).unwrap();
+                }
+            }
+
+            Ok((format!("\\left[{}\\right]", s), ValType::List))
+        }
         _ => unimplemented!(),
     }
 }
