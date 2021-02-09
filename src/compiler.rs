@@ -33,14 +33,14 @@ pub fn resolve_function<'a>(_ctx: &mut Context, func: &str) -> Option<&'a Functi
 
 pub fn compile_call<'a>(
     ctx: &mut Context,
+    span: Span<'a>,
     fname: &'a str,
     args: Vec<Box<LocatedExpression<'a>>>,
 ) -> Result<(String, ValType), CompileError<'a>> {
     match resolve_function(ctx, fname) {
         None => Err(CompileError {
             kind: CompileErrorKind::UnknownFunction(fname),
-            // TODO: Fixme real span here
-            span: Span::new("", 0, 0).unwrap(),
+            span: span,
         }),
         Some(func) => {
             // Validate arg count
@@ -53,8 +53,7 @@ pub fn compile_call<'a>(
                         got: got,
                         expected: expect,
                     },
-                    // TODO: Fixme real span here
-                    span: Span::new("", 0, 0).unwrap(),
+                    span: span,
                 })
             } else {
                 let mut r = compile_identifier(fname);
@@ -142,7 +141,7 @@ pub fn compile_expr<'a>(
             format!("{}{}", compile_expect(ctx, *v, ValType::Number)?, op),
             ValType::Number,
         )),
-        Expression::Call { func, args } => compile_call(ctx, func, args),
+        Expression::Call { func, args } => compile_call(ctx, expr.0, func, args),
         // TODO: Stringify it
         Expression::List(_) => Ok((String::new(), ValType::List)),
         _ => unimplemented!(),
