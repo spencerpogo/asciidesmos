@@ -4,11 +4,20 @@ use std::fs::File;
 use std::io::prelude::*;
 
 fn process(inp: &str, _show_ast: bool) {
-    let mut r = desmos_lang::parser::parse(inp).unwrap();
-    println!(
-        "{:#?}",
-        desmos_lang::parser::process_token(r.next().unwrap()).unwrap()
-    );
+    match &mut desmos_lang::parser::parse(inp) {
+        Err(e) => println!("{}", e),
+        Ok(r) => {
+            // This is safe to unwrap because there should only be panic-level
+            //  assertion errors thrown while traversing the syntax tree
+            let ast = desmos_lang::parser::process_token(r.next().unwrap()).unwrap();
+            println!("{:#?}", ast);
+            match desmos_lang::compiler::compile_expr(&mut desmos_lang::compiler::Context {}, ast.1)
+            {
+                Err(e) => println!("{:#?}", e),
+                Ok(res) => println!("{:#?}", res),
+            }
+        }
+    }
 }
 
 fn main() {
