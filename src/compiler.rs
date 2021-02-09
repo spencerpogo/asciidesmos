@@ -233,10 +233,7 @@ mod tests {
                 func: "abc",
                 args: vec![],
             }),
-            Err(CompileError {
-                kind: CompileErrorKind::UnknownFunction("abc"),
-                span: spn()
-            })
+            Err(CompileError::UnknownFunction("abc"))
         );
     }
 
@@ -247,12 +244,9 @@ mod tests {
                 func: "sin",
                 args: vec![],
             }),
-            Err(CompileError {
-                kind: CompileErrorKind::WrongArgCount {
-                    got: 0,
-                    expected: 1
-                },
-                span: spn()
+            Err(CompileError::WrongArgCount {
+                got: 0,
+                expected: 1
             })
         );
         assert_eq!(
@@ -263,12 +257,9 @@ mod tests {
                     Box::new((spn(), Expression::Num { val: "2" }))
                 ]
             }),
-            Err(CompileError {
-                kind: CompileErrorKind::WrongArgCount {
-                    got: 2,
-                    expected: 1,
-                },
-                span: spn()
+            Err(CompileError::WrongArgCount {
+                got: 2,
+                expected: 1,
             })
         );
     }
@@ -283,12 +274,9 @@ mod tests {
                     Expression::List(vec![Box::new((spn(), Expression::Num { val: "1" }))])
                 ))]
             }),
-            Err(CompileError {
-                kind: CompileErrorKind::TypeMismatch {
-                    got: ValType::List,
-                    expected: ValType::Number
-                },
-                span: spn()
+            Err(CompileError::TypeMismatch {
+                got: ValType::List,
+                expected: ValType::Number
             })
         );
     }
@@ -304,12 +292,9 @@ mod tests {
                 operator: "+",
                 right: Box::new((spn(), Expression::Num { val: "2" }))
             }),
-            Err(CompileError {
-                kind: CompileErrorKind::TypeMismatch {
-                    got: ValType::List,
-                    expected: ValType::Number
-                },
-                span: spn()
+            Err(CompileError::TypeMismatch {
+                got: ValType::List,
+                expected: ValType::Number
             })
         );
     }
@@ -324,12 +309,9 @@ mod tests {
                 )),
                 operator: "+",
             }),
-            Err(CompileError {
-                kind: CompileErrorKind::TypeMismatch {
-                    got: ValType::List,
-                    expected: ValType::Number
-                },
-                span: spn()
+            Err(CompileError::TypeMismatch {
+                got: ValType::List,
+                expected: ValType::Number
             })
         );
     }
