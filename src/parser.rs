@@ -115,8 +115,8 @@ mod tests {
     macro_rules! parse_test {
         ($i:expr, $r:expr) => {
             assert_eq!(
-                process_token(parse($i).unwrap().next().unwrap()).unwrap().1,
-                $r
+                process_token(parse($i).unwrap().next().unwrap()).unwrap(),
+                (spn($i, 0, $i.len()), $r)
             );
         };
     }
