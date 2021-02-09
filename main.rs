@@ -11,8 +11,7 @@ fn process(inp: &str, _show_ast: bool) {
             //  assertion errors thrown while traversing the syntax tree
             let ast = desmos_lang::parser::process_token(r.next().unwrap()).unwrap();
             println!("{:#?}", ast);
-            match desmos_lang::compiler::compile_expr(&mut desmos_lang::compiler::Context {}, &ast)
-            {
+            match desmos_lang::compiler::compile_expr(&mut desmos_lang::compiler::Context {}, ast) {
                 Err(e) => println!("{}", e),
                 Ok(res) => println!("{:#?}", res),
             }

@@ -55,7 +55,6 @@ pub fn process_token(t: Pair<'_, Rule>) -> Result<LocatedExpression, AssertionEr
             ))
         }
         Rule::Call => {
-            let s2 = t.as_span(); // lmao idk why this works but it does
             let mut inner = t.into_inner();
             let func = try_unwrap(inner.next())?.as_str();
             let arg_tokens_result = inner.next();
@@ -73,7 +72,7 @@ pub fn process_token(t: Pair<'_, Rule>) -> Result<LocatedExpression, AssertionEr
                     Ok((
                         s,
                         Expression::Call {
-                            func: (s2, func),
+                            func: func,
                             args: args_ast,
                         },
                     ))
@@ -82,7 +81,7 @@ pub fn process_token(t: Pair<'_, Rule>) -> Result<LocatedExpression, AssertionEr
                 _ => Ok((
                     s,
                     Expression::Call {
-                        func: (s2, func),
+                        func: func,
                         args: Vec::new(),
                     },
                 )),
@@ -173,11 +172,10 @@ mod tests {
 
     #[test]
     fn call() {
-        let i = "a()";
         parse_test!(
-            i,
+            "a()",
             Expression::Call {
-                func: (spn(i, 0, 1), "a"),
+                func: "a",
                 args: Vec::new(),
             }
         );
@@ -185,7 +183,7 @@ mod tests {
         parse_test!(
             j,
             Expression::Call {
-                func: (spn(i, 0, 1), "a"),
+                func: "a",
                 args: vec![
                     Box::new((spn(j, 2, 3), Expression::Num { val: "1" })),
                     Box::new((spn(j, 5, 6), Expression::Num { val: "2" })),

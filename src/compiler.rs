@@ -1,11 +1,9 @@
 use crate::{
     builtins,
-    types::{
-        CompileError, CompileErrorKind, Expression, Function, Located, LocatedExpression, ValType,
-    },
+    types::{CompileError, CompileErrorKind, Expression, Function, LocatedExpression, ValType},
 };
 use pest::Span;
-use std::borrow::Cow;
+use std::convert::TryFrom;
 use std::fmt::Write;
 
 pub struct Context {
@@ -35,14 +33,14 @@ pub fn resolve_function<'a>(_ctx: &mut Context, func: &str) -> Option<&'a Functi
 
 pub fn compile_call<'a>(
     ctx: &mut Context,
-    s: &'a Span<'a>,
     fname: &'a str,
-    args: &'a Vec<Box<LocatedExpression<'a>>>,
+    args: Vec<Box<LocatedExpression<'a>>>,
 ) -> Result<(String, ValType), CompileError<'a>> {
     match resolve_function(ctx, fname) {
         None => Err(CompileError {
             kind: CompileErrorKind::UnknownFunction(fname),
-            span: s,
+            // TODO: Fixme real span here
+            span: Span::new("", 0, 0).unwrap(),
         }),
         Some(func) => {
             // Validate arg count
@@ -55,7 +53,8 @@ pub fn compile_call<'a>(
                         got: got,
                         expected: expect,
                     },
-                    span: s,
+                    // TODO: Fixme real span here
+                    span: Span::new("", 0, 0).unwrap(),
                 })
             } else {
                 let mut r = compile_identifier(fname);
@@ -66,7 +65,7 @@ pub fn compile_call<'a>(
                     // Already checked that they are the same length, so unwrap is safe
                     let a = aiter.next().unwrap();
 
-                    let (arg_latex, got_type) = compile_expr(ctx, &*a)?;
+                    let (arg_latex, got_type) = compile_expr(ctx, *a)?;
                     if got_type != **expect_type {
                         return Err(CompileError {
                             kind: CompileErrorKind::TypeMismatch {
@@ -74,7 +73,7 @@ pub fn compile_call<'a>(
                                 expected: **expect_type,
                             },
                             // TODO: Fixme real span here
-                            span: &a.0,
+                            span: Span::new("", 0, 0).unwrap(),
                         });
                     }
 
@@ -88,18 +87,15 @@ pub fn compile_call<'a>(
     }
 }
 
-pub fn check_type<'a>(
-    span: &'a Span<'a>,
-    got: ValType,
-    expect: ValType,
-) -> Result<(), CompileError<'a>> {
+pub fn check_type<'a>(got: ValType, expect: ValType) -> Result<(), CompileError<'a>> {
     if got != expect {
         Err(CompileError {
             kind: CompileErrorKind::TypeMismatch {
                 got: got,
                 expected: expect,
             },
-            span: span,
+            // TODO: Fixme real span here
+            span: Span::new("", 0, 0).unwrap(),
         })
     } else {
         Ok(())
@@ -109,19 +105,19 @@ pub fn check_type<'a>(
 // Combination of compile_expr and check_type
 pub fn compile_expect<'a>(
     ctx: &mut Context,
-    expr: &'a LocatedExpression<'a>,
+    expr: LocatedExpression<'a>,
     expect: ValType,
 ) -> Result<String, CompileError<'a>> {
     let (s, t) = compile_expr(ctx, expr)?;
-    check_type(&expr.0, t, expect)?;
+    check_type(t, expect)?;
     Ok(s)
 }
 
 pub fn compile_expr<'a>(
     ctx: &mut Context,
-    expr: &'a LocatedExpression<'a>,
+    expr: LocatedExpression<'a>,
 ) -> Result<(String, ValType), CompileError<'a>> {
-    match &expr.1 {
+    match expr.1 {
         Expression::Num { val } => Ok((val.to_string(), ValType::Number)),
         // TODO: Resolve type of variable
         Expression::Variable { val } => Ok((compile_identifier(val), ValType::Number)),
@@ -133,9 +129,9 @@ pub fn compile_expr<'a>(
             format!(
                 "{}{}{}",
                 // Expect number because cannot do math on lists
-                compile_expect(ctx, &*left, ValType::Number)?,
+                compile_expect(ctx, *left, ValType::Number)?,
                 operator,
-                compile_expect(ctx, &*right, ValType::Number)?
+                compile_expect(ctx, *right, ValType::Number)?
             ),
             ValType::Number,
         )),
@@ -143,13 +139,10 @@ pub fn compile_expr<'a>(
             val: v,
             operator: op,
         } => Ok((
-            format!("{}{}", compile_expect(ctx, &*v, ValType::Number)?, op),
+            format!("{}{}", compile_expect(ctx, *v, ValType::Number)?, op),
             ValType::Number,
         )),
-        Expression::Call {
-            func: (s, fname),
-            args,
-        } => compile_call(ctx, s, fname, args),
+        Expression::Call { func, args } => compile_call(ctx, func, args),
         // TODO: Stringify it
         Expression::List(_) => Ok((String::new(), ValType::List)),
         _ => unimplemented!(),
@@ -166,9 +159,7 @@ mod tests {
     }
 
     fn compile(exp: Expression) -> Result<String, CompileError> {
-        let mut i = (spn(), exp);
-        let r = compile_expr(&mut new_ctx(), &i)?;
-        Ok(r.0)
+        Ok(compile_expr(&mut new_ctx(), (spn(), exp))?.0)
     }
 
     fn check(exp: Expression, r: &str) {
@@ -223,7 +214,7 @@ mod tests {
         let a = "s_{in}\\left(1\\right)";
         check(
             Expression::Call {
-                func: (spn(), "sin"),
+                func: "sin",
                 args: vec![Box::new((spn(), Expression::Num { val: "1" }))],
             },
             // TODO: Should start with "\\sin"
@@ -231,7 +222,7 @@ mod tests {
         );
         assert_eq!(
             compile(Expression::Call {
-                func: (spn(), "abc"),
+                func: "abc",
                 args: vec![],
             })
             .unwrap_err()
@@ -244,7 +235,7 @@ mod tests {
     fn argc_validation() {
         assert_eq!(
             compile(Expression::Call {
-                func: (spn(), "sin"),
+                func: "sin",
                 args: vec![],
             })
             .unwrap_err()
@@ -256,7 +247,7 @@ mod tests {
         );
         assert_eq!(
             compile(Expression::Call {
-                func: (spn(), "sin"),
+                func: "sin",
                 args: vec![
                     Box::new((spn(), Expression::Num { val: "1" })),
                     Box::new((spn(), Expression::Num { val: "2" }))
@@ -275,7 +266,7 @@ mod tests {
     fn call_arg_checking() {
         assert_eq!(
             compile(Expression::Call {
-                func: (spn(), "sin"),
+                func: "sin",
                 args: vec![Box::new((
                     spn(),
                     Expression::List(vec![Box::new((spn(), Expression::Num { val: "1" }))])
