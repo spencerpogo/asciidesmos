@@ -38,7 +38,7 @@ pub enum Expression<'a> {
         operator: &'a str,
     },
     Call {
-        func: &'a str,
+        func: Located<'a, &'a str>,
         args: Vec<Box<LocatedExpression<'a>>>,
     },
     List(Vec<Box<LocatedExpression<'a>>>),
@@ -46,7 +46,9 @@ pub enum Expression<'a> {
 
 pub type Span<'a> = PestSpan<'a>;
 
-pub type LocatedExpression<'a> = (Span<'a>, Expression<'a>);
+pub type Located<'a, T> = (Span<'a>, T);
+
+pub type LocatedExpression<'a> = Located<'a, Expression<'a>>;
 
 pub type ArgCount = usize;
 
@@ -72,7 +74,7 @@ pub enum CompileErrorKind<'a> {
 #[derive(Clone, Debug, PartialEq)]
 pub struct CompileError<'a> {
     pub kind: CompileErrorKind<'a>,
-    pub span: Span<'a>,
+    pub span: &'a Span<'a>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Copy, PartialOrd, Ord)]
