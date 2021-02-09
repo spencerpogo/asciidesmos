@@ -50,7 +50,7 @@ pub type LocatedExpression<'a> = (Span<'a>, Expression<'a>);
 
 pub type ArgCount = usize;
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ValType {
     Number,
     List,
@@ -62,14 +62,14 @@ pub struct Function<'a> {
     pub ret: &'a ValType,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CompileErrorKind<'a> {
     UnknownFunction(&'a str),
     WrongArgCount { got: ArgCount, expected: ArgCount },
     TypeMismatch { got: ValType, expected: ValType },
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CompileError<'a> {
     pub kind: CompileErrorKind<'a>,
     pub span: Span<'a>,
