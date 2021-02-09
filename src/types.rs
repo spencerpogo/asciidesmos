@@ -67,6 +67,7 @@ pub enum CompileErrorKind<'a> {
     UnknownFunction(&'a str),
     WrongArgCount { got: ArgCount, expected: ArgCount },
     TypeMismatch { got: ValType, expected: ValType },
+    UndefinedVariable(&'a str),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -87,6 +88,9 @@ impl CompileError<'_> {
             }
             CompileErrorKind::TypeMismatch { got, expected } => {
                 format!("Expected type {:#?} but got {:#?}", expected, got)
+            }
+            CompileErrorKind::UndefinedVariable(var) => {
+                format!("Undefined variable '{}'", var)
             }
         }
     }

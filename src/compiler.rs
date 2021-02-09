@@ -134,6 +134,8 @@ pub fn compile_expect<'a>(
     Ok(s)
 }
 
+// Ideally this would be functional and ctx would not need to be mutable, but rust
+//  support for immutable hashmaps isn't built in and mutation is much simpler.
 pub fn compile_expr<'a>(
     ctx: &mut Context,
     expr: LocatedExpression<'a>,
@@ -142,8 +144,13 @@ pub fn compile_expr<'a>(
 
     match expr.1 {
         Expression::Num { val } => Ok((val.to_string(), ValType::Number)),
-        // TODO: Resolve type of variable
-        Expression::Variable { val } => Ok((compile_identifier(val), ValType::Number)),
+        Expression::Variable { val } => match ctx.variables.get(val) {
+            Some(var_type) => Ok((compile_identifier(val), *var_type)),
+            None => Err(CompileError {
+                kind: CompileErrorKind::UndefinedVariable(val),
+                span: span,
+            }),
+        },
         Expression::BinaryExpr {
             left,
             operator,
@@ -201,11 +208,32 @@ mod tests {
     }
 
     fn compile(exp: Expression) -> Result<String, CompileError> {
-        Ok(compile_expr(&mut new_ctx(), (spn(), exp))?.0)
+        compile_with_ctx(&mut new_ctx(), exp)
+    }
+
+    fn compile_with_ctx<'a>(
+        ctx: &mut Context,
+        exp: Expression<'a>,
+    ) -> Result<String, CompileError<'a>> {
+        Ok(compile_expr(ctx, (spn(), exp))?.0)
     }
 
     fn check(exp: Expression, r: &str) {
         assert_eq!(compile(exp).unwrap(), r.to_string());
+    }
+
+    fn comp_with_var<'a>(
+        v: &str,
+        vtype: ValType,
+        exp: Expression<'a>,
+    ) -> Result<String, CompileError<'a>> {
+        let mut ctx = new_ctx();
+        ctx.variables.insert(v, vtype);
+        compile_with_ctx(&mut ctx, exp)
+    }
+
+    fn check_with_var<'a>(v: &str, vtype: ValType, exp: Expression<'a>, r: &'a str) {
+        assert_eq!(comp_with_var(v, vtype, exp).unwrap(), r);
     }
 
     #[inline]
@@ -221,9 +249,27 @@ mod tests {
 
     #[test]
     fn variable() {
-        check(Expression::Variable { val: "" }, "");
-        check(Expression::Variable { val: "a" }, "a");
-        check(Expression::Variable { val: "abc" }, "a_{bc}");
+        check_with_var("a", ValType::Number, Expression::Variable { val: "a" }, "a");
+        check_with_var(
+            "abc",
+            ValType::Number,
+            Expression::Variable { val: "abc" },
+            "a_{bc}",
+        );
+    }
+
+    #[test]
+    fn variable_resolution() {
+        assert_eq!(
+            compile(Expression::Variable { val: "" }).unwrap_err().kind,
+            CompileErrorKind::UndefinedVariable("")
+        );
+        assert_eq!(
+            compile(Expression::Variable { val: "abc" })
+                .unwrap_err()
+                .kind,
+            CompileErrorKind::UndefinedVariable("abc")
+        );
     }
 
     #[test]
