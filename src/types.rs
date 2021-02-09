@@ -88,7 +88,6 @@ impl CompileError<'_> {
             CompileErrorKind::TypeMismatch { got, expected } => {
                 format!("Expected type {:#?} but got {:#?}", expected, got)
             }
-            _ => "Unknown error".to_string(),
         }
     }
 }

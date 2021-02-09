@@ -3,7 +3,6 @@ use crate::{
     types::{CompileError, CompileErrorKind, Expression, Function, LocatedExpression, ValType},
 };
 use pest::Span;
-use std::convert::TryFrom;
 use std::fmt::Write;
 
 pub struct Context {
@@ -180,7 +179,6 @@ pub fn compile_expr<'a>(
 
             Ok((format!("\\left[{}\\right]", s), ValType::List))
         }
-        _ => unimplemented!(),
     }
 }
 
