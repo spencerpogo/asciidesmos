@@ -86,15 +86,18 @@ pub fn compile_call<'a>(
     }
 }
 
-pub fn check_type<'a>(got: ValType, expect: ValType) -> Result<(), CompileError<'a>> {
+pub fn check_type<'a>(
+    span: Span<'a>,
+    got: ValType,
+    expect: ValType,
+) -> Result<(), CompileError<'a>> {
     if got != expect {
         Err(CompileError {
             kind: CompileErrorKind::TypeMismatch {
                 got: got,
                 expected: expect,
             },
-            // TODO: Fixme real span here
-            span: Span::new("", 0, 0).unwrap(),
+            span: span,
         })
     } else {
         Ok(())
@@ -104,11 +107,12 @@ pub fn check_type<'a>(got: ValType, expect: ValType) -> Result<(), CompileError<
 // Combination of compile_expr and check_type
 pub fn compile_expect<'a>(
     ctx: &mut Context,
+    span: Span<'a>,
     expr: LocatedExpression<'a>,
     expect: ValType,
 ) -> Result<String, CompileError<'a>> {
     let (s, t) = compile_expr(ctx, expr)?;
-    check_type(t, expect)?;
+    check_type(span, t, expect)?;
     Ok(s)
 }
 
@@ -116,6 +120,8 @@ pub fn compile_expr<'a>(
     ctx: &mut Context,
     expr: LocatedExpression<'a>,
 ) -> Result<(String, ValType), CompileError<'a>> {
+    let span = expr.0;
+
     match expr.1 {
         Expression::Num { val } => Ok((val.to_string(), ValType::Number)),
         // TODO: Resolve type of variable
@@ -124,24 +130,27 @@ pub fn compile_expr<'a>(
             left,
             operator,
             right,
-        } => Ok((
-            format!(
-                "{}{}{}",
-                // Expect number because cannot do math on lists
-                compile_expect(ctx, *left, ValType::Number)?,
-                operator,
-                compile_expect(ctx, *right, ValType::Number)?
-            ),
-            ValType::Number,
-        )),
+        } => {
+            let span2 = span.clone();
+            Ok((
+                format!(
+                    "{}{}{}",
+                    // Expect number because cannot do math on lists
+                    compile_expect(ctx, span, *left, ValType::Number)?,
+                    operator,
+                    compile_expect(ctx, span2, *right, ValType::Number)?
+                ),
+                ValType::Number,
+            ))
+        }
         Expression::UnaryExpr {
             val: v,
             operator: op,
         } => Ok((
-            format!("{}{}", compile_expect(ctx, *v, ValType::Number)?, op),
+            format!("{}{}", compile_expect(ctx, span, *v, ValType::Number)?, op),
             ValType::Number,
         )),
-        Expression::Call { func, args } => compile_call(ctx, expr.0, func, args),
+        Expression::Call { func, args } => compile_call(ctx, span, func, args),
         // TODO: Stringify it
         Expression::List(_) => Ok((String::new(), ValType::List)),
         _ => unimplemented!(),
