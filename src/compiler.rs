@@ -1,6 +1,6 @@
 use crate::{
     builtins,
-    types::{CompileError, CompileErrorKind, Expression, Function, ValType},
+    types::{CompileError, CompileErrorKind, Expression, Function, LocatedExpression, ValType},
 };
 use pest::Span;
 use std::convert::TryFrom;
@@ -34,7 +34,7 @@ pub fn resolve_function<'a>(_ctx: &mut Context, func: &str) -> Option<&'a Functi
 pub fn compile_call<'a>(
     ctx: &mut Context,
     fname: &'a str,
-    args: Vec<Box<Expression<'a>>>,
+    args: Vec<Box<LocatedExpression<'a>>>,
 ) -> Result<(String, ValType), CompileError<'a>> {
     match resolve_function(ctx, fname) {
         None => Err(CompileError {
@@ -105,7 +105,7 @@ pub fn check_type<'a>(got: ValType, expect: ValType) -> Result<(), CompileError<
 // Combination of compile_expr and check_type
 pub fn compile_expect<'a>(
     ctx: &mut Context,
-    expr: Expression<'a>,
+    expr: LocatedExpression<'a>,
     expect: ValType,
 ) -> Result<String, CompileError<'a>> {
     let (s, t) = compile_expr(ctx, expr)?;
@@ -115,9 +115,9 @@ pub fn compile_expect<'a>(
 
 pub fn compile_expr<'a>(
     ctx: &mut Context,
-    expr: Expression<'a>,
+    expr: LocatedExpression<'a>,
 ) -> Result<(String, ValType), CompileError<'a>> {
-    match expr {
+    match expr.1 {
         Expression::Num { val } => Ok((val.to_string(), ValType::Number)),
         // TODO: Resolve type of variable
         Expression::Variable { val } => Ok((compile_identifier(val), ValType::Number)),
@@ -129,9 +129,9 @@ pub fn compile_expr<'a>(
             format!(
                 "{}{}{}",
                 // Expect number because cannot do math on lists
-                compile_expect(ctx, left.1, ValType::Number)?,
+                compile_expect(ctx, *left, ValType::Number)?,
                 operator,
-                compile_expect(ctx, right.1, ValType::Number)?
+                compile_expect(ctx, *right, ValType::Number)?
             ),
             ValType::Number,
         )),
@@ -139,18 +139,10 @@ pub fn compile_expr<'a>(
             val: v,
             operator: op,
         } => Ok((
-            format!("{}{}", compile_expect(ctx, v.1, ValType::Number)?, op),
+            format!("{}{}", compile_expect(ctx, *v, ValType::Number)?, op),
             ValType::Number,
         )),
-        // TODO: Remove this hack
-        Expression::Call { func, args } => {
-            let mut newargs = Vec::new();
-            for i in args {
-                newargs.push(Box::new(i.1));
-            }
-
-            compile_call(ctx, func, newargs)
-        }
+        Expression::Call { func, args } => compile_call(ctx, func, args),
         // TODO: Stringify it
         Expression::List(_) => Ok((String::new(), ValType::List)),
         _ => unimplemented!(),
@@ -167,7 +159,7 @@ mod tests {
     }
 
     fn compile(exp: Expression) -> Result<String, CompileError> {
-        Ok(compile_expr(&mut new_ctx(), exp)?.0)
+        Ok(compile_expr(&mut new_ctx(), (spn(), exp))?.0)
     }
 
     fn check(exp: Expression, r: &str) {
