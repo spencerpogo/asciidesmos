@@ -63,6 +63,7 @@ pub fn compile_call<'a>(
                 for expect_type in (*func.args).iter() {
                     // Already checked that they are the same length, so unwrap is safe
                     let a = aiter.next().unwrap();
+                    let b = a.clone(); // TODO: maybe avoid cloning here?
 
                     let (arg_latex, got_type) = compile_expr(ctx, *a)?;
                     if got_type != **expect_type {
@@ -71,8 +72,7 @@ pub fn compile_call<'a>(
                                 got: got_type,
                                 expected: **expect_type,
                             },
-                            // TODO: Fixme real span here
-                            span: Span::new("", 0, 0).unwrap(),
+                            span: b.0,
                         });
                     }
 
