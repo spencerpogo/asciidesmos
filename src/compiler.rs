@@ -27,8 +27,12 @@ pub fn compile_identifier(v: &str) -> String {
     }
 }
 
-pub fn resolve_function<'a>(_ctx: &mut Context, func: &str) -> Option<&'a Function<'a>> {
-    builtins::BUILTIN_FUNCTIONS.get(func)
+// Returns function and whether it is builtin
+pub fn resolve_function<'a>(_ctx: &mut Context, func: &str) -> Option<(&'a Function<'a>, bool)> {
+    match builtins::BUILTIN_FUNCTIONS.get(func) {
+        None => None,
+        Some(f) => Some((f, true)),
+    }
 }
 
 pub fn compile_call<'a>(
@@ -42,7 +46,7 @@ pub fn compile_call<'a>(
             kind: CompileErrorKind::UnknownFunction(fname),
             span: span,
         }),
-        Some(func) => {
+        Some((func, is_builtin)) => {
             // Validate arg count
             let got = args.len();
             let expect = func.args.len();
@@ -56,7 +60,13 @@ pub fn compile_call<'a>(
                     span: span,
                 })
             } else {
-                let mut r = compile_identifier(fname);
+                // Builtins are prefixed with a backslash and are not in the identifier
+                //  form
+                let mut r = if is_builtin {
+                    format!("\\{}", fname)
+                } else {
+                    compile_identifier(fname)
+                };
                 r.push_str("\\left(");
 
                 let mut aiter = args.into_iter();
@@ -236,14 +246,13 @@ mod tests {
 
     #[test]
     fn call_resolution() {
-        let a = "s_{in}\\left(1\\right)";
         check(
             Expression::Call {
                 func: "sin",
                 args: vec![Box::new((spn(), Expression::Num { val: "1" }))],
             },
             // TODO: Should start with "\\sin"
-            a,
+            "\\sin\\left(1\\right)",
         );
         assert_eq!(
             compile(Expression::Call {
