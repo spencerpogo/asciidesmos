@@ -13,7 +13,7 @@ fn process(inp: &str, _show_ast: bool) {
             println!("{:#?}", ast);
             match desmos_lang::compiler::compile_expr(&mut desmos_lang::compiler::Context {}, ast) {
                 Err(e) => println!("{}", e),
-                Ok(res) => println!("{:#?}", res),
+                Ok((latex, _type)) => println!("{}", latex),
             }
         }
     }
@@ -27,15 +27,15 @@ fn main() {
         .arg(
             Arg::with_name("eval")
                 .short("e")
-                .long("config")
+                .long("eval")
                 .help("Compile code from a cmdline arg")
                 .takes_value(true)
                 .conflicts_with("file"),
         )
         .arg(
             Arg::with_name("file")
-                .short("-f")
-                .long("--file")
+                .short("f")
+                .long("file")
                 .help("Compile code from a file")
                 .takes_value(true)
                 .conflicts_with("eval"),
