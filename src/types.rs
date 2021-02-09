@@ -78,11 +78,26 @@ pub struct CompileError<'a> {
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Copy, PartialOrd, Ord)]
 struct DummyRuleType {}
 
+impl CompileError<'_> {
+    fn as_msg(&self) -> String {
+        match self.kind {
+            CompileErrorKind::UnknownFunction(func) => format!("Unknown function '{}'", func),
+            CompileErrorKind::WrongArgCount { got, expected } => {
+                format!("Expected {} arguments but got {}", expected, got)
+            }
+            CompileErrorKind::TypeMismatch { got, expected } => {
+                format!("Expected type {:#?} but got {:#?}", expected, got)
+            }
+            _ => "Unknown error".to_string(),
+        }
+    }
+}
+
 impl fmt::Display for CompileError<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s: pest_err::Error<DummyRuleType> = pest_err::Error::new_from_span(
             pest_err::ErrorVariant::CustomError {
-                message: "test".to_string(),
+                message: self.as_msg(),
             },
             self.span.clone(),
         );
