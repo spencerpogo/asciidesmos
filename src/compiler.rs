@@ -1,7 +1,8 @@
 use crate::{
     builtins,
-    types::{CompileError, Expression, Function, ValType},
+    types::{CompileError, CompileErrorKind, Expression, Function, ValType},
 };
+use pest::Span;
 use std::convert::TryFrom;
 use std::fmt::Write;
 
@@ -36,16 +37,24 @@ pub fn compile_call<'a>(
     args: Vec<Box<Expression<'a>>>,
 ) -> Result<(String, ValType), CompileError<'a>> {
     match resolve_function(ctx, fname) {
-        None => Err(CompileError::UnknownFunction(fname)),
+        None => Err(CompileError {
+            kind: CompileErrorKind::UnknownFunction(fname),
+            // TODO: Fixme real span here
+            span: Span::new("", 0, 0).unwrap(),
+        }),
         Some(func) => {
             // Validate arg count
             let got = args.len();
             let expect = func.args.len();
 
             if got != expect {
-                Err(CompileError::WrongArgCount {
-                    got: got,
-                    expected: expect,
+                Err(CompileError {
+                    kind: CompileErrorKind::WrongArgCount {
+                        got: got,
+                        expected: expect,
+                    },
+                    // TODO: Fixme real span here
+                    span: Span::new("", 0, 0).unwrap(),
                 })
             } else {
                 let mut r = compile_identifier(fname);
@@ -58,9 +67,13 @@ pub fn compile_call<'a>(
 
                     let (arg_latex, got_type) = compile_expr(ctx, *a)?;
                     if got_type != **expect_type {
-                        return Err(CompileError::TypeMismatch {
-                            got: got_type,
-                            expected: **expect_type,
+                        return Err(CompileError {
+                            kind: CompileErrorKind::TypeMismatch {
+                                got: got_type,
+                                expected: **expect_type,
+                            },
+                            // TODO: Fixme real span here
+                            span: Span::new("", 0, 0).unwrap(),
                         });
                     }
 
@@ -76,9 +89,13 @@ pub fn compile_call<'a>(
 
 pub fn check_type<'a>(got: ValType, expect: ValType) -> Result<(), CompileError<'a>> {
     if got != expect {
-        Err(CompileError::TypeMismatch {
-            got: got,
-            expected: expect,
+        Err(CompileError {
+            kind: CompileErrorKind::TypeMismatch {
+                got: got,
+                expected: expect,
+            },
+            // TODO: Fixme real span here
+            span: Span::new("", 0, 0).unwrap(),
         })
     } else {
         Ok(())

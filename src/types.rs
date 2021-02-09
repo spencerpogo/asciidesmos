@@ -1,3 +1,4 @@
+use pest::error as pest_err;
 use pest::Span as PestSpan;
 use std::fmt;
 
@@ -62,8 +63,29 @@ pub struct Function<'a> {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum CompileError<'a> {
+pub enum CompileErrorKind<'a> {
     UnknownFunction(&'a str),
     WrongArgCount { got: ArgCount, expected: ArgCount },
     TypeMismatch { got: ValType, expected: ValType },
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CompileError<'a> {
+    pub kind: CompileErrorKind<'a>,
+    pub span: Span<'a>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Copy, PartialOrd, Ord)]
+struct DummyRuleType {}
+
+impl fmt::Display for CompileError<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let s: pest_err::Error<DummyRuleType> = pest_err::Error::new_from_span(
+            pest_err::ErrorVariant::CustomError {
+                message: "test".to_string(),
+            },
+            self.span.clone(),
+        );
+        write!(f, "{}", s)
+    }
 }

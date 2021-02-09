@@ -13,7 +13,7 @@ fn process(inp: &str, _show_ast: bool) {
             println!("{:#?}", ast);
             match desmos_lang::compiler::compile_expr(&mut desmos_lang::compiler::Context {}, ast.1)
             {
-                Err(e) => println!("{:#?}", e),
+                Err(e) => println!("{}", e),
                 Ok(res) => println!("{:#?}", res),
             }
         }
