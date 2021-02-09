@@ -173,10 +173,11 @@ mod tests {
 
     #[test]
     fn call() {
+        let i = "a()";
         parse_test!(
-            "a()",
+            i,
             Expression::Call {
-                func: "a",
+                func: (spn(i, 0, 1), "a"),
                 args: Vec::new(),
             }
         );
@@ -184,7 +185,7 @@ mod tests {
         parse_test!(
             j,
             Expression::Call {
-                func: "a",
+                func: (spn(i, 0, 1), "a"),
                 args: vec![
                     Box::new((spn(j, 2, 3), Expression::Num { val: "1" })),
                     Box::new((spn(j, 5, 6), Expression::Num { val: "2" })),

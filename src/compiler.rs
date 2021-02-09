@@ -166,7 +166,9 @@ mod tests {
     }
 
     fn compile(exp: Expression) -> Result<String, CompileError> {
-        Ok(compile_expr(&mut new_ctx(), &(spn(), exp))?.0)
+        let mut i = (spn(), exp);
+        let r = compile_expr(&mut new_ctx(), &i)?;
+        Ok(r.0)
     }
 
     fn check(exp: Expression, r: &str) {
@@ -221,7 +223,7 @@ mod tests {
         let a = "s_{in}\\left(1\\right)";
         check(
             Expression::Call {
-                func: "sin",
+                func: (spn(), "sin"),
                 args: vec![Box::new((spn(), Expression::Num { val: "1" }))],
             },
             // TODO: Should start with "\\sin"
@@ -229,7 +231,7 @@ mod tests {
         );
         assert_eq!(
             compile(Expression::Call {
-                func: "abc",
+                func: (spn(), "abc"),
                 args: vec![],
             })
             .unwrap_err()
@@ -242,7 +244,7 @@ mod tests {
     fn argc_validation() {
         assert_eq!(
             compile(Expression::Call {
-                func: "sin",
+                func: (spn(), "sin"),
                 args: vec![],
             })
             .unwrap_err()
@@ -254,7 +256,7 @@ mod tests {
         );
         assert_eq!(
             compile(Expression::Call {
-                func: "sin",
+                func: (spn(), "sin"),
                 args: vec![
                     Box::new((spn(), Expression::Num { val: "1" })),
                     Box::new((spn(), Expression::Num { val: "2" }))
@@ -273,7 +275,7 @@ mod tests {
     fn call_arg_checking() {
         assert_eq!(
             compile(Expression::Call {
-                func: "sin",
+                func: (spn(), "sin"),
                 args: vec![Box::new((
                     spn(),
                     Expression::List(vec![Box::new((spn(), Expression::Num { val: "1" }))])
