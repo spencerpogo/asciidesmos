@@ -1,3 +1,4 @@
+use pest::Span as PestSpan;
 use std::fmt;
 
 #[derive(Debug, Clone)]
@@ -25,22 +26,26 @@ pub enum Expression<'a> {
         val: &'a str,
     },
     BinaryExpr {
-        left: Box<Expression<'a>>,
+        left: Box<LocatedExpression<'a>>,
         // Should probably make an enum for this, but its not worth the work to encode
         //  it just to stringify it again later
         operator: &'a str,
-        right: Box<Expression<'a>>,
+        right: Box<LocatedExpression<'a>>,
     },
     UnaryExpr {
-        val: Box<Expression<'a>>,
+        val: Box<LocatedExpression<'a>>,
         operator: &'a str,
     },
     Call {
         func: &'a str,
-        args: Vec<Box<Expression<'a>>>,
+        args: Vec<Box<LocatedExpression<'a>>>,
     },
-    List(Vec<Box<Expression<'a>>>),
+    List(Vec<Box<LocatedExpression<'a>>>),
 }
+
+pub type Span<'a> = PestSpan<'a>;
+
+pub type LocatedExpression<'a> = (Span<'a>, Expression<'a>);
 
 pub type ArgCount = usize;
 

@@ -112,9 +112,9 @@ pub fn compile_expr<'a>(
             format!(
                 "{}{}{}",
                 // Expect number because cannot do math on lists
-                compile_expect(ctx, *left, ValType::Number)?,
+                compile_expect(ctx, left.1, ValType::Number)?,
                 operator,
-                compile_expect(ctx, *right, ValType::Number)?
+                compile_expect(ctx, right.1, ValType::Number)?
             ),
             ValType::Number,
         )),
@@ -122,10 +122,18 @@ pub fn compile_expr<'a>(
             val: v,
             operator: op,
         } => Ok((
-            format!("{}{}", compile_expect(ctx, *v, ValType::Number)?, op),
+            format!("{}{}", compile_expect(ctx, v.1, ValType::Number)?, op),
             ValType::Number,
         )),
-        Expression::Call { func, args } => compile_call(ctx, func, args),
+        // TODO: Remove this hack
+        Expression::Call { func, args } => {
+            let mut newargs = Vec::new();
+            for i in args {
+                newargs.push(Box::new(i.1));
+            }
+
+            compile_call(ctx, func, newargs)
+        }
         // TODO: Stringify it
         Expression::List(_) => Ok((String::new(), ValType::List)),
         _ => unimplemented!(),
@@ -135,6 +143,7 @@ pub fn compile_expr<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pest::Span;
 
     fn new_ctx() -> Context {
         Context {}
@@ -146,6 +155,11 @@ mod tests {
 
     fn check(exp: Expression, r: &str) {
         assert_eq!(compile(exp).unwrap(), r.to_string());
+    }
+
+    #[inline]
+    fn spn<'a>() -> Span<'a> {
+        Span::new("", 0, 0).unwrap()
     }
 
     #[test]
@@ -163,36 +177,39 @@ mod tests {
 
     #[test]
     fn binary_expr() {
+        let i = "1+2";
         check(
             Expression::BinaryExpr {
-                left: Box::new(Expression::Num { val: "1" }),
+                left: Box::new((spn(), Expression::Num { val: "1" })),
                 operator: "+",
-                right: Box::new(Expression::Num { val: "2" }),
+                right: Box::new((spn(), Expression::Num { val: "2" })),
             },
-            "1+2",
+            i,
         )
     }
 
     #[test]
     fn unary_expression() {
+        let i = "2!";
         check(
             Expression::UnaryExpr {
-                val: Box::new(Expression::Num { val: "2" }),
+                val: Box::new((spn(), Expression::Num { val: "2" })),
                 operator: "!",
             },
-            "2!",
+            i,
         );
     }
 
     #[test]
     fn call_resolution() {
+        let a = "s_{in}\\left(1\\right)";
         check(
             Expression::Call {
                 func: "sin",
-                args: vec![Box::new(Expression::Num { val: "1" })],
+                args: vec![Box::new((spn(), Expression::Num { val: "1" }))],
             },
             // TODO: Should start with "\\sin"
-            "s_{in}\\left(1\\right)",
+            a,
         );
         assert_eq!(
             compile(Expression::Call {
@@ -219,8 +236,8 @@ mod tests {
             compile(Expression::Call {
                 func: "sin",
                 args: vec![
-                    Box::new(Expression::Num { val: "1" }),
-                    Box::new(Expression::Num { val: "2" })
+                    Box::new((spn(), Expression::Num { val: "1" })),
+                    Box::new((spn(), Expression::Num { val: "2" }))
                 ]
             }),
             Err(CompileError::WrongArgCount {
@@ -235,9 +252,10 @@ mod tests {
         assert_eq!(
             compile(Expression::Call {
                 func: "sin",
-                args: vec![Box::new(Expression::List(vec![Box::new(
-                    Expression::Num { val: "1" }
-                )]))]
+                args: vec![Box::new((
+                    spn(),
+                    Expression::List(vec![Box::new((spn(), Expression::Num { val: "1" }))])
+                ))]
             }),
             Err(CompileError::TypeMismatch {
                 got: ValType::List,
@@ -250,11 +268,12 @@ mod tests {
     fn binexp_typecheck() {
         assert_eq!(
             compile(Expression::BinaryExpr {
-                left: Box::new(Expression::List(vec![Box::new(Expression::Num {
-                    val: "1"
-                })])),
+                left: Box::new((
+                    spn(),
+                    Expression::List(vec![Box::new((spn(), Expression::Num { val: "1" }))])
+                )),
                 operator: "+",
-                right: Box::new(Expression::Num { val: "2" })
+                right: Box::new((spn(), Expression::Num { val: "2" }))
             }),
             Err(CompileError::TypeMismatch {
                 got: ValType::List,
@@ -267,9 +286,10 @@ mod tests {
     fn unary_typecheck() {
         assert_eq!(
             compile(Expression::UnaryExpr {
-                val: Box::new(Expression::List(vec![Box::new(Expression::Num {
-                    val: "1"
-                })])),
+                val: Box::new((
+                    spn(),
+                    Expression::List(vec![Box::new((spn(), Expression::Num { val: "1" }))])
+                )),
                 operator: "+",
             }),
             Err(CompileError::TypeMismatch {

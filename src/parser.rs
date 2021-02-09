@@ -1,4 +1,4 @@
-use crate::types::{AssertionError, Expression};
+use crate::types::{AssertionError, Expression, LocatedExpression};
 use pest::{
     error::Error as PestError,
     iterators::{Pair, Pairs},
@@ -18,33 +18,41 @@ pub fn try_unwrap<T>(i: Option<T>) -> Result<T, AssertionError> {
     i.ok_or(AssertionError)
 }
 
-pub fn process_token(t: Pair<'_, Rule>) -> Result<Expression, AssertionError> {
+pub fn process_token(t: Pair<'_, Rule>) -> Result<LocatedExpression, AssertionError> {
     println!("{:#?}", t);
+
+    let s = t.as_span();
     match t.as_rule() {
         Rule::ExpressionNoList | Rule::Expression => {
             process_token(try_unwrap(t.into_inner().next())?)
         }
-        Rule::Number => Ok(Expression::Num { val: t.as_str() }),
-        Rule::Variable => Ok(Expression::Variable { val: t.as_str() }),
+        Rule::Number => Ok((s, Expression::Num { val: t.as_str() })),
+        Rule::Variable => Ok((s, Expression::Variable { val: t.as_str() })),
         Rule::BinaryExpression => {
             let mut inner = t.into_inner();
             let left = process_token(try_unwrap(inner.next())?)?;
             let operator = try_unwrap(inner.next())?.as_str();
             let right = process_token(try_unwrap(inner.next())?)?;
-            Ok(Expression::BinaryExpr {
-                left: Box::new(left),
-                operator: operator,
-                right: Box::new(right),
-            })
+            Ok((
+                s,
+                Expression::BinaryExpr {
+                    left: Box::new(left),
+                    operator: operator,
+                    right: Box::new(right),
+                },
+            ))
         }
         Rule::UnaryExpression => {
             let mut inner = t.into_inner();
             let val = process_token(try_unwrap(inner.next())?)?;
             let operator = try_unwrap(inner.next())?.as_str();
-            Ok(Expression::UnaryExpr {
-                val: Box::new(val),
-                operator: operator,
-            })
+            Ok((
+                s,
+                Expression::UnaryExpr {
+                    val: Box::new(val),
+                    operator: operator,
+                },
+            ))
         }
         Rule::Call => {
             let mut inner = t.into_inner();
@@ -61,23 +69,29 @@ pub fn process_token(t: Pair<'_, Rule>) -> Result<Expression, AssertionError> {
                         args_ast.push(Box::new(process_token(arg_token)?));
                     }
 
-                    Ok(Expression::Call {
-                        func: func,
-                        args: args_ast,
-                    })
+                    Ok((
+                        s,
+                        Expression::Call {
+                            func: func,
+                            args: args_ast,
+                        },
+                    ))
                 }
                 // No arguments were supplied
-                _ => Ok(Expression::Call {
-                    func: func,
-                    args: Vec::new(),
-                }),
+                _ => Ok((
+                    s,
+                    Expression::Call {
+                        func: func,
+                        args: Vec::new(),
+                    },
+                )),
             }
         }
         Rule::List => {
             let mut inner = t.into_inner();
 
             match inner.next() {
-                None => Ok(Expression::List(vec![])),
+                None => Ok((s, Expression::List(vec![]))),
                 Some(val_tokens) => {
                     let mut vals = Vec::new();
 
@@ -85,7 +99,7 @@ pub fn process_token(t: Pair<'_, Rule>) -> Result<Expression, AssertionError> {
                         vals.push(Box::new(process_token(v)?))
                     }
 
-                    Ok(Expression::List(vals))
+                    Ok((s, Expression::List(vals)))
                 }
             }
         }
@@ -96,14 +110,20 @@ pub fn process_token(t: Pair<'_, Rule>) -> Result<Expression, AssertionError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pest::Span;
 
     macro_rules! parse_test {
         ($i:expr, $r:expr) => {
             assert_eq!(
-                process_token(parse($i).unwrap().next().unwrap()).unwrap(),
+                process_token(parse($i).unwrap().next().unwrap()).unwrap().1,
                 $r
             );
         };
+    }
+
+    #[inline]
+    fn spn<'a>(i: &'a str, start: usize, end: usize) -> Span<'a> {
+        Span::new(i, start, end).unwrap()
     }
 
     #[test]
@@ -127,22 +147,24 @@ mod tests {
 
     #[test]
     fn binary_expression() {
+        let i = "1 + 2";
         parse_test!(
-            "1 + 2",
+            i,
             Expression::BinaryExpr {
-                left: Box::new(Expression::Num { val: "1" }),
+                left: Box::new((spn(i, 0, 1), Expression::Num { val: "1" })),
                 operator: "+",
-                right: Box::new(Expression::Num { val: "2" })
+                right: Box::new((spn(i, 4, 5), Expression::Num { val: "2" }))
             }
         );
     }
 
     #[test]
     fn unary_expression() {
+        let i = "1!";
         parse_test!(
-            "1!",
+            i,
             Expression::UnaryExpr {
-                val: Box::new(Expression::Num { val: "1" }),
+                val: Box::new((spn(i, 0, 1), Expression::Num { val: "1" })),
                 operator: "!",
             }
         );
@@ -157,14 +179,15 @@ mod tests {
                 args: Vec::new(),
             }
         );
+        let j = "a(1, 2, 3)";
         parse_test!(
-            "a(1, 2, 3)",
+            j,
             Expression::Call {
                 func: "a",
                 args: vec![
-                    Box::new(Expression::Num { val: "1" }),
-                    Box::new(Expression::Num { val: "2" }),
-                    Box::new(Expression::Num { val: "3" }),
+                    Box::new((spn(j, 2, 3), Expression::Num { val: "1" })),
+                    Box::new((spn(j, 5, 6), Expression::Num { val: "2" })),
+                    Box::new((spn(j, 8, 9), Expression::Num { val: "3" })),
                 ]
             }
         );
@@ -172,12 +195,13 @@ mod tests {
 
     #[test]
     fn list() {
+        let i = "[1, 2,3]";
         parse_test!(
-            "[1, 2,3]",
+            i,
             Expression::List(vec![
-                Box::new(Expression::Num { val: "1" }),
-                Box::new(Expression::Num { val: "2" }),
-                Box::new(Expression::Num { val: "3" }),
+                Box::new((spn(i, 1, 2), Expression::Num { val: "1" })),
+                Box::new((spn(i, 4, 5), Expression::Num { val: "2" })),
+                Box::new((spn(i, 6, 7), Expression::Num { val: "3" })),
             ])
         );
     }
