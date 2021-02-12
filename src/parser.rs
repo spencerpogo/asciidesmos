@@ -18,6 +18,17 @@ pub fn try_unwrap<T>(i: Option<T>) -> Result<T, AssertionError> {
     i.ok_or(AssertionError)
 }
 
+pub fn process_binpair(t: Pair<'_, Rule>) -> Result<(&str, LocatedExpression), AssertionError> {
+    if t.as_rule() != Rule::BinPair {
+        return Err(AssertionError);
+    };
+    let mut n = t.into_inner();
+    let op = try_unwrap(n.next())?;
+    let term = try_unwrap(n.next())?;
+
+    Ok((op.as_str(), process_token(term)?))
+}
+
 pub fn process_token(t: Pair<'_, Rule>) -> Result<LocatedExpression, AssertionError> {
     println!("{:#?}", t);
 
@@ -31,18 +42,37 @@ pub fn process_token(t: Pair<'_, Rule>) -> Result<LocatedExpression, AssertionEr
         Rule::Number => Ok((s, Expression::Num { val: t.as_str() })),
         Rule::Variable => Ok((s, Expression::Variable { val: t.as_str() })),
         Rule::BinaryExpression => {
+            let s2 = t.as_span();
             let mut inner = t.into_inner();
+            println!("left");
             let left = process_token(try_unwrap(inner.next())?)?;
-            let operator = try_unwrap(inner.next())?.as_str();
-            let right = process_token(try_unwrap(inner.next())?)?;
-            Ok((
-                s,
-                Expression::BinaryExpr {
-                    left: Box::new(left),
-                    operator: operator,
-                    right: Box::new(right),
+            println!("right");
+            let (op, right) = process_binpair(try_unwrap(inner.next())?)?;
+
+            let e = inner.try_fold(
+                (
+                    s,
+                    Expression::BinaryExpr {
+                        left: Box::new(left),
+                        operator: op,
+                        right: Box::new(right),
+                    },
+                ),
+                |e, i| {
+                    let i_span = i.as_span();
+                    let (op, right) = process_binpair(i)?;
+                    Ok((
+                        i_span,
+                        Expression::BinaryExpr {
+                            left: Box::new(e),
+                            operator: op,
+                            right: Box::new(right),
+                        },
+                    ))
                 },
-            ))
+            )?;
+
+            Ok((s2, e.1))
         }
         Rule::UnaryExpression => {
             let mut inner = t.into_inner();
@@ -163,19 +193,24 @@ mod tests {
     #[test]
     fn long_binary_expression() {
         let i = "1 + 2 + 3";
+        println!(
+            "{:#?}",
+            process_token(parse(i).unwrap().next().unwrap()).unwrap()
+        );
+
         parse_test!(
             i,
             Expression::BinaryExpr {
-                left: Box::new((spn(i, 0, 1), Expression::Num { val: "1" })),
-                operator: "+",
-                right: Box::new((
-                    spn(i, 4, 9),
+                left: Box::new((
+                    spn(i, 0, 9),
                     Expression::BinaryExpr {
-                        left: Box::new((spn(i, 4, 5), Expression::Num { val: "2" })),
+                        left: Box::new((spn(i, 0, 1), Expression::Num { val: "1" })),
                         operator: "+",
-                        right: Box::new((spn(i, 8, 9), Expression::Num { val: "3" }))
+                        right: Box::new((spn(i, 4, 5), Expression::Num { val: "2" }))
                     }
-                ))
+                )),
+                operator: "+",
+                right: Box::new((spn(i, 8, 9), Expression::Num { val: "3" })),
             }
         );
     }

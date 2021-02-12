@@ -13,7 +13,8 @@ Subtract = @{ "-" }
 Multiply = @{ "*" }
 Divide =   @{ "/" }
 BinaryOperator = @{ Add | Subtract | Multiply | Divide }
-BinaryExpression = { Term ~ (BinaryOperator ~ Term)+ }
+BinPair = { BinaryOperator ~ Term }
+BinaryExpression = { Term ~ BinPair+ }
 
 PositiveSign = @{ "+" }
 NegativeSign = @{ "-" }
