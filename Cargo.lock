@@ -86,6 +86,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "pest",
+ "pest_consume",
  "pest_derive",
  "phf",
 ]
@@ -159,6 +160,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "10f4872ae94d7b90ae48754df22fd42ad52ce740b8f370b03da4835417403e53"
 dependencies = [
  "ucd-trie",
+]
+
+[[package]]
+name = "pest_consume"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f06d200abe3be440ee3be3dcd2a65518250c0181364a332fa334b35152cb82e"
+dependencies = [
+ "pest",
+ "pest_consume_macros",
+ "pest_derive",
+ "proc-macro-hack",
+]
+
+[[package]]
+name = "pest_consume_macros"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "466dea9184791ec0b5304cc103dcbd3f267b0157aa60b2efc74ea1b1c886ea51"
+dependencies = [
+ "proc-macro-hack",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
