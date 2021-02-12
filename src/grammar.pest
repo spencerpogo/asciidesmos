@@ -1,4 +1,4 @@
-Program = _{ SOI ~ Expression ~ EOF }
+Program = { SOI ~ Expression ~ EOF }
 
 ExpressionNoList =  { UnaryExpression | BinaryExpression | Term }
 Expression = { List | UnaryExpression | BinaryExpression | Term }

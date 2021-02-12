@@ -23,6 +23,7 @@ pub fn process_token(t: Pair<'_, Rule>) -> Result<LocatedExpression, AssertionEr
 
     let s = t.as_span();
     match t.as_rule() {
+        Rule::Program => process_token(try_unwrap(t.into_inner().next())?),
         Rule::ExpressionNoList | Rule::Expression => {
             process_token(try_unwrap(t.into_inner().next())?)
         }
