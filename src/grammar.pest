@@ -2,7 +2,7 @@ Program = { SOI ~ Expression ~ EOF }
 
 ExpressionNoList =  { UnaryExpression | BinaryExpression | Term }
 Expression = { List | UnaryExpression | BinaryExpression | Term }
-Term = _{ Call | Variable | Number | "(" ~ Expression ~ ")" }
+Term = { Call | Variable | Number | "(" ~ Expression ~ ")" }
 
 Factorial = @{ "!" }
 UnaryOperator = @{ Factorial }

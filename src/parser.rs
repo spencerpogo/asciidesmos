@@ -27,6 +27,7 @@ pub fn process_token(t: Pair<'_, Rule>) -> Result<LocatedExpression, AssertionEr
         Rule::ExpressionNoList | Rule::Expression => {
             process_token(try_unwrap(t.into_inner().next())?)
         }
+        Rule::Term => process_token(try_unwrap(t.into_inner().next())?),
         Rule::Number => Ok((s, Expression::Num { val: t.as_str() })),
         Rule::Variable => Ok((s, Expression::Variable { val: t.as_str() })),
         Rule::BinaryExpression => {
