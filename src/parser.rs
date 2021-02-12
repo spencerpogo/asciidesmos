@@ -161,6 +161,26 @@ mod tests {
     }
 
     #[test]
+    fn long_binary_expression() {
+        let i = "1 + 2 + 3";
+        parse_test!(
+            i,
+            Expression::BinaryExpr {
+                left: Box::new((spn(i, 0, 1), Expression::Num { val: "1" })),
+                operator: "+",
+                right: Box::new((
+                    spn(i, 4, 9),
+                    Expression::BinaryExpr {
+                        left: Box::new((spn(i, 4, 5), Expression::Num { val: "2" })),
+                        operator: "+",
+                        right: Box::new((spn(i, 8, 9), Expression::Num { val: "3" }))
+                    }
+                ))
+            }
+        );
+    }
+
+    #[test]
     fn unary_expression() {
         let i = "1!";
         parse_test!(
