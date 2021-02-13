@@ -2,7 +2,7 @@ use crate::types::{AssertionError, Expression, LocatedExpression};
 use pest::{
     error::Error as PestError,
     iterators::{Pair, Pairs},
-    Parser, Span,
+    Parser, Position, Span,
 };
 use pest_derive;
 
@@ -51,7 +51,8 @@ pub fn process_token(t: Pair<'_, Rule>) -> Result<LocatedExpression, AssertionEr
 
             let e = inner.try_fold(
                 (
-                    Span::new(s.as_str(), left.0.start(), right.0.end()).unwrap(),
+                    //Span::new(s.input, left.0.start(), right.0.end()).unwrap(),
+                    left.0.start_pos().span(&right.0.end_pos()),
                     Expression::BinaryExpr {
                         left: Box::new(left),
                         operator: op,
@@ -193,11 +194,9 @@ mod tests {
     #[test]
     fn long_binary_expression() {
         let i = "1 + 2 + 3";
-        let r = process_token(parse(i).unwrap().next().unwrap()).unwrap();
-        println!("{:#?}", r);
 
-        assert_eq!(
-            r.1,
+        parse_test!(
+            i,
             Expression::BinaryExpr {
                 left: Box::new((
                     spn(i, 0, 5),
