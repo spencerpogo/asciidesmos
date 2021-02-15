@@ -35,9 +35,9 @@ impl DesmosParser {
         Ok(match_nodes!(
             input.into_children();
             // TODO: Call
-            // TODO: Variable
             [Expression(e)] => e,
             [Number(n)] => n,
+            [Variable(n)] => n,
         ))
     }
 
@@ -94,6 +94,16 @@ impl DesmosParser {
         Ok((
             s,
             Expression::Num {
+                val: input.as_str(),
+            },
+        ))
+    }
+
+    fn Variable(input: Node) -> Pesult<LocatedExpression> {
+        let s = input.as_span();
+        Ok((
+            s,
+            Expression::Variable {
                 val: input.as_str(),
             },
         ))
