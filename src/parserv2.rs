@@ -11,17 +11,20 @@ type Node<'i> = PestNode<'i, Rule, ()>;
 #[grammar = "grammar.pest"] // relative to src
 pub struct DesmosParser;
 
-#[pest_consume::parser]
 impl DesmosParser {
-    fn EOI(_input: Node) -> Pesult<()> {
-        Ok(())
+    // Shared rules
+    fn arguments(input: Node) -> Pesult<Vec<Box<LocatedExpression>>> {
+        let r = match_nodes!(
+            input.into_children();
+            [Expression(e)..] => e,
+            [ExpressionNoList(e)..] => e,
+        )
+        .map(|t| Box::new(t))
+        .collect();
+        Ok(r)
     }
 
-    fn ExpressionNoList(input: Node) -> Pesult<LocatedExpression> {
-        DesmosParser::Expression(input)
-    }
-
-    fn Expression(input: Node) -> Pesult<LocatedExpression> {
+    fn expression(input: Node) -> Pesult<LocatedExpression> {
         Ok(match_nodes!(
             input.into_children();
             [List(n)] => n,
@@ -29,6 +32,21 @@ impl DesmosParser {
             [BinaryExpression(n)] => n,
             [Term(n)] => n,
         ))
+    }
+}
+
+#[pest_consume::parser]
+impl DesmosParser {
+    fn EOI(_input: Node) -> Pesult<()> {
+        Ok(())
+    }
+
+    fn ExpressionNoList(input: Node) -> Pesult<LocatedExpression> {
+        Self::expression(input)
+    }
+
+    fn Expression(input: Node) -> Pesult<LocatedExpression> {
+        Self::expression(input)
     }
 
     fn Term(input: Node) -> Pesult<LocatedExpression> {
@@ -119,18 +137,16 @@ impl DesmosParser {
         Ok(match_nodes!(
             input.into_children();
             [] => (s, Expression::List(vec![])),
-            [ExpressionNoList(items)..] => (s, Expression::List(items.map(|i| Box::new(i)).collect())),
+            [ArgumentsNoList(items)] => (s, Expression::List(items)),
         ))
     }
 
     fn Arguments(input: Node) -> Pesult<Vec<Box<LocatedExpression>>> {
-        let r = match_nodes!(
-            input.into_children();
-            [Expression(e)..] => e,
-        )
-        .map(|t| Box::new(t))
-        .collect();
-        Ok(r)
+        Self::arguments(input)
+    }
+
+    fn ArgumentsNoList(input: Node) -> Pesult<Vec<Box<LocatedExpression>>> {
+        Self::arguments(input)
     }
 
     fn Call(input: Node) -> Pesult<LocatedExpression> {
