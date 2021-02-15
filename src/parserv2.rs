@@ -26,7 +26,8 @@ impl DesmosParser {
             input.into_children();
             [List(n)] => n,
             [UnaryExpression(n)] => n,
-            [BinaryExpression(n)] => n
+            [BinaryExpression(n)] => n,
+            [Term(n)] => n,
         ))
     }
 
