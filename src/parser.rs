@@ -52,7 +52,6 @@ impl DesmosParser {
     fn Term(input: Node) -> Pesult<LocatedExpression> {
         Ok(match_nodes!(
             input.into_children();
-            // TODO: Call
             [Expression(e)] => e,
             [Number(n)] => n,
             [Variable(n)] => n,
