@@ -38,6 +38,7 @@ impl DesmosParser {
             [Expression(e)] => e,
             [Number(n)] => n,
             [Variable(n)] => n,
+            [Call(c)] => c,
         ))
     }
 
@@ -99,6 +100,10 @@ impl DesmosParser {
         ))
     }
 
+    fn Identifier(input: Node) -> Pesult<&str> {
+        Ok(input.as_str())
+    }
+
     fn Variable(input: Node) -> Pesult<LocatedExpression> {
         let s = input.as_span();
         Ok((
@@ -115,6 +120,34 @@ impl DesmosParser {
             input.into_children();
             [] => (s, Expression::List(vec![])),
             [ExpressionNoList(items)..] => (s, Expression::List(items.map(|i| Box::new(i)).collect())),
+        ))
+    }
+
+    fn Arguments(input: Node) -> Pesult<Vec<Box<LocatedExpression>>> {
+        let r = match_nodes!(
+            input.into_children();
+            [Expression(e)..] => e,
+        )
+        .map(|t| Box::new(t))
+        .collect();
+        Ok(r)
+    }
+
+    fn Call(input: Node) -> Pesult<LocatedExpression> {
+        let s = input.as_span();
+        Ok((
+            s,
+            match_nodes!(
+                input.into_children();
+                [Identifier(i)] => Expression::Call {
+                    func: i,
+                    args: Vec::new(),
+                },
+                [Identifier(i), Arguments(a)] => Expression::Call {
+                    func: i,
+                    args: a,
+                }
+            ),
         ))
     }
 
