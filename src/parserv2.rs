@@ -1,4 +1,4 @@
-use crate::types::{AssertionError, Expression, LocatedExpression};
+use crate::types::{Expression, LocatedExpression};
 use pest::Span;
 use pest_consume;
 use pest_consume::{match_nodes, Error, Node as PestNode, Parser as PestConsumeParser};
