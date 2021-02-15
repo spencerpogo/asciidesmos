@@ -1,4 +1,5 @@
 use crate::types::{AssertionError, Expression, LocatedExpression};
+use pest::Span;
 use pest_consume;
 use pest_consume::{match_nodes, Error, Node as PestNode, Parser as PestConsumeParser};
 
@@ -24,7 +25,8 @@ impl DesmosParser {
         Ok(match_nodes!(
             input.into_children();
             [List(n)] => n,
-            [UnaryExpression(n)] => n
+            [UnaryExpression(n)] => n,
+            [BinaryExpression(n)] => n
         ))
     }
 
@@ -33,8 +35,8 @@ impl DesmosParser {
             input.into_children();
             // TODO: Call
             // TODO: Variable
-            // TODO: Number
-            [Expression(e)] => e
+            [Expression(e)] => e,
+            [Number(n)] => n,
         ))
     }
 
@@ -47,6 +49,42 @@ impl DesmosParser {
         Ok(match_nodes!(
             input.into_children();
             [Term(t), UnaryOperator(op)] => (s, Expression::UnaryExpr { val: Box::new(t), operator: op })
+        ))
+    }
+
+    fn BinaryOperator(input: Node) -> Pesult<&str> {
+        Ok(input.as_str())
+    }
+
+    fn BinPair(input: Node) -> Pesult<(&str, LocatedExpression, Span)> {
+        let s = input.as_span();
+        Ok(match_nodes!(
+            input.into_children();
+            [BinaryOperator(op), Term(r)] => (op, r, s)
+        ))
+    }
+
+    fn BinaryExpression(input: Node) -> Pesult<LocatedExpression> {
+        Ok(match_nodes!(
+            input.into_children();
+            [Term(l), BinPair(p), BinPair(rest)..] => rest
+                .collect::<Vec<(&str, LocatedExpression, Span)>>()
+                .into_iter()
+                .try_fold(
+                    (l.0.start_pos().span(&p.2.end_pos()), Expression::BinaryExpr {
+                        left: Box::new(l),
+                        operator: p.0,
+                        right: Box::new(p.1)
+                    }),
+                    |lastexpr, npair|
+                        Ok((
+                            (lastexpr.0.start_pos().span(&npair.2.end_pos())),
+                            Expression::BinaryExpr {
+                            left: Box::new(lastexpr),
+                            operator: npair.0,
+                            right: Box::new(npair.1),
+                        }))
+                )?,
         ))
     }
 
@@ -127,6 +165,27 @@ mod tests {
                 left: Box::new((spn(i, 0, 1), Expression::Num { val: "1" })),
                 operator: "+",
                 right: Box::new((spn(i, 4, 5), Expression::Num { val: "2" }))
+            }
+        );
+    }
+
+    #[test]
+    fn long_binary_expression() {
+        let i = "1 + 2 + 3";
+
+        parse_test!(
+            i,
+            Expression::BinaryExpr {
+                left: Box::new((
+                    spn(i, 0, 5),
+                    Expression::BinaryExpr {
+                        left: Box::new((spn(i, 0, 1), Expression::Num { val: "1" })),
+                        operator: "+",
+                        right: Box::new((spn(i, 4, 5), Expression::Num { val: "2" }))
+                    }
+                )),
+                operator: "+",
+                right: Box::new((spn(i, 8, 9), Expression::Num { val: "3" })),
             }
         );
     }
