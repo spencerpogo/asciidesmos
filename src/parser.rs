@@ -1,143 +1,184 @@
-use crate::types::{AssertionError, Expression, LocatedExpression};
-use pest::{
-    error::Error as PestError,
-    iterators::{Pair, Pairs},
-    Parser, Position, Span,
-};
-use pest_derive;
+use crate::types::{Expression, LocatedExpression};
+use pest::Span;
+use pest_consume;
+use pest_consume::{match_nodes, Error, Node as PestNode, Parser as PestConsumeParser};
 
-#[derive(pest_derive::Parser)]
+// pest + result = pesult ;)
+type Pesult<T> = std::result::Result<T, Error<Rule>>;
+type Node<'i> = PestNode<'i, Rule, ()>;
+
+#[derive(PestConsumeParser)]
 #[grammar = "grammar.pest"] // relative to src
 pub struct DesmosParser;
 
-pub fn parse(i: &str) -> Result<Pairs<'_, Rule>, PestError<Rule>> {
-    DesmosParser::parse(Rule::Program, i)
-}
-
-pub fn try_unwrap<T>(i: Option<T>) -> Result<T, AssertionError> {
-    i.ok_or(AssertionError)
-}
-
-pub fn process_binpair(t: Pair<'_, Rule>) -> Result<(&str, LocatedExpression), AssertionError> {
-    if t.as_rule() != Rule::BinPair {
-        return Err(AssertionError);
-    };
-    let mut n = t.into_inner();
-    let op = try_unwrap(n.next())?;
-    let term = try_unwrap(n.next())?;
-
-    Ok((op.as_str(), process_token(term)?))
-}
-
-pub fn process_token(t: Pair<'_, Rule>) -> Result<LocatedExpression, AssertionError> {
-    println!("{:#?}", t);
-
-    let s = t.as_span();
-    match t.as_rule() {
-        Rule::Program => process_token(try_unwrap(t.into_inner().next())?),
-        Rule::ExpressionNoList | Rule::Expression => {
-            process_token(try_unwrap(t.into_inner().next())?)
-        }
-        Rule::Term => process_token(try_unwrap(t.into_inner().next())?),
-        Rule::Number => Ok((s, Expression::Num { val: t.as_str() })),
-        Rule::Variable => Ok((s, Expression::Variable { val: t.as_str() })),
-        Rule::BinaryExpression => {
-            let s2 = t.as_span();
-            let mut inner = t.into_inner();
-            println!("left");
-            let left = process_token(try_unwrap(inner.next())?)?;
-            println!("right");
-            let (op, right) = process_binpair(try_unwrap(inner.next())?)?;
-
-            let e = inner.try_fold(
-                (
-                    //Span::new(s.input, left.0.start(), right.0.end()).unwrap(),
-                    left.0.start_pos().span(&right.0.end_pos()),
-                    Expression::BinaryExpr {
-                        left: Box::new(left),
-                        operator: op,
-                        right: Box::new(right),
-                    },
-                ),
-                |e, i| {
-                    let i_span = i.as_span();
-                    let (op, right) = process_binpair(i)?;
-                    Ok((
-                        i_span,
-                        Expression::BinaryExpr {
-                            left: Box::new(e),
-                            operator: op,
-                            right: Box::new(right),
-                        },
-                    ))
-                },
-            )?;
-
-            Ok((s2, e.1))
-        }
-        Rule::UnaryExpression => {
-            let mut inner = t.into_inner();
-            let val = process_token(try_unwrap(inner.next())?)?;
-            let operator = try_unwrap(inner.next())?.as_str();
-            Ok((
-                s,
-                Expression::UnaryExpr {
-                    val: Box::new(val),
-                    operator: operator,
-                },
-            ))
-        }
-        Rule::Call => {
-            let mut inner = t.into_inner();
-            let func = try_unwrap(inner.next())?.as_str();
-            let arg_tokens_result = inner.next();
-
-            match arg_tokens_result {
-                // Arguments were supplied
-                Some(arg_tokens) => {
-                    // parse arguments
-                    let mut args_ast = Vec::new();
-
-                    for arg_token in arg_tokens.into_inner() {
-                        args_ast.push(Box::new(process_token(arg_token)?));
-                    }
-
-                    Ok((
-                        s,
-                        Expression::Call {
-                            func: func,
-                            args: args_ast,
-                        },
-                    ))
-                }
-                // No arguments were supplied
-                _ => Ok((
-                    s,
-                    Expression::Call {
-                        func: func,
-                        args: Vec::new(),
-                    },
-                )),
-            }
-        }
-        Rule::List => {
-            let mut inner = t.into_inner();
-
-            match inner.next() {
-                None => Ok((s, Expression::List(vec![]))),
-                Some(val_tokens) => {
-                    let mut vals = Vec::new();
-
-                    for v in val_tokens.into_inner() {
-                        vals.push(Box::new(process_token(v)?))
-                    }
-
-                    Ok((s, Expression::List(vals)))
-                }
-            }
-        }
-        _ => unimplemented!(),
+impl DesmosParser {
+    // Shared rules
+    fn arguments(input: Node) -> Pesult<Vec<Box<LocatedExpression>>> {
+        let r = match_nodes!(
+            input.into_children();
+            [Expression(e)..] => e,
+            [ExpressionNoList(e)..] => e,
+        )
+        .map(|t| Box::new(t))
+        .collect();
+        Ok(r)
     }
+
+    fn expression(input: Node) -> Pesult<LocatedExpression> {
+        Ok(match_nodes!(
+            input.into_children();
+            [List(n)] => n,
+            [UnaryExpression(n)] => n,
+            [BinaryExpression(n)] => n,
+            [Term(n)] => n,
+        ))
+    }
+}
+
+#[pest_consume::parser]
+impl DesmosParser {
+    fn EOI(_input: Node) -> Pesult<()> {
+        Ok(())
+    }
+
+    fn ExpressionNoList(input: Node) -> Pesult<LocatedExpression> {
+        Self::expression(input)
+    }
+
+    fn Expression(input: Node) -> Pesult<LocatedExpression> {
+        Self::expression(input)
+    }
+
+    fn Term(input: Node) -> Pesult<LocatedExpression> {
+        Ok(match_nodes!(
+            input.into_children();
+            // TODO: Call
+            [Expression(e)] => e,
+            [Number(n)] => n,
+            [Variable(n)] => n,
+            [Call(c)] => c,
+        ))
+    }
+
+    fn UnaryOperator(input: Node) -> Pesult<&str> {
+        Ok(input.as_str())
+    }
+
+    fn UnaryExpression(input: Node) -> Pesult<LocatedExpression> {
+        let s = input.as_span();
+        Ok(match_nodes!(
+            input.into_children();
+            [Term(t), UnaryOperator(op)] => (s, Expression::UnaryExpr { val: Box::new(t), operator: op })
+        ))
+    }
+
+    fn BinaryOperator(input: Node) -> Pesult<&str> {
+        Ok(input.as_str())
+    }
+
+    fn BinPair(input: Node) -> Pesult<(&str, LocatedExpression, Span)> {
+        let s = input.as_span();
+        Ok(match_nodes!(
+            input.into_children();
+            [BinaryOperator(op), Term(r)] => (op, r, s)
+        ))
+    }
+
+    fn BinaryExpression(input: Node) -> Pesult<LocatedExpression> {
+        Ok(match_nodes!(
+            input.into_children();
+            [Term(l), BinPair(p), BinPair(rest)..] => rest
+                .collect::<Vec<(&str, LocatedExpression, Span)>>()
+                .into_iter()
+                .try_fold(
+                    (l.0.start_pos().span(&p.2.end_pos()), Expression::BinaryExpr {
+                        left: Box::new(l),
+                        operator: p.0,
+                        right: Box::new(p.1)
+                    }),
+                    |lastexpr, npair|
+                        Ok((
+                            (lastexpr.0.start_pos().span(&npair.2.end_pos())),
+                            Expression::BinaryExpr {
+                            left: Box::new(lastexpr),
+                            operator: npair.0,
+                            right: Box::new(npair.1),
+                        }))
+                )?,
+        ))
+    }
+
+    fn Number(input: Node) -> Pesult<LocatedExpression> {
+        let s = input.as_span();
+        Ok((
+            s,
+            Expression::Num {
+                val: input.as_str(),
+            },
+        ))
+    }
+
+    fn Identifier(input: Node) -> Pesult<&str> {
+        Ok(input.as_str())
+    }
+
+    fn Variable(input: Node) -> Pesult<LocatedExpression> {
+        let s = input.as_span();
+        Ok((
+            s,
+            Expression::Variable {
+                val: input.as_str(),
+            },
+        ))
+    }
+
+    fn List(input: Node) -> Pesult<LocatedExpression> {
+        let s = input.as_span();
+        Ok(match_nodes!(
+            input.into_children();
+            [] => (s, Expression::List(vec![])),
+            [ArgumentsNoList(items)] => (s, Expression::List(items)),
+        ))
+    }
+
+    fn Arguments(input: Node) -> Pesult<Vec<Box<LocatedExpression>>> {
+        Self::arguments(input)
+    }
+
+    fn ArgumentsNoList(input: Node) -> Pesult<Vec<Box<LocatedExpression>>> {
+        Self::arguments(input)
+    }
+
+    fn Call(input: Node) -> Pesult<LocatedExpression> {
+        let s = input.as_span();
+        Ok((
+            s,
+            match_nodes!(
+                input.into_children();
+                [Identifier(i)] => Expression::Call {
+                    func: i,
+                    args: Vec::new(),
+                },
+                [Identifier(i), Arguments(a)] => Expression::Call {
+                    func: i,
+                    args: a,
+                }
+            ),
+        ))
+    }
+
+    fn Program(input: Node) -> Pesult<LocatedExpression> {
+        Ok(match_nodes!(
+            input.into_children();
+            [Expression(n), EOI(_)] => n,
+        ))
+    }
+}
+
+pub fn parse(i: &str) -> Pesult<LocatedExpression> {
+    let inputs = DesmosParser::parse(Rule::Program, i)?;
+    let input = inputs.single()?;
+    DesmosParser::Program(input)
 }
 
 #[cfg(test)]
@@ -147,10 +188,7 @@ mod tests {
 
     macro_rules! parse_test {
         ($i:expr, $r:expr) => {
-            assert_eq!(
-                process_token(parse($i).unwrap().next().unwrap()).unwrap(),
-                (spn($i, 0, $i.len()), $r)
-            );
+            assert_eq!(parse($i).unwrap(), (spn($i, 0, $i.len()), $r));
         };
     }
 
