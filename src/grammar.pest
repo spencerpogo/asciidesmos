@@ -1,4 +1,4 @@
-Program = { SOI ~ Expression ~ EOF }
+Program = { SOI ~ Stmt ~ EOF }
 
 ExpressionNoList =  { UnaryExpression | BinaryExpression | Term }
 Expression = { List | UnaryExpression | BinaryExpression | Term }
@@ -36,6 +36,17 @@ ArgumentsNoList = { ExpressionNoList ~ ("," ~ ExpressionNoList)*  }
 List = { "[" ~ ArgumentsNoList? ~ "]" }
 
 Call = { Identifier ~ "(" ~ Arguments? ~ ")" }
+
+Type = { "Number" | "List" }
+TypeAnnotation = { ":" ~ Type }
+
+FuncDefParam = { Identifier ~ TypeAnnotation? }
+FuncDefParams = { FuncDefParam ~ ("," ~ FuncDefParam)* }
+
+FuncDef = { Identifier ~ "(" ~ FuncDefParams? ~ ")" }
+FuncDefStmt = { FuncDef ~ "=" ~ Expression }
+
+Stmt = { FuncDefStmt | Expression }
 
 WHITESPACE = _{ " " | "\t" }
 
