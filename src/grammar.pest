@@ -43,7 +43,7 @@ TypeAnnotation = { ":" ~ Type }
 FuncDefParam = { Identifier ~ TypeAnnotation? }
 FuncDefParams = { FuncDefParam ~ ("," ~ FuncDefParam)* }
 
-FuncDef = { Identifier ~ "(" ~ FuncDefParams? ~ ")" }
+FuncDef = { Identifier ~ "(" ~ FuncDefParams? ~ ")" ~ TypeAnnotation? }
 FuncDefStmt = { FuncDef ~ "=" ~ Expression }
 
 Stmt = { FuncDefStmt | Expression }

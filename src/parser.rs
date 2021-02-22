@@ -254,6 +254,11 @@ impl DesmosParser {
                 args: args,
                 ret_annotation: None
             },
+            [Identifier(n), FuncDefParams(args), TypeAnnotation(ret)] => FunctionDefinition {
+                name: n,
+                args: args,
+                ret_annotation: Some(ret)
+            },
         ))
     }
 
@@ -428,16 +433,16 @@ mod tests {
 
     #[test]
     fn func_def_annotations() {
-        let i = "f(a: Number, b:List) = 1";
+        let i = "f(a: Number, b:List): Number = 1";
         stmt_ptest!(
             i,
             Statement::FuncDef(
                 FunctionDefinition {
                     name: "f",
                     args: vec![("a", Some(ValType::Number)), ("b", Some(ValType::List))],
-                    ret_annotation: None
+                    ret_annotation: Some(ValType::Number)
                 },
-                (spn(i, 23, 24), Expression::Num { val: "1" })
+                (spn(i, 31, 32), Expression::Num { val: "1" })
             )
         )
     }
