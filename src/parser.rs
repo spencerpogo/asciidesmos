@@ -1,6 +1,4 @@
-use crate::types::{
-    Expression, FunctionDefinition, LocatedExpression, LocatedStatement, Statement, ValType,
-};
+use crate::types::ValType;
 use pest::Span;
 use pest_consume;
 use pest_consume::{match_nodes, Error, Node as PestNode, Parser as PestConsumeParser};
@@ -8,6 +6,51 @@ use pest_consume::{match_nodes, Error, Node as PestNode, Parser as PestConsumePa
 // pest + result = pesult ;)
 type Pesult<T> = std::result::Result<T, Error<Rule>>;
 type Node<'i> = PestNode<'i, Rule, ()>;
+
+// Expression is a component of a statement
+#[derive(Clone, Debug, PartialEq)]
+pub enum Expression<'a> {
+    Num {
+        val: &'a str,
+    },
+    Variable {
+        val: &'a str,
+    },
+    BinaryExpr {
+        left: Box<LocatedExpression<'a>>,
+        // Should probably make an enum for this, but its not worth the work to encode
+        //  it just to stringify it again later
+        operator: &'a str,
+        right: Box<LocatedExpression<'a>>,
+    },
+    UnaryExpr {
+        val: Box<LocatedExpression<'a>>,
+        operator: &'a str,
+    },
+    Call {
+        func: &'a str,
+        args: Vec<Box<LocatedExpression<'a>>>,
+    },
+    List(Vec<Box<LocatedExpression<'a>>>),
+}
+
+pub type LocatedExpression<'a> = (Span<'a>, Expression<'a>);
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct FunctionDefinition<'a> {
+    pub name: &'a str,
+    pub args: Vec<(&'a str, Option<ValType>)>,
+    pub ret_annotation: Option<ValType>,
+}
+
+// A statement is a part of a program
+#[derive(Clone, Debug, PartialEq)]
+pub enum Statement<'a> {
+    FuncDef(FunctionDefinition<'a>, LocatedExpression<'a>),
+    Expression(Expression<'a>),
+}
+
+pub type LocatedStatement<'a> = (Span<'a>, Statement<'a>);
 
 #[derive(PestConsumeParser)]
 #[grammar = "grammar.pest"] // relative to src
