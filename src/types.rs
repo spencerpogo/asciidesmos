@@ -1,5 +1,4 @@
 use pest::Span as PestSpan;
-use std::fmt;
 
 // Expression is a component of a statement
 #[derive(Clone, Debug, PartialEq)]
