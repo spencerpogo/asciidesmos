@@ -1,7 +1,7 @@
 use crate::{
     builtins,
     error::{CompileError, CompileErrorKind},
-    parser::{Expression, LocatedExpression},
+    parser::{Expression, LocatedExpression, LocatedStatement, Statement},
     types::{Function, ValType},
 };
 use pest::Span;
@@ -200,6 +200,18 @@ pub fn compile_expr<'a>(
     }
 }
 
+pub fn compile_stmt<'a>(
+    ctx: &mut Context,
+    expr: LocatedStatement<'a>,
+) -> Result<String, CompileError<'a>> {
+    let s = expr.0;
+
+    match expr.1 {
+        Statement::Expression(e) => Ok(compile_expr(ctx, (s, e))?.0),
+        Statement::FuncDef(_, _) => unimplemented!(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -218,6 +230,21 @@ mod tests {
         exp: Expression<'a>,
     ) -> Result<String, CompileError<'a>> {
         Ok(compile_expr(ctx, (spn(), exp))?.0)
+    }
+
+    fn compile_stmt(stmt: Statement) -> Result<String, CompileError> {
+        compile_stmt_with_ctx(&mut new_ctx(), stmt)
+    }
+
+    fn compile_stmt_with_ctx<'a>(
+        ctx: &mut Context,
+        stmt: Statement<'a>,
+    ) -> Result<String, CompileError<'a>> {
+        super::compile_stmt(ctx, (spn(), stmt))
+    }
+
+    fn check_stmt(stmt: Statement, r: &str) {
+        assert_eq!(compile_stmt(stmt).unwrap(), r.to_string());
     }
 
     fn check(exp: Expression, r: &str) {
@@ -438,5 +465,10 @@ mod tests {
                 expected: ValType::Number
             }
         );
+    }
+
+    #[test]
+    fn expression_stmt() {
+        check_stmt(Statement::Expression(Expression::Num { val: "1" }), "1");
     }
 }
