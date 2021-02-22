@@ -39,7 +39,7 @@ pub type LocatedExpression<'a> = (Span<'a>, Expression<'a>);
 #[derive(Clone, Debug, PartialEq)]
 pub struct FunctionDefinition<'a> {
     pub name: &'a str,
-    pub args: Vec<(&'a str, Option<ValType>)>,
+    pub args: Vec<(&'a str, ValType)>,
     pub ret_annotation: Option<ValType>,
 }
 
@@ -226,15 +226,15 @@ impl DesmosParser {
         ))
     }
 
-    fn FuncDefParam(input: Node) -> Pesult<(&str, Option<ValType>)> {
+    fn FuncDefParam(input: Node) -> Pesult<(&str, ValType)> {
         Ok(match_nodes!(
             input.into_children();
-            [Identifier(name)] => (name, None),
-            [Identifier(name), TypeAnnotation(t)] => (name, Some(t))
+            [Identifier(name)] => (name, ValType::Number),
+            [Identifier(name), TypeAnnotation(t)] => (name, t)
         ))
     }
 
-    fn FuncDefParams(input: Node) -> Pesult<Vec<(&str, Option<ValType>)>> {
+    fn FuncDefParams(input: Node) -> Pesult<Vec<(&str, ValType)>> {
         Ok(match_nodes!(
             input.into_children();
             [FuncDefParam(params)..] => params.collect()
@@ -423,7 +423,7 @@ mod tests {
             Statement::FuncDef(
                 FunctionDefinition {
                     name: "f",
-                    args: vec![("a", None), ("b", None)],
+                    args: vec![("a", ValType::Number), ("b", ValType::Number)],
                     ret_annotation: None
                 },
                 (spn(i, 10, 11), Expression::Num { val: "1" })
@@ -439,7 +439,7 @@ mod tests {
             Statement::FuncDef(
                 FunctionDefinition {
                     name: "f",
-                    args: vec![("a", Some(ValType::Number)), ("b", Some(ValType::List))],
+                    args: vec![("a", ValType::Number), ("b", ValType::List)],
                     ret_annotation: Some(ValType::Number)
                 },
                 (spn(i, 31, 32), Expression::Num { val: "1" })
