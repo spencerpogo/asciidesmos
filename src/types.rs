@@ -48,6 +48,15 @@ pub type Span<'a> = PestSpan<'a>;
 
 pub type LocatedExpression<'a> = (Span<'a>, Expression<'a>);
 
+// A statement is a part of a program
+#[derive(Clone, Debug, PartialEq)]
+pub enum Statement<'a> {
+    FuncDef(FunctionDefinition<'a>, LocatedExpression<'a>),
+    Expression(Expression<'a>),
+}
+
+pub type LocatedStatement<'a> = (Span<'a>, Statement<'a>);
+
 pub type ArgCount = usize;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -56,10 +65,17 @@ pub enum ValType {
     List,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Function<'a> {
-    pub args: &'a [&'a ValType],
-    pub ret: &'a ValType,
+    pub args: &'a [ValType],
+    pub ret: ValType,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct FunctionDefinition<'a> {
+    pub name: &'a str,
+    pub args: Vec<(&'a str, Option<ValType>)>,
+    pub ret_annotation: Option<ValType>,
 }
 
 #[derive(Clone, Debug, PartialEq)]

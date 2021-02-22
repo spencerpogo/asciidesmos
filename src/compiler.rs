@@ -84,11 +84,11 @@ pub fn compile_call<'a>(
                     let b = a.clone(); // TODO: maybe avoid cloning here?
 
                     let (arg_latex, got_type) = compile_expr(ctx, *a)?;
-                    if got_type != **expect_type {
+                    if got_type != *expect_type {
                         return Err(CompileError {
                             kind: CompileErrorKind::TypeMismatch {
                                 got: got_type,
-                                expected: **expect_type,
+                                expected: *expect_type,
                             },
                             span: b.0,
                         });
@@ -98,7 +98,7 @@ pub fn compile_call<'a>(
                 }
 
                 r.push_str("\\right)");
-                Ok((r, *func.ret))
+                Ok((r, func.ret))
             }
         }
     }

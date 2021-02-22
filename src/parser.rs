@@ -1,4 +1,6 @@
-use crate::types::{Expression, LocatedExpression};
+use crate::types::{
+    Expression, FunctionDefinition, LocatedExpression, LocatedStatement, Statement, ValType,
+};
 use pest::Span;
 use pest_consume;
 use pest_consume::{match_nodes, Error, Node as PestNode, Parser as PestConsumeParser};
@@ -166,15 +168,77 @@ impl DesmosParser {
         ))
     }
 
-    fn Program(input: Node) -> Pesult<LocatedExpression> {
+    fn Type(input: Node) -> Pesult<ValType> {
+        Ok(match input.as_str() {
+            "Number" => ValType::Number,
+            "List" => ValType::List,
+            _ => unreachable!(),
+        })
+    }
+
+    fn TypeAnnotation(input: Node) -> Pesult<ValType> {
         Ok(match_nodes!(
             input.into_children();
-            [Expression(n), EOI(_)] => n,
+            [Type(t)] => t
+        ))
+    }
+
+    fn FuncDefParam(input: Node) -> Pesult<(&str, Option<ValType>)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [Identifier(name)] => (name, None),
+            [Identifier(name), TypeAnnotation(t)] => (name, Some(t))
+        ))
+    }
+
+    fn FuncDefParams(input: Node) -> Pesult<Vec<(&str, Option<ValType>)>> {
+        Ok(match_nodes!(
+            input.into_children();
+            [FuncDefParam(params)..] => params.collect()
+        ))
+    }
+
+    fn FuncDef(input: Node) -> Pesult<FunctionDefinition> {
+        Ok(match_nodes!(
+            input.into_children();
+            [Identifier(n)] => FunctionDefinition {
+                name: n,
+                args: Vec::new(),
+                ret_annotation: None
+            },
+            [Identifier(n), FuncDefParams(args)] => FunctionDefinition {
+                name: n,
+                args: args,
+                ret_annotation: None
+            },
+        ))
+    }
+
+    fn FuncDefStmt(input: Node) -> Pesult<LocatedStatement> {
+        let s = input.as_span();
+        Ok(match_nodes!(
+            input.into_children();
+            [FuncDef(d), Expression(e)] => (s, Statement::FuncDef(d, e))
+        ))
+    }
+
+    fn Stmt(input: Node) -> Pesult<LocatedStatement> {
+        Ok(match_nodes!(
+            input.into_children();
+            [FuncDefStmt(e)] => e,
+            [Expression(e)] => (e.0, Statement::Expression(e.1)),
+        ))
+    }
+
+    fn Program(input: Node) -> Pesult<LocatedStatement> {
+        Ok(match_nodes!(
+            input.into_children();
+            [Stmt(s), EOI(_)] => s,
         ))
     }
 }
 
-pub fn parse(i: &str) -> Pesult<LocatedExpression> {
+pub fn parse(i: &str) -> Pesult<LocatedStatement> {
     let inputs = DesmosParser::parse(Rule::Program, i)?;
     let input = inputs.single()?;
     DesmosParser::Program(input)
@@ -186,6 +250,12 @@ mod tests {
     use pest::Span;
 
     macro_rules! parse_test {
+        ($i:expr, $r:expr) => {
+            stmt_ptest!($i, Statement::Expression($r))
+        };
+    }
+
+    macro_rules! stmt_ptest {
         ($i:expr, $r:expr) => {
             assert_eq!(parse($i).unwrap(), (spn($i, 0, $i.len()), $r));
         };
@@ -295,5 +365,37 @@ mod tests {
                 Box::new((spn(i, 6, 7), Expression::Num { val: "3" })),
             ])
         );
+    }
+
+    #[test]
+    fn func_def() {
+        let i = "f(a, b) = 1";
+        stmt_ptest!(
+            i,
+            Statement::FuncDef(
+                FunctionDefinition {
+                    name: "f",
+                    args: vec![("a", None), ("b", None)],
+                    ret_annotation: None
+                },
+                (spn(i, 10, 11), Expression::Num { val: "1" })
+            )
+        )
+    }
+
+    #[test]
+    fn func_def_annotations() {
+        let i = "f(a: Number, b:List) = 1";
+        stmt_ptest!(
+            i,
+            Statement::FuncDef(
+                FunctionDefinition {
+                    name: "f",
+                    args: vec![("a", Some(ValType::Number)), ("b", Some(ValType::List))],
+                    ret_annotation: None
+                },
+                (spn(i, 23, 24), Expression::Num { val: "1" })
+            )
+        )
     }
 }

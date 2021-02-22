@@ -8,13 +8,13 @@ fn process(inp: &str, _show_ast: bool) {
         Err(e) => println!("{}", e),
         Ok(ast) => {
             println!("{:#?}", ast);
-            match desmos_lang::compiler::compile_expr(
+            /*match desmos_lang::compiler::compile_expr(
                 &mut desmos_lang::compiler::Context::new(),
                 ast,
             ) {
                 Err(e) => println!("{}", e),
                 Ok((latex, _type)) => println!("{}", latex),
-            }
+            }*/
         }
     }
 }
