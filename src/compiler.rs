@@ -1,6 +1,7 @@
 use crate::{
     builtins,
-    types::{CompileError, CompileErrorKind, Expression, Function, LocatedExpression, ValType},
+    error::{CompileError, CompileErrorKind},
+    types::{Expression, Function, LocatedExpression, ValType},
 };
 use pest::Span;
 use std::collections::HashMap;
