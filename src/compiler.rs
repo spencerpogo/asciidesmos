@@ -54,7 +54,7 @@ pub fn resolve_function<'a>(_ctx: &mut Context, func: &str) -> Option<(&'a Funct
     }
 }
 
-pub fn resolve_variable<'a>(ctx: &mut Context<'a>, var: &str) -> Option<&'a ValType> {
+pub fn resolve_variable<'a>(ctx: &'a mut Context, var: &str) -> Option<&'a ValType> {
     match ctx.variables.get(var) {
         Some(r) => Some(r),
         None => ctx.locals.get(var),
