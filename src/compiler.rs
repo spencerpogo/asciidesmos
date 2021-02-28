@@ -595,4 +595,125 @@ mod tests {
             },
         );
     }
+
+    #[test]
+    fn funcdef_arg_leave_scope() {
+        let mut ctx = new_ctx();
+        compile_stmt_with_ctx(
+            &mut ctx,
+            Statement::FuncDef(
+                FunctionDefinition {
+                    name: "f",
+                    args: vec![("a", ValType::Number)],
+                    ret_annotation: None,
+                },
+                (spn(), Expression::Variable { val: "a" }),
+            ),
+        )
+        .unwrap();
+        assert_eq!(
+            compile_stmt_with_ctx(
+                &mut ctx,
+                Statement::Expression(Expression::Variable { val: "a" })
+            )
+            .unwrap_err(),
+            CompileError {
+                kind: CompileErrorKind::UndefinedVariable("a"),
+                span: spn()
+            }
+        );
+    }
+
+    #[test]
+    fn funcdef_func_callable() {
+        let mut ctx = new_ctx();
+        compile_stmt_with_ctx(
+            &mut ctx,
+            Statement::FuncDef(
+                FunctionDefinition {
+                    name: "f",
+                    args: vec![("a", ValType::Number)],
+                    ret_annotation: None,
+                },
+                (spn(), Expression::Variable { val: "a" }),
+            ),
+        )
+        .unwrap();
+        compile_stmt_with_ctx(
+            &mut ctx,
+            Statement::Expression(Expression::Call {
+                func: "f",
+                args: vec![Box::new((spn(), Expression::Num { val: "1" }))],
+            }),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn funcdef_func_argslen() {
+        let mut ctx = new_ctx();
+        compile_stmt_with_ctx(
+            &mut ctx,
+            Statement::FuncDef(
+                FunctionDefinition {
+                    name: "f",
+                    args: vec![],
+                    ret_annotation: None,
+                },
+                (spn(), Expression::Num { val: "1" }),
+            ),
+        )
+        .unwrap();
+        assert_eq!(
+            compile_stmt_with_ctx(
+                &mut ctx,
+                Statement::Expression(Expression::Call {
+                    func: "f",
+                    args: vec![Box::new((spn(), Expression::Num { val: "1" }))],
+                }),
+            )
+            .unwrap_err(),
+            CompileError {
+                span: spn(),
+                kind: CompileErrorKind::WrongArgCount {
+                    got: 1,
+                    expected: 0,
+                }
+            }
+        );
+    }
+
+    #[test]
+    fn funcdef_args_typecheck() {
+        let mut ctx = new_ctx();
+        compile_stmt_with_ctx(
+            &mut ctx,
+            Statement::FuncDef(
+                FunctionDefinition {
+                    name: "f",
+                    args: vec![],
+                    ret_annotation: None,
+                },
+                (spn(), Expression::Num { val: "1" }),
+            ),
+        )
+        .unwrap();
+        assert_eq!(
+            compile_stmt_with_ctx(
+                &mut ctx,
+                Statement::Expression(Expression::Call {
+                    func: "f",
+                    args: vec![Box::new((spn(), Expression::List(vec![])))],
+                }),
+            )
+            .unwrap_err(),
+            CompileError {
+                span: spn(),
+                kind: CompileErrorKind::TypeMismatch {
+                    expected: ValType::Number,
+                    got: ValType::List
+                }
+            }
+        );
+    }
 }
