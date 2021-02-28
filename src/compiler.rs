@@ -8,14 +8,23 @@ use pest::Span;
 use std::collections::HashMap;
 use std::fmt::Write;
 
+pub struct FunctionSignature {
+    pub args: Vec<ValType>,
+    pub ret: ValType,
+}
+
 pub struct Context<'a> {
     pub variables: HashMap<&'a str, ValType>,
+    pub locals: HashMap<&'a str, ValType>,
+    pub definedFunctions: HashMap<&'a str, FunctionSignature>,
 }
 
 impl Context<'_> {
     pub fn new() -> Self {
         Context {
             variables: HashMap::new(),
+            locals: HashMap::new(),
+            definedFunctions: HashMap::new(),
         }
     }
 }
@@ -201,20 +210,48 @@ pub fn compile_expr<'a>(
 }
 
 pub fn compile_stmt<'a>(
-    ctx: &mut Context,
+    ctx: &mut Context<'a>,
     expr: LocatedStatement<'a>,
 ) -> Result<String, CompileError<'a>> {
     let s = expr.0;
 
     match expr.1 {
         Statement::Expression(e) => Ok(compile_expr(ctx, (s, e))?.0),
-        Statement::FuncDef(_, _) => unimplemented!(),
+        Statement::FuncDef(fdef, e) => {
+            // Clone a copy we can restore later
+            let old_locals = ctx.locals.clone();
+            // Add args into locals
+            for (aname, atype) in fdef.args.iter() {
+                ctx.locals.insert(aname, *atype);
+            }
+            let span = e.0.clone();
+            // Evaluate the body with the new ctx
+            let (body_latex, ret) = compile_expr(ctx, e)?;
+            // Validate the return type annotation
+            if let Some(retann) = fdef.ret_annotation {
+                check_type(span, ret, retann)?;
+            }
+
+            let formatted_args = fdef
+                .args
+                .iter()
+                .map(|a| compile_identifier(a.0))
+                .collect::<Vec<String>>()
+                .join(",");
+            Ok(format!(
+                "{}\\left({}\\right)={}",
+                compile_identifier(fdef.name),
+                formatted_args,
+                body_latex
+            ))
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::parser::FunctionDefinition;
     use pest::Span;
 
     fn new_ctx<'a>() -> Context<'a> {
@@ -237,7 +274,7 @@ mod tests {
     }
 
     fn compile_stmt_with_ctx<'a>(
-        ctx: &mut Context,
+        ctx: &mut Context<'a>,
         stmt: Statement<'a>,
     ) -> Result<String, CompileError<'a>> {
         super::compile_stmt(ctx, (spn(), stmt))
@@ -470,5 +507,72 @@ mod tests {
     #[test]
     fn expression_stmt() {
         check_stmt(Statement::Expression(Expression::Num { val: "1" }), "1");
+    }
+
+    #[test]
+    fn funcdef_single_arg() {
+        check_stmt(
+            Statement::FuncDef(
+                FunctionDefinition {
+                    name: "abc",
+                    args: vec![("def", ValType::Number)],
+                    ret_annotation: None,
+                },
+                (spn(), Expression::Num { val: "1" }),
+            ),
+            "a_{bc}\\left(d_{ef}\\right)=1",
+        );
+    }
+
+    #[test]
+    fn funcdef_many_args() {
+        check_stmt(
+            Statement::FuncDef(
+                FunctionDefinition {
+                    name: "f",
+                    args: vec![("abc", ValType::List), ("def", ValType::Number)],
+                    ret_annotation: None,
+                },
+                (spn(), Expression::Num { val: "1" }),
+            ),
+            "f\\left(a_{bc},d_{ef}\\right)=1",
+        );
+    }
+
+    #[test]
+    fn funcdef_can_use_args() {
+        check_stmt(
+            Statement::FuncDef(
+                FunctionDefinition {
+                    name: "f",
+                    args: vec![("a", ValType::Number)],
+                    ret_annotation: None,
+                },
+                (spn(), Expression::Variable { val: "a" }),
+            ),
+            "f\\left(a\\right)=a",
+        );
+    }
+
+    #[test]
+    fn funcdef_ret_annotation_checked() {
+        assert_eq!(
+            compile_stmt(Statement::FuncDef(
+                FunctionDefinition {
+                    name: "f",
+                    args: vec![("a", ValType::Number)],
+                    ret_annotation: Some(ValType::List),
+                },
+                (spn(), Expression::Num { val: "1" }),
+            ))
+            .unwrap_err(),
+            CompileError {
+                kind: CompileErrorKind::TypeMismatch {
+                    got: ValType::Number,
+                    expected: ValType::List
+                },
+                span: spn()
+            },
+        );
     }
 }
