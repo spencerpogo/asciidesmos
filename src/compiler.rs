@@ -231,13 +231,26 @@ pub fn compile_stmt<'a>(
             if let Some(retann) = fdef.ret_annotation {
                 check_type(span, ret, retann)?;
             }
+            // restore old locals
+            ctx.locals = old_locals;
 
+            // Add function to context
+            ctx.defined_functions.insert(
+                fdef.name,
+                FunctionSignature {
+                    args: fdef.args.iter().map(|a| a.1).collect(),
+                    ret: ret,
+                },
+            );
+
+            // Compile output latex
             let formatted_args = fdef
                 .args
                 .iter()
                 .map(|a| compile_identifier(a.0))
                 .collect::<Vec<String>>()
                 .join(",");
+
             Ok(format!(
                 "{}\\left({}\\right)={}",
                 compile_identifier(fdef.name),
