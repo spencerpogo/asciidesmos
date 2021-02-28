@@ -54,6 +54,13 @@ pub fn resolve_function<'a>(_ctx: &mut Context, func: &str) -> Option<(&'a Funct
     }
 }
 
+pub fn resolve_variable<'a>(ctx: &mut Context<'a>, var: &str) -> Option<&'a ValType> {
+    match ctx.variables.get(var) {
+        Some(r) => Some(r),
+        None => ctx.locals.get(var),
+    }
+}
+
 pub fn compile_call<'a>(
     ctx: &mut Context,
     span: Span<'a>,
@@ -155,7 +162,7 @@ pub fn compile_expr<'a>(
 
     match expr.1 {
         Expression::Num { val } => Ok((val.to_string(), ValType::Number)),
-        Expression::Variable { val } => match ctx.variables.get(val) {
+        Expression::Variable { val } => match resolve_variable(ctx, val) {
             Some(var_type) => Ok((compile_identifier(val), *var_type)),
             None => Err(CompileError {
                 kind: CompileErrorKind::UndefinedVariable(val),
