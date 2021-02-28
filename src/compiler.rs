@@ -16,7 +16,7 @@ pub struct FunctionSignature {
 pub struct Context<'a> {
     pub variables: HashMap<&'a str, ValType>,
     pub locals: HashMap<&'a str, ValType>,
-    pub definedFunctions: HashMap<&'a str, FunctionSignature>,
+    pub defined_functions: HashMap<&'a str, FunctionSignature>,
 }
 
 impl Context<'_> {
@@ -24,7 +24,7 @@ impl Context<'_> {
         Context {
             variables: HashMap::new(),
             locals: HashMap::new(),
-            definedFunctions: HashMap::new(),
+            defined_functions: HashMap::new(),
         }
     }
 }
