@@ -703,7 +703,7 @@ mod tests {
             Statement::FuncDef(
                 FunctionDefinition {
                     name: "f",
-                    args: vec![],
+                    args: vec![("a", ValType::Number)],
                     ret_annotation: None,
                 },
                 (spn(), Expression::Num { val: "1" }),
