@@ -62,7 +62,7 @@ pub fn resolve_function<'a>(
                 true,
             )),
         },
-        Some(f) => Some((f, false)),
+        Some(f) => Some((f.clone(), false)),
     }
 }
 
