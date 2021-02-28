@@ -6,7 +6,7 @@ use crate::{
 };
 use pest::Span;
 use std::collections::HashMap;
-use std::fmt::Write;
+use std::{fmt::Write, rc::Rc};
 
 pub struct FunctionSignature {
     pub args: Vec<ValType>,
@@ -16,7 +16,7 @@ pub struct FunctionSignature {
 pub struct Context<'a> {
     pub variables: HashMap<&'a str, ValType>,
     pub locals: HashMap<&'a str, ValType>,
-    pub defined_functions: HashMap<&'a str, FunctionSignature>,
+    pub defined_functions: HashMap<&'a str, Rc<FunctionSignature>>,
 }
 
 impl Context<'_> {
@@ -47,10 +47,22 @@ pub fn compile_identifier(v: &str) -> String {
 }
 
 // Returns function and whether it is builtin
-pub fn resolve_function<'a>(_ctx: &mut Context, func: &str) -> Option<(&'a Function<'a>, bool)> {
-    match builtins::BUILTIN_FUNCTIONS.get(func) {
-        None => None,
-        Some(f) => Some((f, true)),
+pub fn resolve_function<'a>(
+    ctx: &'a mut Context,
+    func: &str,
+) -> Option<(Rc<FunctionSignature>, bool)> {
+    match ctx.defined_functions.get(func) {
+        None => match builtins::BUILTIN_FUNCTIONS.get(func) {
+            None => None,
+            Some(f) => Some((
+                Rc::new(FunctionSignature {
+                    args: f.args.to_vec(),
+                    ret: f.ret,
+                }),
+                true,
+            )),
+        },
+        Some(f) => Some((f, false)),
     }
 }
 
@@ -96,10 +108,10 @@ pub fn compile_call<'a>(
                 r.push_str("\\left(");
 
                 let mut aiter = args.into_iter();
-                for expect_type in (*func.args).iter() {
+                for expect_type in func.args.iter() {
                     // Already checked that they are the same length, so unwrap is safe
                     let a = aiter.next().unwrap();
-                    let b = a.clone(); // TODO: maybe avoid cloning here?
+                    let span = a.0.clone(); // TODO: maybe avoid cloning here?
 
                     let (arg_latex, got_type) = compile_expr(ctx, *a)?;
                     if got_type != *expect_type {
@@ -108,7 +120,7 @@ pub fn compile_call<'a>(
                                 got: got_type,
                                 expected: *expect_type,
                             },
-                            span: b.0,
+                            span: span,
                         });
                     }
 
@@ -244,10 +256,10 @@ pub fn compile_stmt<'a>(
             // Add function to context
             ctx.defined_functions.insert(
                 fdef.name,
-                FunctionSignature {
+                Rc::new(FunctionSignature {
                     args: fdef.args.iter().map(|a| a.1).collect(),
                     ret: ret,
-                },
+                }),
             );
 
             // Compile output latex
