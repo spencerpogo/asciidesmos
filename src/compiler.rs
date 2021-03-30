@@ -2,7 +2,7 @@ use crate::{
     builtins,
     error::{CompileError, CompileErrorKind},
     parser::{Expression, LocatedExpression, LocatedStatement, Statement},
-    types::{Function, ValType},
+    types::ValType,
 };
 use pest::Span;
 use std::collections::HashMap;
