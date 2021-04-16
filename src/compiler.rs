@@ -227,6 +227,7 @@ pub fn compile_expr<'a>(
 
             Ok((format!("\\left[{}\\right]", s), ValType::List))
         }
+        Expression::MacroCall { .. } => unimplemented!(),
     }
 }
 

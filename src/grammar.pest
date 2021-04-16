@@ -2,7 +2,7 @@ Program = { SOI ~ Stmt ~ EOF }
 
 ExpressionNoList =  { UnaryExpression | BinaryExpression | Term }
 Expression = { List | UnaryExpression | BinaryExpression | Term }
-Term = { Call | Variable | Number | "(" ~ Expression ~ ")" }
+Term = { MacroCall | Call | Variable | Number | "(" ~ Expression ~ ")" }
 
 Factorial = @{ "!" }
 UnaryOperator = @{ Factorial }
@@ -36,6 +36,7 @@ ArgumentsNoList = { ExpressionNoList ~ ("," ~ ExpressionNoList)*  }
 List = { "[" ~ ArgumentsNoList? ~ "]" }
 
 Call = { Identifier ~ "(" ~ Arguments? ~ ")" }
+MacroCall = { Identifier ~ "!(" ~ Arguments? ~ ")" }
 
 Type = { "Number" | "List" }
 TypeAnnotation = { ":" ~ Type }

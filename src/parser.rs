@@ -30,6 +30,10 @@ pub enum Expression<'a> {
         func: &'a str,
         args: Vec<LocatedExpression<'a>>,
     },
+    MacroCall {
+        name: &'a str,
+        args: Vec<LocatedExpression<'a>>,
+    },
     List(Vec<LocatedExpression<'a>>),
 }
 
@@ -99,6 +103,7 @@ impl DesmosParser {
             [Number(n)] => n,
             [Variable(n)] => n,
             [Call(c)] => c,
+            [MacroCall(c)] => c,
         ))
     }
 
@@ -203,6 +208,25 @@ impl DesmosParser {
                 },
                 [Identifier(i), Arguments(a)] => Expression::Call {
                     func: i,
+                    args: a,
+                }
+            ),
+        ))
+    }
+
+    fn MacroCall(input: Node) -> Pesult<LocatedExpression> {
+        // same as Call()
+        let s = input.as_span();
+        Ok((
+            s,
+            match_nodes!(
+                input.into_children();
+                [Identifier(i)] => Expression::MacroCall {
+                    name: i,
+                    args: Vec::new(),
+                },
+                [Identifier(i), Arguments(a)] => Expression::MacroCall {
+                    name: i,
                     args: a,
                 }
             ),
@@ -442,6 +466,21 @@ mod tests {
                 },
                 (spn(i, 31, 32), Expression::Num { val: "1" })
             )
+        )
+    }
+
+    #[test]
+    fn macro_parsing() {
+        let i = "mac!(1, 2)";
+        parse_test!(
+            i,
+            Expression::MacroCall {
+                name: "mac",
+                args: vec![
+                    (spn(i, 5, 6), Expression::Num { val: "1" }),
+                    (spn(i, 8, 9), Expression::Num { val: "2" })
+                ]
+            }
         )
     }
 }
