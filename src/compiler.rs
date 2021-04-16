@@ -175,7 +175,7 @@ pub fn compile_expr<'a>(
     let span = expr.0;
 
     match expr.1 {
-        Expression::Num { val } => Ok((val.to_string(), ValType::Number)),
+        Expression::Num(val) => Ok((val.to_string(), ValType::Number)),
         Expression::Variable { val } => match resolve_variable(ctx, val) {
             Some(var_type) => Ok((compile_identifier(val), *var_type)),
             None => Err(CompileError {
@@ -344,8 +344,8 @@ mod tests {
 
     #[test]
     fn num() {
-        check(Expression::Num { val: "5" }, "5");
-        check(Expression::Num { val: "2.3" }, "2.3");
+        check(Expression::Num("5"), "5");
+        check(Expression::Num("2.3"), "2.3");
     }
 
     #[test]
@@ -378,9 +378,9 @@ mod tests {
         let i = "1+2";
         check(
             Expression::BinaryExpr {
-                left: Box::new((spn(), Expression::Num { val: "1" })),
+                left: Box::new((spn(), Expression::Num("1"))),
                 operator: "+",
-                right: Box::new((spn(), Expression::Num { val: "2" })),
+                right: Box::new((spn(), Expression::Num("2"))),
             },
             i,
         )
@@ -391,7 +391,7 @@ mod tests {
         let i = "2!";
         check(
             Expression::UnaryExpr {
-                val: Box::new((spn(), Expression::Num { val: "2" })),
+                val: Box::new((spn(), Expression::Num("2"))),
                 operator: "!",
             },
             i,
@@ -403,7 +403,7 @@ mod tests {
         check(
             Expression::Call {
                 func: "sin",
-                args: vec![(spn(), Expression::Num { val: "1" })],
+                args: vec![(spn(), Expression::Num("1"))],
             },
             // TODO: Should start with "\\sin"
             "\\sin\\left(1\\right)",
@@ -436,10 +436,7 @@ mod tests {
         assert_eq!(
             compile(Expression::Call {
                 func: "sin",
-                args: vec![
-                    (spn(), Expression::Num { val: "1" }),
-                    (spn(), Expression::Num { val: "2" })
-                ]
+                args: vec![(spn(), Expression::Num("1")), (spn(), Expression::Num("2"))]
             })
             .unwrap_err()
             .kind,
@@ -455,10 +452,7 @@ mod tests {
         assert_eq!(
             compile(Expression::Call {
                 func: "sin",
-                args: vec![(
-                    spn(),
-                    Expression::List(vec![(spn(), Expression::Num { val: "1" })])
-                )]
+                args: vec![(spn(), Expression::List(vec![(spn(), Expression::Num("1"))]))]
             })
             .unwrap_err()
             .kind,
@@ -473,12 +467,9 @@ mod tests {
     fn binexp_typecheck() {
         assert_eq!(
             compile(Expression::BinaryExpr {
-                left: Box::new((
-                    spn(),
-                    Expression::List(vec![(spn(), Expression::Num { val: "1" })])
-                )),
+                left: Box::new((spn(), Expression::List(vec![(spn(), Expression::Num("1"))]))),
                 operator: "+",
-                right: Box::new((spn(), Expression::Num { val: "2" }))
+                right: Box::new((spn(), Expression::Num("2")))
             })
             .unwrap_err()
             .kind,
@@ -493,10 +484,7 @@ mod tests {
     fn unary_typecheck() {
         assert_eq!(
             compile(Expression::UnaryExpr {
-                val: Box::new((
-                    spn(),
-                    Expression::List(vec![(spn(), Expression::Num { val: "1" })])
-                )),
+                val: Box::new((spn(), Expression::List(vec![(spn(), Expression::Num("1"))]))),
                 operator: "+",
             })
             .unwrap_err()
@@ -511,13 +499,13 @@ mod tests {
     #[test]
     fn list() {
         check(
-            Expression::List(vec![(spn(), Expression::Num { val: "1" })]),
+            Expression::List(vec![(spn(), Expression::Num("1"))]),
             "\\left[1\\right]",
         );
         check(
             Expression::List(vec![
-                (spn(), Expression::Num { val: "1" }),
-                (spn(), Expression::Num { val: "2" }),
+                (spn(), Expression::Num("1")),
+                (spn(), Expression::Num("2")),
             ]),
             "\\left[1,2\\right]",
         );
@@ -528,7 +516,7 @@ mod tests {
         assert_eq!(
             compile(Expression::List(vec![(
                 spn(),
-                Expression::List(vec![(spn(), Expression::Num { val: "1" })])
+                Expression::List(vec![(spn(), Expression::Num("1"))])
             )]))
             .unwrap_err()
             .kind,
@@ -541,7 +529,7 @@ mod tests {
 
     #[test]
     fn expression_stmt() {
-        check_stmt(Statement::Expression(Expression::Num { val: "1" }), "1");
+        check_stmt(Statement::Expression(Expression::Num("1")), "1");
     }
 
     #[test]
@@ -553,7 +541,7 @@ mod tests {
                     args: vec![("def", ValType::Number)],
                     ret_annotation: None,
                 },
-                (spn(), Expression::Num { val: "1" }),
+                (spn(), Expression::Num("1")),
             ),
             "a_{bc}\\left(d_{ef}\\right)=1",
         );
@@ -568,7 +556,7 @@ mod tests {
                     args: vec![("abc", ValType::List), ("def", ValType::Number)],
                     ret_annotation: None,
                 },
-                (spn(), Expression::Num { val: "1" }),
+                (spn(), Expression::Num("1")),
             ),
             "f\\left(a_{bc},d_{ef}\\right)=1",
         );
@@ -598,7 +586,7 @@ mod tests {
                     args: vec![("a", ValType::Number)],
                     ret_annotation: Some(ValType::List),
                 },
-                (spn(), Expression::Num { val: "1" }),
+                (spn(), Expression::Num("1")),
             ))
             .unwrap_err(),
             CompileError {
@@ -658,7 +646,7 @@ mod tests {
             &mut ctx,
             Statement::Expression(Expression::Call {
                 func: "f",
-                args: vec![(spn(), Expression::Num { val: "1" })],
+                args: vec![(spn(), Expression::Num("1"))],
             }),
         )
         .unwrap();
@@ -675,7 +663,7 @@ mod tests {
                     args: vec![],
                     ret_annotation: None,
                 },
-                (spn(), Expression::Num { val: "1" }),
+                (spn(), Expression::Num("1")),
             ),
         )
         .unwrap();
@@ -684,7 +672,7 @@ mod tests {
                 &mut ctx,
                 Statement::Expression(Expression::Call {
                     func: "f",
-                    args: vec![(spn(), Expression::Num { val: "1" })],
+                    args: vec![(spn(), Expression::Num("1"))],
                 }),
             )
             .unwrap_err(),
@@ -709,7 +697,7 @@ mod tests {
                     args: vec![("a", ValType::Number)],
                     ret_annotation: None,
                 },
-                (spn(), Expression::Num { val: "1" }),
+                (spn(), Expression::Num("1")),
             ),
         )
         .unwrap();

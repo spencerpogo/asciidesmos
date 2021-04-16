@@ -9,9 +9,7 @@ type Node<'i> = PestNode<'i, Rule, ()>;
 // Expression is a component of a statement
 #[derive(Clone, Debug, PartialEq)]
 pub enum Expression<'a> {
-    Num {
-        val: &'a str,
-    },
+    Num(&'a str),
     Variable {
         val: &'a str,
     },
@@ -157,12 +155,7 @@ impl DesmosParser {
 
     fn Number(input: Node) -> Pesult<LocatedExpression> {
         let s = input.as_span();
-        Ok((
-            s,
-            Expression::Num {
-                val: input.as_str(),
-            },
-        ))
+        Ok((s, Expression::Num(input.as_str())))
     }
 
     fn Identifier(input: Node) -> Pesult<&str> {
@@ -340,7 +333,7 @@ mod tests {
     fn number() {
         macro_rules! num_test {
             ($v:expr) => {
-                parse_test!($v, Expression::Num { val: $v });
+                parse_test!($v, Expression::Num($v));
             };
         }
 
@@ -361,9 +354,9 @@ mod tests {
         parse_test!(
             i,
             Expression::BinaryExpr {
-                left: Box::new((spn(i, 0, 1), Expression::Num { val: "1" })),
+                left: Box::new((spn(i, 0, 1), Expression::Num("1"))),
                 operator: "+",
-                right: Box::new((spn(i, 4, 5), Expression::Num { val: "2" }))
+                right: Box::new((spn(i, 4, 5), Expression::Num("2")))
             }
         );
     }
@@ -378,13 +371,13 @@ mod tests {
                 left: Box::new((
                     spn(i, 0, 5),
                     Expression::BinaryExpr {
-                        left: Box::new((spn(i, 0, 1), Expression::Num { val: "1" })),
+                        left: Box::new((spn(i, 0, 1), Expression::Num("1"))),
                         operator: "+",
-                        right: Box::new((spn(i, 4, 5), Expression::Num { val: "2" }))
+                        right: Box::new((spn(i, 4, 5), Expression::Num("2")))
                     }
                 )),
                 operator: "+",
-                right: Box::new((spn(i, 8, 9), Expression::Num { val: "3" })),
+                right: Box::new((spn(i, 8, 9), Expression::Num("3"))),
             }
         );
     }
@@ -395,7 +388,7 @@ mod tests {
         parse_test!(
             i,
             Expression::UnaryExpr {
-                val: Box::new((spn(i, 0, 1), Expression::Num { val: "1" })),
+                val: Box::new((spn(i, 0, 1), Expression::Num("1"))),
                 operator: "!",
             }
         );
@@ -416,9 +409,9 @@ mod tests {
             Expression::Call {
                 func: "a",
                 args: vec![
-                    (spn(j, 2, 3), Expression::Num { val: "1" }),
-                    (spn(j, 5, 6), Expression::Num { val: "2" }),
-                    (spn(j, 8, 9), Expression::Num { val: "3" }),
+                    (spn(j, 2, 3), Expression::Num("1")),
+                    (spn(j, 5, 6), Expression::Num("2")),
+                    (spn(j, 8, 9), Expression::Num("3")),
                 ]
             }
         );
@@ -430,9 +423,9 @@ mod tests {
         parse_test!(
             i,
             Expression::List(vec![
-                (spn(i, 1, 2), Expression::Num { val: "1" }),
-                (spn(i, 4, 5), Expression::Num { val: "2" }),
-                (spn(i, 6, 7), Expression::Num { val: "3" }),
+                (spn(i, 1, 2), Expression::Num("1")),
+                (spn(i, 4, 5), Expression::Num("2")),
+                (spn(i, 6, 7), Expression::Num("3")),
             ])
         );
     }
@@ -448,7 +441,7 @@ mod tests {
                     args: vec![("a", ValType::Number), ("b", ValType::Number)],
                     ret_annotation: None
                 },
-                (spn(i, 10, 11), Expression::Num { val: "1" })
+                (spn(i, 10, 11), Expression::Num("1"))
             )
         )
     }
@@ -464,7 +457,7 @@ mod tests {
                     args: vec![("a", ValType::Number), ("b", ValType::List)],
                     ret_annotation: Some(ValType::Number)
                 },
-                (spn(i, 31, 32), Expression::Num { val: "1" })
+                (spn(i, 31, 32), Expression::Num("1"))
             )
         )
     }
@@ -477,8 +470,8 @@ mod tests {
             Expression::MacroCall {
                 name: "mac",
                 args: vec![
-                    (spn(i, 5, 6), Expression::Num { val: "1" }),
-                    (spn(i, 8, 9), Expression::Num { val: "2" })
+                    (spn(i, 5, 6), Expression::Num("1")),
+                    (spn(i, 8, 9), Expression::Num("2"))
                 ]
             }
         )
