@@ -1,5 +1,4 @@
 use clap::{App, Arg};
-use desmos_lang;
 use std::fs::File;
 use std::io::prelude::*;
 

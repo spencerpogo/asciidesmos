@@ -21,11 +21,17 @@ pub struct Context<'a> {
 
 impl Context<'_> {
     pub fn new() -> Self {
-        Context {
+        Self {
             variables: HashMap::new(),
             locals: HashMap::new(),
             defined_functions: HashMap::new(),
         }
+    }
+}
+
+impl Default for Context<'_> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -36,7 +42,7 @@ pub fn compile_identifier(v: &str) -> String {
     match chars.next() {
         Some(c) => {
             let rest: String = chars.collect();
-            if rest.len() == 0 {
+            if rest.is_empty() {
                 c.to_string()
             } else {
                 format!("{}_{{{}}}", c, rest)
@@ -82,7 +88,7 @@ pub fn compile_call<'a>(
     match resolve_function(ctx, fname) {
         None => Err(CompileError {
             kind: CompileErrorKind::UnknownFunction(fname),
-            span: span,
+            span,
         }),
         Some((func, is_builtin)) => {
             // Validate arg count
@@ -92,10 +98,10 @@ pub fn compile_call<'a>(
             if got != expect {
                 Err(CompileError {
                     kind: CompileErrorKind::WrongArgCount {
-                        got: got,
+                        got,
                         expected: expect,
                     },
-                    span: span,
+                    span,
                 })
             } else {
                 // Builtins are prefixed with a backslash and are not in the identifier
@@ -120,7 +126,7 @@ pub fn compile_call<'a>(
                                 got: got_type,
                                 expected: *expect_type,
                             },
-                            span: span,
+                            span,
                         });
                     }
 
@@ -134,18 +140,14 @@ pub fn compile_call<'a>(
     }
 }
 
-pub fn check_type<'a>(
-    span: Span<'a>,
-    got: ValType,
-    expect: ValType,
-) -> Result<(), CompileError<'a>> {
+pub fn check_type(span: Span, got: ValType, expect: ValType) -> Result<(), CompileError> {
     if got != expect {
         Err(CompileError {
             kind: CompileErrorKind::TypeMismatch {
-                got: got,
+                got,
                 expected: expect,
             },
-            span: span,
+            span,
         })
     } else {
         Ok(())
@@ -178,7 +180,7 @@ pub fn compile_expr<'a>(
             Some(var_type) => Ok((compile_identifier(val), *var_type)),
             None => Err(CompileError {
                 kind: CompileErrorKind::UndefinedVariable(val),
-                span: span,
+                span,
             }),
         },
         Expression::BinaryExpr {
@@ -258,7 +260,7 @@ pub fn compile_stmt<'a>(
                 fdef.name,
                 Rc::new(FunctionSignature {
                     args: fdef.args.iter().map(|a| a.1).collect(),
-                    ret: ret,
+                    ret,
                 }),
             );
 

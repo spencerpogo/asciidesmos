@@ -1,6 +1,5 @@
 use crate::types::ValType;
 use pest::Span;
-use pest_consume;
 use pest_consume::{match_nodes, Error, Node as PestNode, Parser as PestConsumeParser};
 
 // pest + result = pesult ;)
@@ -52,6 +51,7 @@ pub enum Statement<'a> {
 
 pub type LocatedStatement<'a> = (Span<'a>, Statement<'a>);
 
+#[allow(clippy::upper_case_acronyms)]
 #[derive(PestConsumeParser)]
 #[grammar = "grammar.pest"] // relative to src
 pub struct DesmosParser;
