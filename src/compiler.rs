@@ -83,7 +83,7 @@ pub fn compile_call<'a>(
     ctx: &mut Context,
     span: Span<'a>,
     fname: &'a str,
-    args: Vec<Box<LocatedExpression<'a>>>,
+    args: Vec<LocatedExpression<'a>>,
 ) -> Result<(String, ValType), CompileError<'a>> {
     match resolve_function(ctx, fname) {
         None => Err(CompileError {
@@ -117,9 +117,9 @@ pub fn compile_call<'a>(
                 for expect_type in func.args.iter() {
                     // Already checked that they are the same length, so unwrap is safe
                     let a = aiter.next().unwrap();
-                    let span = a.0.clone(); // TODO: maybe avoid cloning here?
+                    let span = a.0.clone();
 
-                    let (arg_latex, got_type) = compile_expr(ctx, *a)?;
+                    let (arg_latex, got_type) = compile_expr(ctx, a)?;
                     if got_type != *expect_type {
                         return Err(CompileError {
                             kind: CompileErrorKind::TypeMismatch {
@@ -216,7 +216,7 @@ pub fn compile_expr<'a>(
                 let v1 = v.clone();
                 let v2 = v.clone();
 
-                let val_str = compile_expect(ctx, v1.0, *v2, ValType::Number)?;
+                let val_str = compile_expect(ctx, v1.0, v2, ValType::Number)?;
                 if first {
                     write!(s, "{}", val_str).unwrap();
                     first = false;
@@ -402,7 +402,7 @@ mod tests {
         check(
             Expression::Call {
                 func: "sin",
-                args: vec![Box::new((spn(), Expression::Num { val: "1" }))],
+                args: vec![(spn(), Expression::Num { val: "1" })],
             },
             // TODO: Should start with "\\sin"
             "\\sin\\left(1\\right)",
@@ -436,8 +436,8 @@ mod tests {
             compile(Expression::Call {
                 func: "sin",
                 args: vec![
-                    Box::new((spn(), Expression::Num { val: "1" })),
-                    Box::new((spn(), Expression::Num { val: "2" }))
+                    (spn(), Expression::Num { val: "1" }),
+                    (spn(), Expression::Num { val: "2" })
                 ]
             })
             .unwrap_err()
@@ -454,10 +454,10 @@ mod tests {
         assert_eq!(
             compile(Expression::Call {
                 func: "sin",
-                args: vec![Box::new((
+                args: vec![(
                     spn(),
-                    Expression::List(vec![Box::new((spn(), Expression::Num { val: "1" }))])
-                ))]
+                    Expression::List(vec![(spn(), Expression::Num { val: "1" })])
+                )]
             })
             .unwrap_err()
             .kind,
@@ -474,7 +474,7 @@ mod tests {
             compile(Expression::BinaryExpr {
                 left: Box::new((
                     spn(),
-                    Expression::List(vec![Box::new((spn(), Expression::Num { val: "1" }))])
+                    Expression::List(vec![(spn(), Expression::Num { val: "1" })])
                 )),
                 operator: "+",
                 right: Box::new((spn(), Expression::Num { val: "2" }))
@@ -494,7 +494,7 @@ mod tests {
             compile(Expression::UnaryExpr {
                 val: Box::new((
                     spn(),
-                    Expression::List(vec![Box::new((spn(), Expression::Num { val: "1" }))])
+                    Expression::List(vec![(spn(), Expression::Num { val: "1" })])
                 )),
                 operator: "+",
             })
@@ -510,13 +510,13 @@ mod tests {
     #[test]
     fn list() {
         check(
-            Expression::List(vec![Box::new((spn(), Expression::Num { val: "1" }))]),
+            Expression::List(vec![(spn(), Expression::Num { val: "1" })]),
             "\\left[1\\right]",
         );
         check(
             Expression::List(vec![
-                Box::new((spn(), Expression::Num { val: "1" })),
-                Box::new((spn(), Expression::Num { val: "2" })),
+                (spn(), Expression::Num { val: "1" }),
+                (spn(), Expression::Num { val: "2" }),
             ]),
             "\\left[1,2\\right]",
         );
@@ -525,10 +525,10 @@ mod tests {
     #[test]
     fn list_typecheck() {
         assert_eq!(
-            compile(Expression::List(vec![Box::new((
+            compile(Expression::List(vec![(
                 spn(),
-                Expression::List(vec![Box::new((spn(), Expression::Num { val: "1" }))])
-            ))]))
+                Expression::List(vec![(spn(), Expression::Num { val: "1" })])
+            )]))
             .unwrap_err()
             .kind,
             CompileErrorKind::TypeMismatch {
@@ -657,7 +657,7 @@ mod tests {
             &mut ctx,
             Statement::Expression(Expression::Call {
                 func: "f",
-                args: vec![Box::new((spn(), Expression::Num { val: "1" }))],
+                args: vec![(spn(), Expression::Num { val: "1" })],
             }),
         )
         .unwrap();
@@ -683,7 +683,7 @@ mod tests {
                 &mut ctx,
                 Statement::Expression(Expression::Call {
                     func: "f",
-                    args: vec![Box::new((spn(), Expression::Num { val: "1" }))],
+                    args: vec![(spn(), Expression::Num { val: "1" })],
                 }),
             )
             .unwrap_err(),
@@ -717,7 +717,7 @@ mod tests {
                 &mut ctx,
                 Statement::Expression(Expression::Call {
                     func: "f",
-                    args: vec![Box::new((spn(), Expression::List(vec![])))],
+                    args: vec![(spn(), Expression::List(vec![]))],
                 }),
             )
             .unwrap_err(),

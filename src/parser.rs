@@ -28,9 +28,9 @@ pub enum Expression<'a> {
     },
     Call {
         func: &'a str,
-        args: Vec<Box<LocatedExpression<'a>>>,
+        args: Vec<LocatedExpression<'a>>,
     },
-    List(Vec<Box<LocatedExpression<'a>>>),
+    List(Vec<LocatedExpression<'a>>),
 }
 
 pub type LocatedExpression<'a> = (Span<'a>, Expression<'a>);
@@ -58,15 +58,13 @@ pub struct DesmosParser;
 
 impl DesmosParser {
     // Shared rules
-    fn arguments(input: Node) -> Pesult<Vec<Box<LocatedExpression>>> {
-        let r = match_nodes!(
+    fn arguments(input: Node) -> Pesult<Vec<LocatedExpression>> {
+        Ok(match_nodes!(
             input.into_children();
             [Expression(e)..] => e,
             [ExpressionNoList(e)..] => e,
         )
-        .map(|t| Box::new(t))
-        .collect();
-        Ok(r)
+        .collect())
     }
 
     fn expression(input: Node) -> Pesult<LocatedExpression> {
@@ -185,11 +183,11 @@ impl DesmosParser {
         ))
     }
 
-    fn Arguments(input: Node) -> Pesult<Vec<Box<LocatedExpression>>> {
+    fn Arguments(input: Node) -> Pesult<Vec<LocatedExpression>> {
         Self::arguments(input)
     }
 
-    fn ArgumentsNoList(input: Node) -> Pesult<Vec<Box<LocatedExpression>>> {
+    fn ArgumentsNoList(input: Node) -> Pesult<Vec<LocatedExpression>> {
         Self::arguments(input)
     }
 
@@ -394,9 +392,9 @@ mod tests {
             Expression::Call {
                 func: "a",
                 args: vec![
-                    Box::new((spn(j, 2, 3), Expression::Num { val: "1" })),
-                    Box::new((spn(j, 5, 6), Expression::Num { val: "2" })),
-                    Box::new((spn(j, 8, 9), Expression::Num { val: "3" })),
+                    (spn(j, 2, 3), Expression::Num { val: "1" }),
+                    (spn(j, 5, 6), Expression::Num { val: "2" }),
+                    (spn(j, 8, 9), Expression::Num { val: "3" }),
                 ]
             }
         );
@@ -408,9 +406,9 @@ mod tests {
         parse_test!(
             i,
             Expression::List(vec![
-                Box::new((spn(i, 1, 2), Expression::Num { val: "1" })),
-                Box::new((spn(i, 4, 5), Expression::Num { val: "2" })),
-                Box::new((spn(i, 6, 7), Expression::Num { val: "3" })),
+                (spn(i, 1, 2), Expression::Num { val: "1" }),
+                (spn(i, 4, 5), Expression::Num { val: "2" }),
+                (spn(i, 6, 7), Expression::Num { val: "3" }),
             ])
         );
     }
