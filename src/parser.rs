@@ -10,9 +10,7 @@ type Node<'i> = PestNode<'i, Rule, ()>;
 #[derive(Clone, Debug, PartialEq)]
 pub enum Expression<'a> {
     Num(&'a str),
-    Variable {
-        val: &'a str,
-    },
+    Variable(&'a str),
     BinaryExpr {
         left: Box<LocatedExpression<'a>>,
         // Should probably make an enum for this, but its not worth the work to encode
@@ -164,12 +162,7 @@ impl DesmosParser {
 
     fn Variable(input: Node) -> Pesult<LocatedExpression> {
         let s = input.as_span();
-        Ok((
-            s,
-            Expression::Variable {
-                val: input.as_str(),
-            },
-        ))
+        Ok((s, Expression::Variable(input.as_str())))
     }
 
     fn List(input: Node) -> Pesult<LocatedExpression> {
@@ -344,7 +337,7 @@ mod tests {
 
     #[test]
     fn variable() {
-        parse_test!("w3c", Expression::Variable { val: "w3c" });
+        parse_test!("w3c", Expression::Variable("w3c"));
         assert_eq!(parse("3wc").is_err(), true);
     }
 

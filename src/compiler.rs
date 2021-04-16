@@ -176,7 +176,7 @@ pub fn compile_expr<'a>(
 
     match expr.1 {
         Expression::Num(val) => Ok((val.to_string(), ValType::Number)),
-        Expression::Variable { val } => match resolve_variable(ctx, val) {
+        Expression::Variable(val) => match resolve_variable(ctx, val) {
             Some(var_type) => Ok((compile_identifier(val), *var_type)),
             None => Err(CompileError {
                 kind: CompileErrorKind::UndefinedVariable(val),
@@ -350,11 +350,11 @@ mod tests {
 
     #[test]
     fn variable() {
-        check_with_var("a", ValType::Number, Expression::Variable { val: "a" }, "a");
+        check_with_var("a", ValType::Number, Expression::Variable("a"), "a");
         check_with_var(
             "abc",
             ValType::Number,
-            Expression::Variable { val: "abc" },
+            Expression::Variable("abc"),
             "a_{bc}",
         );
     }
@@ -362,13 +362,11 @@ mod tests {
     #[test]
     fn variable_resolution() {
         assert_eq!(
-            compile(Expression::Variable { val: "" }).unwrap_err().kind,
+            compile(Expression::Variable("")).unwrap_err().kind,
             CompileErrorKind::UndefinedVariable("")
         );
         assert_eq!(
-            compile(Expression::Variable { val: "abc" })
-                .unwrap_err()
-                .kind,
+            compile(Expression::Variable("abc")).unwrap_err().kind,
             CompileErrorKind::UndefinedVariable("abc")
         );
     }
@@ -571,7 +569,7 @@ mod tests {
                     args: vec![("a", ValType::Number)],
                     ret_annotation: None,
                 },
-                (spn(), Expression::Variable { val: "a" }),
+                (spn(), Expression::Variable("a")),
             ),
             "f\\left(a\\right)=a",
         );
@@ -610,16 +608,13 @@ mod tests {
                     args: vec![("a", ValType::Number)],
                     ret_annotation: None,
                 },
-                (spn(), Expression::Variable { val: "a" }),
+                (spn(), Expression::Variable("a")),
             ),
         )
         .unwrap();
         assert_eq!(
-            compile_stmt_with_ctx(
-                &mut ctx,
-                Statement::Expression(Expression::Variable { val: "a" })
-            )
-            .unwrap_err(),
+            compile_stmt_with_ctx(&mut ctx, Statement::Expression(Expression::Variable("a")))
+                .unwrap_err(),
             CompileError {
                 kind: CompileErrorKind::UndefinedVariable("a"),
                 span: spn()
@@ -638,7 +633,7 @@ mod tests {
                     args: vec![("a", ValType::Number)],
                     ret_annotation: None,
                 },
-                (spn(), Expression::Variable { val: "a" }),
+                (spn(), Expression::Variable("a")),
             ),
         )
         .unwrap();
