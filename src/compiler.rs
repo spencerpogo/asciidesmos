@@ -1,6 +1,7 @@
 use crate::{
     builtins,
     error::{CompileError, CompileErrorKind},
+    latex::Latex,
     parser::{Expression, LocatedExpression, LocatedStatement, Statement},
     types::ValType,
 };
@@ -37,23 +38,6 @@ impl Default for Context<'_> {
     }
 }
 
-pub fn compile_identifier(v: &str) -> String {
-    // Don't care about UTF-8 since identifiers are guaranteed to be ASCII
-    let mut chars = v.chars();
-
-    match chars.next() {
-        Some(c) => {
-            let rest: String = chars.collect();
-            if rest.is_empty() {
-                c.to_string()
-            } else {
-                format!("{}_{{{}}}", c, rest)
-            }
-        }
-        None => "".to_string(),
-    }
-}
-
 // Returns function and whether it is builtin
 pub fn resolve_function<'a>(
     ctx: &'a mut Context,
@@ -85,8 +69,8 @@ pub fn compile_call<'a>(
     ctx: &mut Context,
     span: Span<'a>,
     fname: &'a str,
-    args: Vec<(Span<'a>, String, ValType)>,
-) -> Result<(String, ValType), CompileError<'a>> {
+    args: Vec<(Span<'a>, Latex<'a>, ValType)>,
+) -> Result<(Latex<'a>, ValType), CompileError<'a>> {
     match resolve_function(ctx, fname) {
         None => Err(CompileError {
             kind: CompileErrorKind::UnknownFunction(fname),
@@ -108,18 +92,17 @@ pub fn compile_call<'a>(
             } else {
                 // Builtins are prefixed with a backslash and are not in the identifier
                 //  form
-                let mut r = if is_builtin {
-                    format!("\\{}", fname)
+                let func_latex = if is_builtin {
+                    Latex::Builtin(fname)
                 } else {
-                    compile_identifier(fname)
+                    Latex::Variable(fname)
                 };
-                r.push_str("\\left(");
 
                 let mut aiter = args.into_iter();
-                let arg_latex_parts: Vec<String> = func
+                let args_latex = func
                     .args
                     .iter()
-                    .map(|expect_type| -> Result<String, _> {
+                    .map(|expect_type| -> Result<Latex, _> {
                         // Already checked that they are the same length, so unwrap is safe
                         let (aspan, arg_latex, got_type) = aiter.next().unwrap();
                         let type_errors_ok = ctx.inside_map_macro
@@ -136,11 +119,15 @@ pub fn compile_call<'a>(
                         }
                         Ok(arg_latex)
                     })
-                    .collect::<Result<Vec<String>, _>>()?;
+                    .collect::<Result<Vec<Latex>, _>>()?;
 
-                write!(r, "{}", arg_latex_parts.join(",")).unwrap();
-                r.push_str("\\right)");
-                Ok((r, func.ret))
+                Ok((
+                    Latex::Call {
+                        func: Box::new(func_latex),
+                        args: args_latex,
+                    },
+                    func.ret,
+                ))
             }
         }
     }
@@ -176,7 +163,7 @@ pub fn handle_map_macro<'a>(
     ctx: &mut Context,
     span: Span<'a>,
     args: Vec<LocatedExpression<'a>>,
-) -> Result<(String, ValType), CompileError<'a>> {
+) -> Result<(Latex<'a>, ValType), CompileError<'a>> {
     if args.len() < 2 {
         return Err(CompileError {
             span,
@@ -190,12 +177,12 @@ pub fn handle_map_macro<'a>(
         Expression::Variable(fname) => {
             let call_args = argsiter
                 .map(
-                    |(aspan, aexpr)| -> Result<(Span, String, ValType), CompileError> {
+                    |(aspan, aexpr)| -> Result<(Span, Latex, ValType), CompileError> {
                         let (latex, t) = compile_expr(ctx, (aspan.clone(), aexpr))?;
                         Ok((aspan, latex, t))
                     },
                 )
-                .collect::<Result<Vec<(Span, String, ValType)>, CompileError>>()?;
+                .collect::<Result<Vec<(Span, Latex, ValType)>, CompileError>>()?;
             //compile_expect(ctx, lspan.clone(), (lspan, lexpr), ValType::List)?;
             // There should be no situtation in which ctx.inside_map_macro is currently
             //  true, but save it's old state anyway.
@@ -217,7 +204,7 @@ pub fn handle_macro<'a>(
     span: Span<'a>,
     name: &'a str,
     args: Vec<LocatedExpression<'a>>,
-) -> Result<(String, ValType), CompileError<'a>> {
+) -> Result<(Latex<'a>, ValType), CompileError<'a>> {
     match name {
         "map" => handle_map_macro(ctx, span, args),
         _ => Err(CompileError {
