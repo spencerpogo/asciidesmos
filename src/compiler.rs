@@ -116,25 +116,29 @@ pub fn compile_call<'a>(
                 r.push_str("\\left(");
 
                 let mut aiter = args.into_iter();
-                for expect_type in func.args.iter() {
-                    // Already checked that they are the same length, so unwrap is safe
-                    let (aspan, arg_latex, got_type) = aiter.next().unwrap();
-                    let type_errors_ok = ctx.inside_map_macro
-                        && got_type == ValType::List
-                        && *expect_type == ValType::Number;
-                    if !type_errors_ok && got_type != *expect_type {
-                        return Err(CompileError {
-                            kind: CompileErrorKind::TypeMismatch {
-                                got: got_type,
-                                expected: *expect_type,
-                            },
-                            span: aspan,
-                        });
-                    }
+                let arg_latex_parts: Vec<String> = func
+                    .args
+                    .iter()
+                    .map(|expect_type| -> Result<String, _> {
+                        // Already checked that they are the same length, so unwrap is safe
+                        let (aspan, arg_latex, got_type) = aiter.next().unwrap();
+                        let type_errors_ok = ctx.inside_map_macro
+                            && got_type == ValType::List
+                            && *expect_type == ValType::Number;
+                        if !type_errors_ok && got_type != *expect_type {
+                            return Err(CompileError {
+                                kind: CompileErrorKind::TypeMismatch {
+                                    got: got_type,
+                                    expected: *expect_type,
+                                },
+                                span: aspan,
+                            });
+                        }
+                        Ok(arg_latex)
+                    })
+                    .collect::<Result<Vec<String>, _>>()?;
 
-                    write!(r, "{}", arg_latex).unwrap();
-                }
-
+                write!(r, "{}", arg_latex_parts.join(",")).unwrap();
                 r.push_str("\\right)");
                 Ok((r, func.ret))
             }
