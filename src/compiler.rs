@@ -17,6 +17,7 @@ pub struct Context<'a> {
     pub variables: HashMap<&'a str, ValType>,
     pub locals: HashMap<&'a str, ValType>,
     pub defined_functions: HashMap<&'a str, Rc<FunctionSignature>>,
+    pub inside_map_macro: bool,
 }
 
 impl Context<'_> {
@@ -25,6 +26,7 @@ impl Context<'_> {
             variables: HashMap::new(),
             locals: HashMap::new(),
             defined_functions: HashMap::new(),
+            inside_map_macro: false,
         }
     }
 }
@@ -83,7 +85,7 @@ pub fn compile_call<'a>(
     ctx: &mut Context,
     span: Span<'a>,
     fname: &'a str,
-    args: Vec<LocatedExpression<'a>>,
+    args: Vec<(Span<'a>, String, ValType)>,
 ) -> Result<(String, ValType), CompileError<'a>> {
     match resolve_function(ctx, fname) {
         None => Err(CompileError {
@@ -116,17 +118,17 @@ pub fn compile_call<'a>(
                 let mut aiter = args.into_iter();
                 for expect_type in func.args.iter() {
                     // Already checked that they are the same length, so unwrap is safe
-                    let a = aiter.next().unwrap();
-                    let span = a.0.clone();
-
-                    let (arg_latex, got_type) = compile_expr(ctx, a)?;
-                    if got_type != *expect_type {
+                    let (aspan, arg_latex, got_type) = aiter.next().unwrap();
+                    let type_errors_ok = ctx.inside_map_macro
+                        && got_type == ValType::List
+                        && *expect_type == ValType::Number;
+                    if !type_errors_ok && got_type != *expect_type {
                         return Err(CompileError {
                             kind: CompileErrorKind::TypeMismatch {
                                 got: got_type,
                                 expected: *expect_type,
                             },
-                            span,
+                            span: aspan,
                         });
                     }
 
@@ -164,6 +166,61 @@ pub fn compile_expect<'a>(
     let (s, t) = compile_expr(ctx, expr)?;
     check_type(span, t, expect)?;
     Ok(s)
+}
+
+pub fn handle_map_macro<'a>(
+    ctx: &mut Context,
+    span: Span<'a>,
+    args: Vec<LocatedExpression<'a>>,
+) -> Result<(String, ValType), CompileError<'a>> {
+    if args.len() < 2 {
+        return Err(CompileError {
+            span,
+            kind: CompileErrorKind::BadMapMacro,
+        });
+    }
+
+    let mut argsiter = args.into_iter();
+    let (fspan, fexpr) = argsiter.next().unwrap();
+    match fexpr {
+        Expression::Variable(fname) => {
+            let call_args = argsiter
+                .map(
+                    |(aspan, aexpr)| -> Result<(Span, String, ValType), CompileError> {
+                        let (latex, t) = compile_expr(ctx, (aspan.clone(), aexpr))?;
+                        Ok((aspan, latex, t))
+                    },
+                )
+                .collect::<Result<Vec<(Span, String, ValType)>, CompileError>>()?;
+            //compile_expect(ctx, lspan.clone(), (lspan, lexpr), ValType::List)?;
+            // There should be no situtation in which ctx.inside_map_macro is currently
+            //  true, but save it's old state anyway.
+            let was_inside_map_macro = ctx.inside_map_macro;
+            ctx.inside_map_macro = true;
+            let r = compile_call(ctx, span, fname, call_args);
+            ctx.inside_map_macro = was_inside_map_macro;
+            r
+        }
+        _ => Err(CompileError {
+            span: fspan,
+            kind: CompileErrorKind::ExpectedFunction,
+        }),
+    }
+}
+
+pub fn handle_macro<'a>(
+    ctx: &mut Context,
+    span: Span<'a>,
+    name: &'a str,
+    args: Vec<LocatedExpression<'a>>,
+) -> Result<(String, ValType), CompileError<'a>> {
+    match name {
+        "map" => handle_map_macro(ctx, span, args),
+        _ => Err(CompileError {
+            span,
+            kind: CompileErrorKind::UndefinedMacro(name),
+        }),
+    }
 }
 
 // Ideally this would be functional and ctx would not need to be mutable, but rust
@@ -207,7 +264,16 @@ pub fn compile_expr<'a>(
             format!("{}{}", compile_expect(ctx, span, *v, ValType::Number)?, op),
             ValType::Number,
         )),
-        Expression::Call { func, args } => compile_call(ctx, span, func, args),
+        Expression::Call { func, args } => {
+            let compiled_args = args
+                .into_iter()
+                .map(|(s, e)| -> Result<(Span, String, ValType), CompileError> {
+                    let (latex, t) = compile_expr(ctx, (s.clone(), e))?;
+                    Ok((s, latex, t))
+                })
+                .collect::<Result<Vec<(Span, String, ValType)>, CompileError>>()?;
+            compile_call(ctx, span, func, compiled_args)
+        }
         Expression::List(values) => {
             let mut s = String::new();
             let mut first = true;
@@ -227,7 +293,7 @@ pub fn compile_expr<'a>(
 
             Ok((format!("\\left[{}\\right]", s), ValType::List))
         }
-        Expression::MacroCall { .. } => unimplemented!(),
+        Expression::MacroCall { name, args } => handle_macro(ctx, span, name, args),
     }
 }
 
@@ -712,6 +778,113 @@ mod tests {
                     got: ValType::List
                 }
             }
+        );
+    }
+
+    #[test]
+    fn unknown_macro_errors() {
+        let name = "does_not_exist";
+        assert_eq!(
+            compile(Expression::MacroCall { name, args: vec![] }),
+            Err(CompileError {
+                span: spn(),
+                kind: CompileErrorKind::UndefinedMacro(name)
+            })
+        );
+    }
+
+    #[test]
+    fn map_macro_works() {
+        check(
+            Expression::MacroCall {
+                name: "map",
+                args: vec![
+                    (spn(), Expression::Variable("sin")),
+                    (
+                        spn(),
+                        Expression::List(vec![
+                            (spn(), Expression::Num("1")),
+                            (spn(), Expression::Num("2")),
+                        ]),
+                    ),
+                ],
+            },
+            "\\sin\\left(\\left[1,2\\right]\\right)",
+        );
+    }
+
+    #[test]
+    fn map_macro_multi_args() {
+        let mut ctx = new_ctx();
+        ctx.defined_functions.insert(
+            "multi_arg_test",
+            Rc::new(FunctionSignature {
+                args: vec![ValType::Number, ValType::Number, ValType::Number],
+                ret: ValType::Number,
+            }),
+        );
+        assert_eq!(
+            compile_with_ctx(
+                &mut ctx,
+                Expression::MacroCall {
+                    name: "map",
+                    args: vec![
+                        (spn(), Expression::Variable("multi_arg_test")),
+                        (
+                            spn(),
+                            Expression::List(vec![
+                                (spn(), Expression::Num("1")),
+                                (spn(), Expression::Num("2")),
+                                (spn(), Expression::Num("3"))
+                            ])
+                        ),
+                        (spn(), Expression::Num("4")),
+                        (
+                            spn(),
+                            Expression::List(vec![
+                                (spn(), Expression::Num("5")),
+                                (spn(), Expression::Num("6")),
+                                (spn(), Expression::Num("7"))
+                            ])
+                        ),
+                    ]
+                }
+            ),
+            Ok(
+                "m_{ulti_arg_test}\\left(\\left[1,2,3\\right],4,\\left[5,6,7\\right]\\right)"
+                    .to_string()
+            )
+        )
+    }
+
+    #[test]
+    fn map_macro_handles_errors() {
+        assert_eq!(
+            compile(Expression::MacroCall {
+                name: "map",
+                args: vec![],
+            }),
+            Err(CompileError {
+                span: spn(),
+                kind: CompileErrorKind::BadMapMacro
+            })
+        )
+    }
+
+    #[test]
+    fn map_macro_checks_fn_type() {
+        assert_eq!(
+            compile(Expression::MacroCall {
+                name: "map",
+                args: vec![
+                    (spn(), Expression::Num("1")),
+                    (spn(), Expression::List(vec![]))
+                ]
+            }),
+            Err(CompileError {
+                span: spn(),
+                kind: CompileErrorKind::ExpectedFunction
+            })
         );
     }
 }

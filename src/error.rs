@@ -8,6 +8,9 @@ pub enum CompileErrorKind<'a> {
     WrongArgCount { got: ArgCount, expected: ArgCount },
     TypeMismatch { got: ValType, expected: ValType },
     UndefinedVariable(&'a str),
+    UndefinedMacro(&'a str),
+    BadMapMacro,
+    ExpectedFunction,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -32,6 +35,11 @@ impl CompileError<'_> {
             CompileErrorKind::UndefinedVariable(var) => {
                 format!("Undefined variable '{}'", var)
             }
+            CompileErrorKind::UndefinedMacro(name) => format!("Undefined macro '{}'", name),
+            CompileErrorKind::BadMapMacro => {
+                "Usage: map!(function, list, [list2], ..., [listn])".to_string()
+            }
+            CompileErrorKind::ExpectedFunction => "Expected a function".to_string(),
         }
     }
 }
