@@ -623,21 +623,33 @@ mod tests {
 
     #[test]
     fn funcdef_can_use_args() {
-        check_stmt(
-            Statement::FuncDef(
-                FunctionDefinition {
-                    name: "f",
-                    args: vec![("a", ValType::Number)],
-                    ret_annotation: None,
-                },
-                (spn(), Expression::Variable("a")),
+        let mut ctx = new_ctx();
+        assert_eq!(
+            compile_stmt_with_ctx(
+                &mut ctx,
+                Statement::FuncDef(
+                    FunctionDefinition {
+                        name: "f",
+                        args: vec![("a", ValType::Number)],
+                        ret_annotation: None,
+                    },
+                    (spn(), Expression::Variable("a")),
+                )
             ),
-            Latex::FuncDef {
+            Ok(Latex::FuncDef {
                 name: "f".to_string(),
                 args: vec!["a".to_string()],
                 body: Box::new(Latex::Variable("a".to_string())),
-            },
+            },)
         );
+        // Check that the variable is no longer in scope
+        assert_eq!(
+            compile_with_ctx(&mut ctx, Expression::Variable("a")),
+            Err(CompileError {
+                span: spn(),
+                kind: CompileErrorKind::UndefinedVariable("a")
+            })
+        )
     }
 
     #[test]
