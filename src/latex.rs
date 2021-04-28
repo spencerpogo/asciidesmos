@@ -1,10 +1,10 @@
 #[derive(Clone, Debug, PartialEq)]
 pub enum Latex {
-    Builtin(String),
     Variable(String),
     Num(String),
     Call {
-        func: Box<Latex>,
+        func: String,
+        is_builtin: bool,
         args: Vec<Latex>,
     },
     BinaryExpression {
@@ -48,12 +48,16 @@ pub fn multi_latex_to_str(items: Vec<Latex>) -> Vec<String> {
 
 pub fn latex_to_str(l: Latex) -> String {
     match l {
-        Latex::Builtin(s) => format!("\\{}", s),
         Latex::Variable(s) => format_latex_identifier(s),
         Latex::Num(s) => s.to_string(),
-        Latex::Call { func, args } => format!(
-            "{}\\left({}\\right)",
-            latex_to_str(*func),
+        Latex::Call {
+            func,
+            is_builtin,
+            args,
+        } => format!(
+            "{}{}\\left({}\\right)",
+            if is_builtin { "\\" } else { "" },
+            func,
             multi_latex_to_str(args).join(",")
         ),
         Latex::BinaryExpression {
@@ -74,7 +78,10 @@ pub fn latex_to_str(l: Latex) -> String {
         Latex::FuncDef { name, args, body } => format!(
             "{}\\left({}\\right)={}",
             name,
-            args.join(","),
+            args.into_iter()
+                .map(format_latex_identifier)
+                .collect::<Vec<String>>()
+                .join(","),
             latex_to_str(*body)
         ),
     }

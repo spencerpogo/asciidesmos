@@ -90,14 +90,6 @@ pub fn compile_call<'a>(
                     span,
                 })
             } else {
-                // Builtins are prefixed with a backslash and are not in the identifier
-                //  form
-                let func_latex = if is_builtin {
-                    Latex::Builtin(fname.to_string())
-                } else {
-                    Latex::Variable(fname.to_string())
-                };
-
                 let mut aiter = args.into_iter();
                 let args_latex = func
                     .args
@@ -123,7 +115,8 @@ pub fn compile_call<'a>(
 
                 Ok((
                     Latex::Call {
-                        func: Box::new(func_latex),
+                        func: fname.to_string(),
+                        is_builtin,
                         args: args_latex,
                     },
                     func.ret,
@@ -356,12 +349,12 @@ mod tests {
         super::compile_stmt(ctx, (spn(), stmt))
     }
 
-    fn check_stmt(stmt: Statement, r: &str) {
-        assert_eq!(compile_stmt(stmt).unwrap(), r.to_string());
+    fn check_stmt(stmt: Statement, r: Latex) {
+        assert_eq!(compile_stmt(stmt).unwrap(), r);
     }
 
-    fn check(exp: Expression, r: &str) {
-        assert_eq!(compile(exp).unwrap(), r.to_string());
+    fn check(exp: Expression, r: Latex) {
+        assert_eq!(compile(exp).unwrap(), r);
     }
 
     fn comp_with_var<'a>(
@@ -385,8 +378,8 @@ mod tests {
 
     #[test]
     fn num() {
-        check(Expression::Num("5"), "5");
-        check(Expression::Num("2.3"), "2.3");
+        check(Expression::Num("5"), Latex::Num("5".to_string()));
+        check(Expression::Num("2.3"), Latex::Num("2.3".to_string()));
     }
 
     #[test]
@@ -419,26 +412,31 @@ mod tests {
 
     #[test]
     fn binary_expr() {
-        let i = "1+2";
         check(
             Expression::BinaryExpr {
                 left: Box::new((spn(), Expression::Num("1"))),
                 operator: "+",
                 right: Box::new((spn(), Expression::Num("2"))),
             },
-            i,
+            Latex::BinaryExpression {
+                left: Box::new(Latex::Num("1".to_string())),
+                operator: "+".to_string(),
+                right: Box::new(Latex::Num("2".to_string())),
+            },
         )
     }
 
     #[test]
     fn unary_expression() {
-        let i = "2!";
         check(
             Expression::UnaryExpr {
                 val: Box::new((spn(), Expression::Num("2"))),
                 operator: "!",
             },
-            i,
+            Latex::UnaryExpression {
+                left: Box::new(Latex::Num("2".to_string())),
+                operator: "!".to_string(),
+            },
         );
     }
 
@@ -449,8 +447,11 @@ mod tests {
                 func: "sin",
                 args: vec![(spn(), Expression::Num("1"))],
             },
-            // TODO: Should start with "\\sin"
-            "\\sin\\left(1\\right)",
+            Latex::Call {
+                func: "sin".to_string(),
+                is_builtin: true,
+                args: vec![Latex::Num("1".to_string())],
+            },
         );
         assert_eq!(
             compile(Expression::Call {
@@ -544,14 +545,17 @@ mod tests {
     fn list() {
         check(
             Expression::List(vec![(spn(), Expression::Num("1"))]),
-            "\\left[1\\right]",
+            Latex::List(vec![Latex::Num("1".to_string())]),
         );
         check(
             Expression::List(vec![
                 (spn(), Expression::Num("1")),
                 (spn(), Expression::Num("2")),
             ]),
-            "\\left[1,2\\right]",
+            Latex::List(vec![
+                Latex::Num("1".to_string()),
+                Latex::Num("2".to_string()),
+            ]),
         );
     }
 
@@ -573,7 +577,10 @@ mod tests {
 
     #[test]
     fn expression_stmt() {
-        check_stmt(Statement::Expression(Expression::Num("1")), "1");
+        check_stmt(
+            Statement::Expression(Expression::Num("1")),
+            Latex::Num("1".to_string()),
+        );
     }
 
     #[test]
@@ -587,7 +594,11 @@ mod tests {
                 },
                 (spn(), Expression::Num("1")),
             ),
-            "a_{bc}\\left(d_{ef}\\right)=1",
+            Latex::FuncDef {
+                name: "abc".to_string(),
+                args: vec!["def".to_string()],
+                body: Box::new(Latex::Num("1".to_string())),
+            },
         );
     }
 
@@ -602,7 +613,11 @@ mod tests {
                 },
                 (spn(), Expression::Num("1")),
             ),
-            "f\\left(a_{bc},d_{ef}\\right)=1",
+            Latex::FuncDef {
+                name: "f".to_string(),
+                args: vec!["abc".to_string(), "def".to_string()],
+                body: Box::new(Latex::Num("1".to_string())),
+            },
         );
     }
 
@@ -617,7 +632,11 @@ mod tests {
                 },
                 (spn(), Expression::Variable("a")),
             ),
-            "f\\left(a\\right)=a",
+            Latex::FuncDef {
+                name: "f".to_string(),
+                args: vec!["a".to_string()],
+                body: Box::new(Latex::Variable("a".to_string())),
+            },
         );
     }
 
@@ -789,7 +808,14 @@ mod tests {
                     ),
                 ],
             },
-            "\\sin\\left(\\left[1,2\\right]\\right)",
+            Latex::Call {
+                func: "sin".to_string(),
+                is_builtin: true,
+                args: vec![Latex::List(vec![
+                    Latex::Num("1".to_string()),
+                    Latex::Num("2".to_string()),
+                ])],
+            },
         );
     }
 
@@ -830,10 +856,23 @@ mod tests {
                     ]
                 }
             ),
-            Ok(
-                "m_{ulti_arg_test}\\left(\\left[1,2,3\\right],4,\\left[5,6,7\\right]\\right)"
-                    .to_string()
-            )
+            Ok(Latex::Call {
+                func: "multi_arg_test".to_string(),
+                is_builtin: false,
+                args: vec![
+                    Latex::List(vec![
+                        Latex::Num("1".to_string()),
+                        Latex::Num("2".to_string()),
+                        Latex::Num("3".to_string())
+                    ]),
+                    Latex::Num("4".to_string()),
+                    Latex::List(vec![
+                        Latex::Num("5".to_string()),
+                        Latex::Num("6".to_string()),
+                        Latex::Num("7".to_string())
+                    ])
+                ]
+            })
         )
     }
 
