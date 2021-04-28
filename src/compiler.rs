@@ -7,7 +7,7 @@ use crate::{
 };
 use pest::Span;
 use std::collections::HashMap;
-use std::{fmt::Write, rc::Rc};
+use std::rc::Rc;
 
 pub struct FunctionSignature {
     pub args: Vec<ValType>,
@@ -69,8 +69,8 @@ pub fn compile_call<'a>(
     ctx: &mut Context,
     span: Span<'a>,
     fname: &'a str,
-    args: Vec<(Span<'a>, Latex<'a>, ValType)>,
-) -> Result<(Latex<'a>, ValType), CompileError<'a>> {
+    args: Vec<(Span<'a>, Latex, ValType)>,
+) -> Result<(Latex, ValType), CompileError<'a>> {
     match resolve_function(ctx, fname) {
         None => Err(CompileError {
             kind: CompileErrorKind::UnknownFunction(fname),
@@ -93,9 +93,9 @@ pub fn compile_call<'a>(
                 // Builtins are prefixed with a backslash and are not in the identifier
                 //  form
                 let func_latex = if is_builtin {
-                    Latex::Builtin(fname)
+                    Latex::Builtin(fname.to_string())
                 } else {
-                    Latex::Variable(fname)
+                    Latex::Variable(fname.to_string())
                 };
 
                 let mut aiter = args.into_iter();
@@ -153,7 +153,7 @@ pub fn compile_expect<'a>(
     span: Span<'a>,
     expr: LocatedExpression<'a>,
     expect: ValType,
-) -> Result<String, CompileError<'a>> {
+) -> Result<Latex, CompileError<'a>> {
     let (s, t) = compile_expr(ctx, expr)?;
     check_type(span, t, expect)?;
     Ok(s)
@@ -163,7 +163,7 @@ pub fn handle_map_macro<'a>(
     ctx: &mut Context,
     span: Span<'a>,
     args: Vec<LocatedExpression<'a>>,
-) -> Result<(Latex<'a>, ValType), CompileError<'a>> {
+) -> Result<(Latex, ValType), CompileError<'a>> {
     if args.len() < 2 {
         return Err(CompileError {
             span,
@@ -204,7 +204,7 @@ pub fn handle_macro<'a>(
     span: Span<'a>,
     name: &'a str,
     args: Vec<LocatedExpression<'a>>,
-) -> Result<(Latex<'a>, ValType), CompileError<'a>> {
+) -> Result<(Latex, ValType), CompileError<'a>> {
     match name {
         "map" => handle_map_macro(ctx, span, args),
         _ => Err(CompileError {
@@ -219,13 +219,13 @@ pub fn handle_macro<'a>(
 pub fn compile_expr<'a>(
     ctx: &mut Context,
     expr: LocatedExpression<'a>,
-) -> Result<(String, ValType), CompileError<'a>> {
+) -> Result<(Latex, ValType), CompileError<'a>> {
     let span = expr.0;
 
     match expr.1 {
-        Expression::Num(val) => Ok((val.to_string(), ValType::Number)),
+        Expression::Num(val) => Ok((Latex::Num(val.to_string()), ValType::Number)),
         Expression::Variable(val) => match resolve_variable(ctx, val) {
-            Some(var_type) => Ok((compile_identifier(val), *var_type)),
+            Some(var_type) => Ok((Latex::Variable(val.to_string()), *var_type)),
             None => Err(CompileError {
                 kind: CompileErrorKind::UndefinedVariable(val),
                 span,
@@ -238,13 +238,11 @@ pub fn compile_expr<'a>(
         } => {
             let span2 = span.clone();
             Ok((
-                format!(
-                    "{}{}{}",
-                    // Expect number because cannot do math on lists
-                    compile_expect(ctx, span, *left, ValType::Number)?,
-                    operator,
-                    compile_expect(ctx, span2, *right, ValType::Number)?
-                ),
+                Latex::BinaryExpression {
+                    left: Box::new(compile_expect(ctx, span, *left, ValType::Number)?),
+                    operator: operator.to_string(),
+                    right: Box::new(compile_expect(ctx, span2, *right, ValType::Number)?),
+                },
                 ValType::Number,
             ))
         }
@@ -252,37 +250,32 @@ pub fn compile_expr<'a>(
             val: v,
             operator: op,
         } => Ok((
-            format!("{}{}", compile_expect(ctx, span, *v, ValType::Number)?, op),
+            Latex::UnaryExpression {
+                left: Box::new(compile_expect(ctx, span, *v, ValType::Number)?),
+                operator: op.to_string(),
+            },
             ValType::Number,
         )),
         Expression::Call { func, args } => {
             let compiled_args = args
                 .into_iter()
-                .map(|(s, e)| -> Result<(Span, String, ValType), CompileError> {
+                .map(|(s, e)| -> Result<(Span, Latex, ValType), CompileError> {
                     let (latex, t) = compile_expr(ctx, (s.clone(), e))?;
                     Ok((s, latex, t))
                 })
-                .collect::<Result<Vec<(Span, String, ValType)>, CompileError>>()?;
+                .collect::<Result<Vec<(Span, Latex, ValType)>, CompileError>>()?;
             compile_call(ctx, span, func, compiled_args)
         }
         Expression::List(values) => {
-            let mut s = String::new();
-            let mut first = true;
+            let items = values
+                .into_iter()
+                .map(|(s, e)| -> Result<Latex, CompileError> {
+                    // TODO: Special error explaining why this must be a number
+                    compile_expect(ctx, s.clone(), (s, e), ValType::Number)
+                })
+                .collect::<Result<Vec<Latex>, CompileError>>()?;
 
-            for v in values.iter() {
-                let v1 = v.clone();
-                let v2 = v.clone();
-
-                let val_str = compile_expect(ctx, v1.0, v2, ValType::Number)?;
-                if first {
-                    write!(s, "{}", val_str).unwrap();
-                    first = false;
-                } else {
-                    write!(s, ",{}", val_str).unwrap();
-                }
-            }
-
-            Ok((format!("\\left[{}\\right]", s), ValType::List))
+            Ok((Latex::List(items), ValType::List))
         }
         Expression::MacroCall { name, args } => handle_macro(ctx, span, name, args),
     }
@@ -291,7 +284,7 @@ pub fn compile_expr<'a>(
 pub fn compile_stmt<'a>(
     ctx: &mut Context<'a>,
     expr: LocatedStatement<'a>,
-) -> Result<String, CompileError<'a>> {
+) -> Result<Latex, CompileError<'a>> {
     let s = expr.0;
 
     match expr.1 {
@@ -305,7 +298,7 @@ pub fn compile_stmt<'a>(
             }
             let span = e.0.clone();
             // Evaluate the body with the new ctx
-            let (body_latex, ret) = compile_expr(ctx, e)?;
+            let (body, ret) = compile_expr(ctx, e)?;
             // Validate the return type annotation
             if let Some(retann) = fdef.ret_annotation {
                 check_type(span, ret, retann)?;
@@ -322,20 +315,11 @@ pub fn compile_stmt<'a>(
                 }),
             );
 
-            // Compile output latex
-            let formatted_args = fdef
-                .args
-                .iter()
-                .map(|a| compile_identifier(a.0))
-                .collect::<Vec<String>>()
-                .join(",");
-
-            Ok(format!(
-                "{}\\left({}\\right)={}",
-                compile_identifier(fdef.name),
-                formatted_args,
-                body_latex
-            ))
+            Ok(Latex::FuncDef {
+                name: fdef.name.to_string(),
+                args: fdef.args.iter().map(|a| a.0.to_string()).collect(),
+                body: Box::new(body),
+            })
         }
     }
 }
@@ -350,25 +334,25 @@ mod tests {
         Context::new()
     }
 
-    fn compile(exp: Expression) -> Result<String, CompileError> {
+    fn compile(exp: Expression) -> Result<Latex, CompileError> {
         compile_with_ctx(&mut new_ctx(), exp)
     }
 
     fn compile_with_ctx<'a>(
         ctx: &mut Context,
         exp: Expression<'a>,
-    ) -> Result<String, CompileError<'a>> {
+    ) -> Result<Latex, CompileError<'a>> {
         Ok(compile_expr(ctx, (spn(), exp))?.0)
     }
 
-    fn compile_stmt(stmt: Statement) -> Result<String, CompileError> {
+    fn compile_stmt(stmt: Statement) -> Result<Latex, CompileError> {
         compile_stmt_with_ctx(&mut new_ctx(), stmt)
     }
 
     fn compile_stmt_with_ctx<'a>(
         ctx: &mut Context<'a>,
         stmt: Statement<'a>,
-    ) -> Result<String, CompileError<'a>> {
+    ) -> Result<Latex, CompileError<'a>> {
         super::compile_stmt(ctx, (spn(), stmt))
     }
 
@@ -384,14 +368,14 @@ mod tests {
         v: &str,
         vtype: ValType,
         exp: Expression<'a>,
-    ) -> Result<String, CompileError<'a>> {
+    ) -> Result<Latex, CompileError<'a>> {
         let mut ctx = new_ctx();
         ctx.variables.insert(v, vtype);
         compile_with_ctx(&mut ctx, exp)
     }
 
-    fn check_with_var<'a>(v: &str, vtype: ValType, exp: Expression<'a>, r: &'a str) {
-        assert_eq!(comp_with_var(v, vtype, exp).unwrap(), r);
+    fn check_with_var<'a>(v: &str, vtype: ValType, exp: Expression<'a>, r: Latex) {
+        assert_eq!(comp_with_var(v, vtype, exp), Ok(r));
     }
 
     #[inline]
@@ -407,12 +391,17 @@ mod tests {
 
     #[test]
     fn variable() {
-        check_with_var("a", ValType::Number, Expression::Variable("a"), "a");
+        check_with_var(
+            "a",
+            ValType::Number,
+            Expression::Variable("a"),
+            Latex::Variable("a".to_string()),
+        );
         check_with_var(
             "abc",
             ValType::Number,
             Expression::Variable("abc"),
-            "a_{bc}",
+            Latex::Variable("abc".to_string()),
         );
     }
 
