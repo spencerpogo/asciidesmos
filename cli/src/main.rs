@@ -1,9 +1,10 @@
 use clap::{App, Arg};
+use desmos_lang::parser::parse;
 use std::fs::File;
 use std::io::prelude::*;
 
 fn process(inp: &str, _show_ast: bool) {
-    match desmos_lang::parser::parse(inp) {
+    match parse(inp) {
         Err(e) => println!("{}", e),
         Ok(ast) => {
             println!("{:#?}", ast);

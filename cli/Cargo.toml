@@ -1,0 +1,13 @@
+[package]
+name = "desmosc"
+version = "0.1.0"
+authors = ["Scoder12"]
+edition = "2018"
+
+[dependencies]
+clap = "2.33.3"
+desmos_lang = { path = "../desmos_lang" }
+
+[[bin]]
+name = "desmosc"
+path = "src/main.rs"
