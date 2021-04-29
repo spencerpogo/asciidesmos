@@ -263,8 +263,15 @@ pub fn compile_expr<'a>(
             let items = values
                 .into_iter()
                 .map(|(s, e)| -> Result<Latex, CompileError> {
-                    // TODO: Special error explaining why this must be a number
-                    compile_expect(ctx, s.clone(), (s, e), ValType::Number)
+                    let (latex, vtype) = compile_expr(ctx, (s.clone(), e))?;
+                    if vtype != ValType::Number {
+                        Err(CompileError {
+                            span: s,
+                            kind: CompileErrorKind::NoNestedList,
+                        })
+                    } else {
+                        Ok(latex)
+                    }
                 })
                 .collect::<Result<Vec<Latex>, CompileError>>()?;
 
@@ -565,13 +572,11 @@ mod tests {
             compile(Expression::List(vec![(
                 spn(),
                 Expression::List(vec![(spn(), Expression::Num("1"))])
-            )]))
-            .unwrap_err()
-            .kind,
-            CompileErrorKind::TypeMismatch {
-                got: ValType::List,
-                expected: ValType::Number
-            }
+            )])),
+            Err(CompileError {
+                span: spn(),
+                kind: CompileErrorKind::NoNestedList
+            })
         );
     }
 

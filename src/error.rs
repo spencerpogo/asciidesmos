@@ -11,6 +11,7 @@ pub enum CompileErrorKind<'a> {
     UndefinedMacro(&'a str),
     BadMapMacro,
     ExpectedFunction,
+    NoNestedList,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -40,6 +41,9 @@ impl CompileError<'_> {
                 "Usage: map!(function, list, [list2], ..., [listn])".to_string()
             }
             CompileErrorKind::ExpectedFunction => "Expected a function".to_string(),
+            CompileErrorKind::NoNestedList => {
+                "Storing lists inside of lists is not allowed.".to_string()
+            }
         }
     }
 }
