@@ -5,7 +5,7 @@ Expression = { List | UnaryExpression | BinaryExpression | Term }
 Term = { MacroCall | Call | Variable | Number | "(" ~ Expression ~ ")" }
 
 Factorial = @{ "!" }
-UnaryOperator = @{ Factorial }
+UnaryOperator = { Factorial }
 UnaryExpression = { Term ~ UnaryOperator }
 
 Add =      @{ "+" }

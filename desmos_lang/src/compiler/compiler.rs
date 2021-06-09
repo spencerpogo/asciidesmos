@@ -247,7 +247,7 @@ pub fn compile_expr<'a>(
         } => Ok((
             Latex::UnaryExpression {
                 left: Box::new(compile_expect(ctx, span, *v, ValType::Number)?),
-                operator: op.to_string(),
+                operator: op,
             },
             ValType::Number,
         )),
@@ -329,7 +329,10 @@ pub fn compile_stmt<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::{ast::FunctionDefinition, latex::BinaryOperator};
+    use crate::core::{
+        ast::FunctionDefinition,
+        latex::{BinaryOperator, UnaryOperator},
+    };
     use pest::Span;
 
     fn new_ctx<'a>() -> Context<'a> {
@@ -440,11 +443,11 @@ mod tests {
         check(
             Expression::UnaryExpr {
                 val: Box::new((spn(), Expression::Num("2"))),
-                operator: "!",
+                operator: UnaryOperator::Factorial,
             },
             Latex::UnaryExpression {
                 left: Box::new(Latex::Num("2".to_string())),
-                operator: "!".to_string(),
+                operator: UnaryOperator::Factorial,
             },
         );
     }
@@ -539,7 +542,7 @@ mod tests {
         assert_eq!(
             compile(Expression::UnaryExpr {
                 val: Box::new((spn(), Expression::List(vec![(spn(), Expression::Num("1"))]))),
-                operator: "+",
+                operator: UnaryOperator::Factorial,
             })
             .unwrap_err()
             .kind,

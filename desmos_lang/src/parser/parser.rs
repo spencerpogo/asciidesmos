@@ -1,6 +1,6 @@
 use crate::core::{
     ast::{Expression, FunctionDefinition, LocatedExpression, LocatedStatement, Statement},
-    latex::BinaryOperator,
+    latex::{BinaryOperator, UnaryOperator},
     runtime::ValType,
 };
 use pest::Span;
@@ -62,8 +62,15 @@ impl DesmosParser {
         ))
     }
 
-    fn UnaryOperator(input: Node) -> Pesult<&str> {
-        Ok(input.as_str())
+    fn Factorial(input: Node) -> Pesult<UnaryOperator> {
+        Ok(UnaryOperator::Factorial)
+    }
+
+    fn UnaryOperator(input: Node) -> Pesult<UnaryOperator> {
+        Ok(match_nodes!(
+            input.into_children();
+            [Factorial(o)] => o,
+        ))
     }
 
     fn UnaryExpression(input: Node) -> Pesult<LocatedExpression> {
@@ -364,7 +371,7 @@ mod tests {
             i,
             Expression::UnaryExpr {
                 val: Box::new((spn(i, 0, 1), Expression::Num("1"))),
-                operator: "!",
+                operator: UnaryOperator::Factorial,
             }
         );
     }

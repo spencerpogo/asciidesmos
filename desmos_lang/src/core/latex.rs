@@ -7,6 +7,11 @@ pub enum BinaryOperator {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum UnaryOperator {
+    Factorial,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum Latex {
     Variable(String),
     Num(String),
@@ -22,7 +27,7 @@ pub enum Latex {
     },
     UnaryExpression {
         left: Box<Latex>,
-        operator: String, // TODO: Replace this with an enum
+        operator: UnaryOperator,
     },
     List(Vec<Latex>),
     Assignment(Box<Latex>, Box<Latex>),
@@ -87,7 +92,10 @@ pub fn latex_to_str(l: Latex) -> String {
             operator,
             right,
         } => binaryoperator_to_str(*left, operator, *right),
-        Latex::UnaryExpression { left, operator } => format!("{}{}", latex_to_str(*left), operator),
+        Latex::UnaryExpression { left, operator } => match operator {
+            UnaryOperator::Factorial => format!("{}!", latex_to_str(*left),),
+        },
+
         Latex::List(items) => multi_latex_to_str(items).join(","),
         Latex::Assignment(left, right) => {
             format!("{}={}", latex_to_str(*left), latex_to_str(*right))

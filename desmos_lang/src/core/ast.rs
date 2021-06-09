@@ -1,4 +1,7 @@
-use super::{latex::BinaryOperator, runtime::ValType};
+use super::{
+    latex::{BinaryOperator, UnaryOperator},
+    runtime::ValType,
+};
 use pest::Span;
 
 // Expression is a component of a statement
@@ -15,7 +18,7 @@ pub enum Expression<'a> {
     },
     UnaryExpr {
         val: Box<LocatedExpression<'a>>,
-        operator: &'a str,
+        operator: UnaryOperator,
     },
     Call {
         func: &'a str,
