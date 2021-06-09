@@ -327,7 +327,7 @@ pub fn compile_stmt<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::FunctionDefinition;
+    use parser::parser::FunctionDefinition;
     use pest::Span;
 
     fn new_ctx<'a>() -> Context<'a> {
