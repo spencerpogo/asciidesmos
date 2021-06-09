@@ -1,8 +1,19 @@
-use super::{
-    latex::{BinaryOperator, UnaryOperator},
-    runtime::ValType,
-};
+use super::runtime::ValType;
 use pest::Span;
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum BinaryOperator {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+    Mod,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum UnaryOperator {
+    Factorial,
+}
 
 // Expression is a component of a statement
 #[derive(Clone, Debug, PartialEq)]

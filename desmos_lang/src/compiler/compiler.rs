@@ -3,8 +3,10 @@ use super::{
     error::{CompileError, CompileErrorKind},
 };
 use crate::core::{
-    ast::{Expression, LocatedExpression, LocatedStatement, Statement},
-    latex::Latex,
+    ast::{
+        BinaryOperator, Expression, LocatedExpression, LocatedStatement, Statement, UnaryOperator,
+    },
+    latex::{BinaryOperator as LatexBinaryOperator, Latex, UnaryOperator as LatexUnaryOperator},
     runtime::ValType,
 };
 use pest::Span;
@@ -209,6 +211,22 @@ pub fn handle_macro<'a>(
     }
 }
 
+pub fn binop_to_latex(op: BinaryOperator) -> LatexBinaryOperator {
+    match op {
+        BinaryOperator::Add => LatexBinaryOperator::Add,
+        BinaryOperator::Subtract => LatexBinaryOperator::Subtract,
+        BinaryOperator::Multiply => LatexBinaryOperator::Multiply,
+        BinaryOperator::Divide => LatexBinaryOperator::Divide,
+        BinaryOperator::Mod => unreachable!(),
+    }
+}
+
+pub fn unop_to_latex(op: UnaryOperator) -> LatexUnaryOperator {
+    match op {
+        UnaryOperator::Factorial => LatexUnaryOperator::Factorial,
+    }
+}
+
 // Ideally this would be functional and ctx would not need to be mutable, but rust
 //  support for immutable hashmaps isn't built in and mutation is much simpler.
 pub fn compile_expr<'a>(
@@ -232,11 +250,20 @@ pub fn compile_expr<'a>(
             right,
         } => {
             let span2 = span.clone();
+            let lv = compile_expect(ctx, span, *left, ValType::Number)?;
+            let rv = compile_expect(ctx, span2, *right, ValType::Number)?;
             Ok((
-                Latex::BinaryExpression {
-                    left: Box::new(compile_expect(ctx, span, *left, ValType::Number)?),
-                    operator,
-                    right: Box::new(compile_expect(ctx, span2, *right, ValType::Number)?),
+                match operator {
+                    BinaryOperator::Mod => Latex::Call {
+                        func: "mod".to_string(),
+                        is_builtin: true,
+                        args: vec![lv, rv],
+                    },
+                    _ => Latex::BinaryExpression {
+                        left: Box::new(lv),
+                        operator: binop_to_latex(operator),
+                        right: Box::new(rv),
+                    },
                 },
                 ValType::Number,
             ))
@@ -247,7 +274,7 @@ pub fn compile_expr<'a>(
         } => Ok((
             Latex::UnaryExpression {
                 left: Box::new(compile_expect(ctx, span, *v, ValType::Number)?),
-                operator: op,
+                operator: unop_to_latex(op),
             },
             ValType::Number,
         )),
@@ -329,10 +356,7 @@ pub fn compile_stmt<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::{
-        ast::FunctionDefinition,
-        latex::{BinaryOperator, UnaryOperator},
-    };
+    use crate::core::ast::FunctionDefinition;
     use pest::Span;
 
     fn new_ctx<'a>() -> Context<'a> {
@@ -432,7 +456,7 @@ mod tests {
             },
             Latex::BinaryExpression {
                 left: Box::new(Latex::Num("1".to_string())),
-                operator: BinaryOperator::Add,
+                operator: LatexBinaryOperator::Add,
                 right: Box::new(Latex::Num("2".to_string())),
             },
         )
@@ -447,7 +471,7 @@ mod tests {
             },
             Latex::UnaryExpression {
                 left: Box::new(Latex::Num("2".to_string())),
-                operator: UnaryOperator::Factorial,
+                operator: LatexUnaryOperator::Factorial,
             },
         );
     }

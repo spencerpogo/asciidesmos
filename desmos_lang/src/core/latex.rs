@@ -1,4 +1,4 @@
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum BinaryOperator {
     Add,
     Subtract,
@@ -6,7 +6,7 @@ pub enum BinaryOperator {
     Divide,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum UnaryOperator {
     Factorial,
 }

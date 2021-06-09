@@ -1,6 +1,8 @@
 use crate::core::{
-    ast::{Expression, FunctionDefinition, LocatedExpression, LocatedStatement, Statement},
-    latex::{BinaryOperator, UnaryOperator},
+    ast::{
+        BinaryOperator, Expression, FunctionDefinition, LocatedExpression, LocatedStatement,
+        Statement, UnaryOperator,
+    },
     runtime::ValType,
 };
 use pest::Span;
