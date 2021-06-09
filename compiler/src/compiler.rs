@@ -5,7 +5,7 @@ use crate::{
 };
 use desmos_lang::{
     ast::{Expression, LocatedExpression, LocatedStatement, Statement},
-    types::ValType,
+    runtime::ValType,
 };
 use pest::Span;
 use std::collections::HashMap;

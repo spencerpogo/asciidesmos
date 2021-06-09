@@ -1,6 +1,6 @@
 use desmos_lang::{
     ast::{Expression, FunctionDefinition, LocatedExpression, LocatedStatement, Statement},
-    types::ValType,
+    runtime::ValType,
 };
 use pest::Span;
 use pest_consume::{match_nodes, Error, Node as PestNode, Parser as PestConsumeParser};
