@@ -81,19 +81,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "compiler"
-version = "0.1.0"
-dependencies = [
- "desmos_lang",
- "pest",
- "phf",
-]
-
-[[package]]
 name = "desmos_lang"
 version = "0.1.0"
 dependencies = [
  "pest",
+ "pest_consume",
+ "pest_derive",
+ "phf",
 ]
 
 [[package]]
@@ -101,7 +95,7 @@ name = "desmosc"
 version = "0.1.0"
 dependencies = [
  "clap",
- "parser",
+ "desmos_lang",
 ]
 
 [[package]]
@@ -150,9 +144,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.95"
+version = "0.2.96"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "789da6d93f1b866ffe175afc5322a4d76c038605a1c3319bb57b06967ca98a36"
+checksum = "5600b4e6efc5421841a2138a6b082e07fe12f9aaa12783d50e5d13325b26b4fc"
 
 [[package]]
 name = "maplit"
@@ -165,16 +159,6 @@ name = "opaque-debug"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2839e79665f131bdb5782e51f2c6c9599c133c6098982a54c794358bf432529c"
-
-[[package]]
-name = "parser"
-version = "0.1.0"
-dependencies = [
- "desmos_lang",
- "pest",
- "pest_consume",
- "pest_derive",
-]
 
 [[package]]
 name = "pest"

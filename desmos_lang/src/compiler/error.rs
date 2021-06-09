@@ -1,5 +1,5 @@
-use desmos_lang::runtime::{ArgCount, ValType};
-use pest::{Span, error as pest_err};
+use crate::core::runtime::{ArgCount, ValType};
+use pest::{error as pest_err, Span};
 use std::fmt;
 
 #[derive(Clone, Debug, PartialEq)]

@@ -1,9 +1,9 @@
-use crate::{
+use super::{
     builtins,
     error::{CompileError, CompileErrorKind},
     latex::Latex,
 };
-use desmos_lang::{
+use crate::core::{
     ast::{Expression, LocatedExpression, LocatedStatement, Statement},
     runtime::ValType,
 };
@@ -329,7 +329,7 @@ pub fn compile_stmt<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use desmos_lang::ast::FunctionDefinition;
+    use crate::core::ast::FunctionDefinition;
     use pest::Span;
 
     fn new_ctx<'a>() -> Context<'a> {

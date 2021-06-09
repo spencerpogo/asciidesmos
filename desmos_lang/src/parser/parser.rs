@@ -1,4 +1,4 @@
-use desmos_lang::{
+use crate::core::{
     ast::{Expression, FunctionDefinition, LocatedExpression, LocatedStatement, Statement},
     runtime::ValType,
 };
@@ -11,7 +11,7 @@ type Node<'i> = PestNode<'i, Rule, ()>;
 
 #[allow(clippy::upper_case_acronyms)]
 #[derive(PestConsumeParser)]
-#[grammar = "grammar.pest"] // relative to src
+#[grammar = "parser/grammar.pest"] // relative to src
 pub struct DesmosParser;
 
 impl DesmosParser {
