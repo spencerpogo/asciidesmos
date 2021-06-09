@@ -1,4 +1,12 @@
 #[derive(Clone, Debug, PartialEq)]
+pub enum BinaryOperator {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum Latex {
     Variable(String),
     Num(String),
@@ -9,7 +17,7 @@ pub enum Latex {
     },
     BinaryExpression {
         left: Box<Latex>,
-        operator: String, // TODO: Replace this with an enum
+        operator: BinaryOperator,
         right: Box<Latex>,
     },
     UnaryExpression {
@@ -46,6 +54,20 @@ pub fn multi_latex_to_str(items: Vec<Latex>) -> Vec<String> {
     items.into_iter().map(latex_to_str).collect()
 }
 
+pub fn binaryoperator_to_str(left: Latex, operator: BinaryOperator, right: Latex) -> String {
+    let ls = latex_to_str(left.clone());
+    let rs = latex_to_str(right.clone());
+    match operator {
+        BinaryOperator::Add => format!("{}+{}", ls, rs),
+        BinaryOperator::Subtract => format!("{}-{}", ls, rs),
+        BinaryOperator::Multiply => match (left, right) {
+            (Latex::Num(_), Latex::Num(_)) => format!("{}\\cdot {}", ls, rs),
+            _ => format!("{}{}", ls, rs),
+        },
+        BinaryOperator::Divide => format!("\\frac{{{}}}{{{}}}", ls, rs),
+    }
+}
+
 pub fn latex_to_str(l: Latex) -> String {
     match l {
         Latex::Variable(s) => format_latex_identifier(s),
@@ -64,12 +86,7 @@ pub fn latex_to_str(l: Latex) -> String {
             left,
             operator,
             right,
-        } => format!(
-            "{}{}{}",
-            latex_to_str(*left),
-            operator,
-            latex_to_str(*right)
-        ),
+        } => binaryoperator_to_str(*left, operator, *right),
         Latex::UnaryExpression { left, operator } => format!("{}{}", latex_to_str(*left), operator),
         Latex::List(items) => multi_latex_to_str(items).join(","),
         Latex::Assignment(left, right) => {

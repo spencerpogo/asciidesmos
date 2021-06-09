@@ -1,7 +1,7 @@
+use super::latex::{BinaryOperator, Latex};
 use super::{
     builtins,
     error::{CompileError, CompileErrorKind},
-    latex::Latex,
 };
 use crate::core::{
     ast::{Expression, LocatedExpression, LocatedStatement, Statement},
@@ -235,7 +235,14 @@ pub fn compile_expr<'a>(
             Ok((
                 Latex::BinaryExpression {
                     left: Box::new(compile_expect(ctx, span, *left, ValType::Number)?),
-                    operator: operator.to_string(),
+                    // TODO: Do this in parser
+                    operator: match operator {
+                        "+" => BinaryOperator::Add,
+                        "-" => BinaryOperator::Subtract,
+                        "*" => BinaryOperator::Multiply,
+                        "/" => BinaryOperator::Divide,
+                        _ => unreachable!(),
+                    },
                     right: Box::new(compile_expect(ctx, span2, *right, ValType::Number)?),
                 },
                 ValType::Number,
@@ -429,7 +436,7 @@ mod tests {
             },
             Latex::BinaryExpression {
                 left: Box::new(Latex::Num("1".to_string())),
-                operator: "+".to_string(),
+                operator: BinaryOperator::Add,
                 right: Box::new(Latex::Num("2".to_string())),
             },
         )
