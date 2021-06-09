@@ -1,4 +1,4 @@
-use crate::types::ValType;
+use crate::runtime::ValType;
 use pest::Span;
 
 // Expression is a component of a statement

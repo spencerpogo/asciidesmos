@@ -1,4 +1,4 @@
-use desmos_lang::types::{ArgCount, ValType};
+use desmos_lang::runtime::{ArgCount, ValType};
 use parser::types::Span;
 use pest::error as pest_err;
 use std::fmt;

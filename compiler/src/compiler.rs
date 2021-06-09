@@ -329,7 +329,7 @@ pub fn compile_stmt<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use parser::parser::FunctionDefinition;
+    use desmos_lang::ast::FunctionDefinition;
     use pest::Span;
 
     fn new_ctx<'a>() -> Context<'a> {
