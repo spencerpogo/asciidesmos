@@ -1,6 +1,5 @@
 use desmos_lang::runtime::{ArgCount, ValType};
-use parser::types::Span;
-use pest::error as pest_err;
+use pest::{Span, error as pest_err};
 use std::fmt;
 
 #[derive(Clone, Debug, PartialEq)]
