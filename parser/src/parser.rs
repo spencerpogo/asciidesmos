@@ -133,21 +133,22 @@ impl DesmosParser {
             [Term(l), BinPair(p), BinPair(rest)..] => rest
                 .collect::<Vec<(&str, LocatedExpression, Span)>>()
                 .into_iter()
-                .try_fold(
+                .fold(
                     (l.0.start_pos().span(&p.2.end_pos()), Expression::BinaryExpr {
                         left: Box::new(l),
                         operator: p.0,
                         right: Box::new(p.1)
                     }),
                     |lastexpr, npair|
-                        Ok((
+                        (
                             (lastexpr.0.start_pos().span(&npair.2.end_pos())),
                             Expression::BinaryExpr {
-                            left: Box::new(lastexpr),
-                            operator: npair.0,
-                            right: Box::new(npair.1),
-                        }))
-                )?,
+                                left: Box::new(lastexpr),
+                                operator: npair.0,
+                                right: Box::new(npair.1),
+                            }
+                        )
+                ),
         ))
     }
 
