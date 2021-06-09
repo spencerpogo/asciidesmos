@@ -93,6 +93,9 @@ dependencies = [
 [[package]]
 name = "desmos_lang"
 version = "0.1.0"
+dependencies = [
+ "pest",
+]
 
 [[package]]
 name = "desmosc"

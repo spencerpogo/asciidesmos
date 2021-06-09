@@ -3,8 +3,10 @@ use crate::{
     error::{CompileError, CompileErrorKind},
     latex::Latex,
 };
-use desmos_lang::types::ValType;
-use parser::parser::{Expression, LocatedExpression, LocatedStatement, Statement};
+use desmos_lang::{
+    ast::{Expression, LocatedExpression, LocatedStatement, Statement},
+    types::ValType,
+};
 use pest::Span;
 use std::collections::HashMap;
 use std::rc::Rc;

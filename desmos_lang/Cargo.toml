@@ -5,3 +5,4 @@ authors = ["Scoder12"]
 edition = "2018"
 
 [dependencies]
+pest = "2.1.3"
