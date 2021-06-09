@@ -1,4 +1,4 @@
-use super::runtime::ValType;
+use super::{latex::BinaryOperator, runtime::ValType};
 use pest::Span;
 
 // Expression is a component of a statement
@@ -10,7 +10,7 @@ pub enum Expression<'a> {
         left: Box<LocatedExpression<'a>>,
         // Should probably make an enum for this, but its not worth the work to encode
         //  it just to stringify it again later
-        operator: &'a str,
+        operator: BinaryOperator,
         right: Box<LocatedExpression<'a>>,
     },
     UnaryExpr {

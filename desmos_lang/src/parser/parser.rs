@@ -1,5 +1,6 @@
 use crate::core::{
     ast::{Expression, FunctionDefinition, LocatedExpression, LocatedStatement, Statement},
+    latex::BinaryOperator,
     runtime::ValType,
 };
 use pest::Span;
@@ -73,11 +74,33 @@ impl DesmosParser {
         ))
     }
 
-    fn BinaryOperator(input: Node) -> Pesult<&str> {
-        Ok(input.as_str())
+    fn Add(input: Node) -> Pesult<BinaryOperator> {
+        Ok(BinaryOperator::Add)
     }
 
-    fn BinPair(input: Node) -> Pesult<(&str, LocatedExpression, Span)> {
+    fn Subtract(input: Node) -> Pesult<BinaryOperator> {
+        Ok(BinaryOperator::Subtract)
+    }
+
+    fn Multiply(input: Node) -> Pesult<BinaryOperator> {
+        Ok(BinaryOperator::Multiply)
+    }
+
+    fn Divide(input: Node) -> Pesult<BinaryOperator> {
+        Ok(BinaryOperator::Divide)
+    }
+
+    fn BinaryOperator(input: Node) -> Pesult<BinaryOperator> {
+        Ok(match_nodes!(
+            input.into_children();
+            [Add(o)] => o,
+            [Subtract(o)] => o,
+            [Multiply(o)] => o,
+            [Divide(o)] => o,
+        ))
+    }
+
+    fn BinPair(input: Node) -> Pesult<(BinaryOperator, LocatedExpression, Span)> {
         let s = input.as_span();
         Ok(match_nodes!(
             input.into_children();
@@ -89,7 +112,7 @@ impl DesmosParser {
         Ok(match_nodes!(
             input.into_children();
             [Term(l), BinPair(p), BinPair(rest)..] => rest
-                .collect::<Vec<(&str, LocatedExpression, Span)>>()
+                .collect::<Vec<_>>()
                 .into_iter()
                 .fold(
                     (l.0.start_pos().span(&p.2.end_pos()), Expression::BinaryExpr {
@@ -307,7 +330,7 @@ mod tests {
             i,
             Expression::BinaryExpr {
                 left: Box::new((spn(i, 0, 1), Expression::Num("1"))),
-                operator: "+",
+                operator: BinaryOperator::Add,
                 right: Box::new((spn(i, 4, 5), Expression::Num("2")))
             }
         );
@@ -324,11 +347,11 @@ mod tests {
                     spn(i, 0, 5),
                     Expression::BinaryExpr {
                         left: Box::new((spn(i, 0, 1), Expression::Num("1"))),
-                        operator: "+",
+                        operator: BinaryOperator::Add,
                         right: Box::new((spn(i, 4, 5), Expression::Num("2")))
                     }
                 )),
-                operator: "+",
+                operator: BinaryOperator::Add,
                 right: Box::new((spn(i, 8, 9), Expression::Num("3"))),
             }
         );

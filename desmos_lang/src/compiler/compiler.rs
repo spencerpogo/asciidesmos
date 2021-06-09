@@ -4,7 +4,7 @@ use super::{
 };
 use crate::core::{
     ast::{Expression, LocatedExpression, LocatedStatement, Statement},
-    latex::{BinaryOperator, Latex},
+    latex::Latex,
     runtime::ValType,
 };
 use pest::Span;
@@ -235,14 +235,7 @@ pub fn compile_expr<'a>(
             Ok((
                 Latex::BinaryExpression {
                     left: Box::new(compile_expect(ctx, span, *left, ValType::Number)?),
-                    // TODO: Do this in parser
-                    operator: match operator {
-                        "+" => BinaryOperator::Add,
-                        "-" => BinaryOperator::Subtract,
-                        "*" => BinaryOperator::Multiply,
-                        "/" => BinaryOperator::Divide,
-                        _ => unreachable!(),
-                    },
+                    operator,
                     right: Box::new(compile_expect(ctx, span2, *right, ValType::Number)?),
                 },
                 ValType::Number,
@@ -336,7 +329,7 @@ pub fn compile_stmt<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::ast::FunctionDefinition;
+    use crate::core::{ast::FunctionDefinition, latex::BinaryOperator};
     use pest::Span;
 
     fn new_ctx<'a>() -> Context<'a> {
@@ -431,7 +424,7 @@ mod tests {
         check(
             Expression::BinaryExpr {
                 left: Box::new((spn(), Expression::Num("1"))),
-                operator: "+",
+                operator: BinaryOperator::Add,
                 right: Box::new((spn(), Expression::Num("2"))),
             },
             Latex::BinaryExpression {
@@ -529,7 +522,7 @@ mod tests {
         assert_eq!(
             compile(Expression::BinaryExpr {
                 left: Box::new((spn(), Expression::List(vec![(spn(), Expression::Num("1"))]))),
-                operator: "+",
+                operator: BinaryOperator::Add,
                 right: Box::new((spn(), Expression::Num("2")))
             })
             .unwrap_err()
