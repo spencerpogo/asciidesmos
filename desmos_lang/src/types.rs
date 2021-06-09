@@ -1,7 +1,3 @@
-use pest::Span as PestSpan;
-
-pub type Span<'a> = PestSpan<'a>;
-
 pub type ArgCount = usize;
 
 #[derive(Copy, Clone, Debug, PartialEq)]

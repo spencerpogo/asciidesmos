@@ -1,4 +1,5 @@
-use crate::types::{ArgCount, Span, ValType};
+use desmos_lang::types::{ArgCount, ValType};
+use parser::types::Span;
 use pest::error as pest_err;
 use std::fmt;
 

@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 clap = "2.33.3"
-desmos_lang = { path = "../desmos_lang" }
+parser = { path = "../parser" }
 
 [[bin]]
 name = "desmosc"

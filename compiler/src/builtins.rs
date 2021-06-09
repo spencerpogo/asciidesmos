@@ -1,4 +1,4 @@
-use crate::types::{Function, ValType as VT};
+use desmos_lang::types::{Function, ValType as VT};
 use phf::{phf_map, Map};
 
 macro_rules! f {

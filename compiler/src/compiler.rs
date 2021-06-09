@@ -2,9 +2,9 @@ use crate::{
     builtins,
     error::{CompileError, CompileErrorKind},
     latex::Latex,
-    parser::{Expression, LocatedExpression, LocatedStatement, Statement},
-    types::ValType,
 };
+use desmos_lang::types::ValType;
+use parser::parser::{Expression, LocatedExpression, LocatedStatement, Statement};
 use pest::Span;
 use std::collections::HashMap;
 use std::rc::Rc;

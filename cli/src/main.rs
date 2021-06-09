@@ -1,5 +1,5 @@
 use clap::{App, Arg};
-use desmos_lang::parser::parse;
+use parser::parser::parse;
 use std::fs::File;
 use std::io::prelude::*;
 

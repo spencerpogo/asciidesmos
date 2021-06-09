@@ -1,4 +1,4 @@
-use crate::types::ValType;
+use desmos_lang::types::ValType;
 use pest::Span;
 use pest_consume::{match_nodes, Error, Node as PestNode, Parser as PestConsumeParser};
 

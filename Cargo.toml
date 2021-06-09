@@ -1,2 +1,2 @@
 [workspace]
-members = ["cli", "desmos_lang"]
+members = ["cli", "compiler", "desmos_lang", "parser"]
