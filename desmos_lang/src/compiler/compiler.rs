@@ -1,10 +1,10 @@
-use super::latex::{BinaryOperator, Latex};
 use super::{
     builtins,
     error::{CompileError, CompileErrorKind},
 };
 use crate::core::{
     ast::{Expression, LocatedExpression, LocatedStatement, Statement},
+    latex::{BinaryOperator, Latex},
     runtime::ValType,
 };
 use pest::Span;
