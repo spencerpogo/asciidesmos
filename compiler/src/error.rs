@@ -39,7 +39,9 @@ impl CompileError<'_> {
             }
             CompileErrorKind::UndefinedMacro(name) => format!("Undefined macro '{}'", name),
             CompileErrorKind::BadMapMacro => {
-                "Usage: map!(function, list, [list2], ..., [listn])".to_string()
+                "The map! macro takes a function and then at least one list to pass\
+                as an argument"
+                    .to_string()
             }
             CompileErrorKind::ExpectedFunction => "Expected a function".to_string(),
             CompileErrorKind::NoNestedList => {
