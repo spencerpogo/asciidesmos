@@ -11,6 +11,23 @@ pub enum UnaryOperator {
     Factorial,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum CompareOperator {
+    Equal,
+    GreaterThan,
+    LessThan,
+    GreaterThanEqual,
+    LessThanEqual,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Cond {
+    left: Latex,
+    op: CompareOperator,
+    right: Latex,
+    result: Latex,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Latex {
     Variable(String),
@@ -35,6 +52,11 @@ pub enum Latex {
         name: String,
         args: Vec<String>,
         body: Box<Latex>,
+    },
+    Piecewise {
+        first: Box<Cond>,
+        rest: Vec<Cond>,
+        default: Box<Latex>,
     },
 }
 
@@ -73,6 +95,26 @@ pub fn binaryoperator_to_str(left: Latex, operator: BinaryOperator, right: Latex
     }
 }
 
+pub fn compareop_to_str(op: CompareOperator) -> &'static str {
+    match op {
+        CompareOperator::Equal => "=",
+        CompareOperator::GreaterThan => ">", // or \gt
+        CompareOperator::LessThan => "<",    // or \lt
+        CompareOperator::GreaterThanEqual => "\\le",
+        CompareOperator::LessThanEqual => "\\ge",
+    }
+}
+
+pub fn cond_to_str(cond: Cond) -> String {
+    format!(
+        "{}{}{}:{}",
+        latex_to_str(cond.left),
+        compareop_to_str(cond.op),
+        latex_to_str(cond.right),
+        latex_to_str(cond.result)
+    )
+}
+
 pub fn latex_to_str(l: Latex) -> String {
     match l {
         Latex::Variable(s) => format_latex_identifier(s),
@@ -109,5 +151,65 @@ pub fn latex_to_str(l: Latex) -> String {
                 .join(","),
             latex_to_str(*body)
         ),
+        Latex::Piecewise {
+            first,
+            rest,
+            default,
+        } => format!(
+            "\\left\\{{{},{}{}\\right\\}}",
+            cond_to_str(*first),
+            rest.into_iter()
+                .map(|cond| cond_to_str(cond) + ",")
+                .collect::<String>(),
+            latex_to_str(*default)
+        ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn check(input: Latex, output: &'static str) {
+        assert_eq!(latex_to_str(input), output.to_string());
+    }
+
+    #[test]
+    fn piecewise_single() {
+        check(
+            Latex::Piecewise {
+                first: Box::new(Cond {
+                    left: Latex::Num("1".to_string()),
+                    op: CompareOperator::Equal,
+                    right: Latex::Num("2".to_string()),
+                    result: Latex::Num("3".to_string()),
+                }),
+                rest: vec![],
+                default: Box::new(Latex::Num("4".to_string())),
+            },
+            "\\left\\{1=2:3,4\\right\\}",
+        )
+    }
+
+    #[test]
+    fn piecewise_multi() {
+        check(
+            Latex::Piecewise {
+                first: Box::new(Cond {
+                    left: Latex::Num("1".to_string()),
+                    op: CompareOperator::Equal,
+                    right: Latex::Num("2".to_string()),
+                    result: Latex::Num("3".to_string()),
+                }),
+                rest: vec![Cond {
+                    left: Latex::Num("4".to_string()),
+                    op: CompareOperator::LessThan,
+                    right: Latex::Num("5".to_string()),
+                    result: Latex::Num("6".to_string()),
+                }],
+                default: Box::new(Latex::Num("7".to_string())),
+            },
+            "\\left\\{1=2:3,4<5:6,7\\right\\}",
+        )
     }
 }
