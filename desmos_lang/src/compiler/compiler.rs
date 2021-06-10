@@ -463,6 +463,22 @@ mod tests {
     }
 
     #[test]
+    fn test_mod() {
+        check(
+            Expression::BinaryExpr {
+                left: Box::new((spn(), Expression::Num("1"))),
+                operator: BinaryOperator::Mod,
+                right: Box::new((spn(), Expression::Num("2"))),
+            },
+            Latex::Call {
+                func: "mod".to_string(),
+                is_builtin: true,
+                args: vec![Latex::Num("1".to_string()), Latex::Num("2".to_string())],
+            },
+        );
+    }
+
+    #[test]
     fn unary_expression() {
         check(
             Expression::UnaryExpr {

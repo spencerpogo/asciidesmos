@@ -99,6 +99,10 @@ impl DesmosParser {
         Ok(BinaryOperator::Divide)
     }
 
+    fn Mod(input: Node) -> Pesult<BinaryOperator> {
+        Ok(BinaryOperator::Mod)
+    }
+
     fn BinaryOperator(input: Node) -> Pesult<BinaryOperator> {
         Ok(match_nodes!(
             input.into_children();
@@ -106,6 +110,7 @@ impl DesmosParser {
             [Subtract(o)] => o,
             [Multiply(o)] => o,
             [Divide(o)] => o,
+            [Mod(o)] => o,
         ))
     }
 

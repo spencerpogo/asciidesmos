@@ -12,7 +12,8 @@ Add =      @{ "+" }
 Subtract = @{ "-" }
 Multiply = @{ "*" }
 Divide =   @{ "/" }
-BinaryOperator = { Add | Subtract | Multiply | Divide }
+Mod =      @{ "%" }
+BinaryOperator = { Add | Subtract | Multiply | Divide | Mod }
 BinPair = { BinaryOperator ~ Term }
 BinaryExpression = { Term ~ BinPair+ }
 
