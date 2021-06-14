@@ -10,8 +10,9 @@ use pest::Span;
 use pest_consume::{match_nodes, Error, Node as PestNode, Parser as PestConsumeParser};
 
 // pest + result = pesult ;)
-type Pesult<T> = std::result::Result<T, Error<Rule>>;
-type Node<'i> = PestNode<'i, Rule, ()>;
+pub type ParseError = Error<Rule>;
+pub type Pesult<T> = std::result::Result<T, ParseError>;
+pub type Node<'i> = PestNode<'i, Rule, ()>;
 
 #[allow(clippy::upper_case_acronyms)]
 #[derive(PestConsumeParser)]
