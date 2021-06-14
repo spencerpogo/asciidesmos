@@ -22,10 +22,10 @@ pub enum CompareOperator {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Cond {
-    left: Latex,
-    op: CompareOperator,
-    right: Latex,
-    result: Latex,
+    pub left: Latex,
+    pub op: CompareOperator,
+    pub right: Latex,
+    pub result: Latex,
 }
 
 #[derive(Clone, Debug, PartialEq)]

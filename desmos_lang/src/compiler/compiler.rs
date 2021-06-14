@@ -4,9 +4,12 @@ use super::{
 };
 use crate::core::{
     ast::{
-        BinaryOperator, Expression, LocatedExpression, LocatedStatement, Statement, UnaryOperator,
+        BinaryOperator, Branch, Expression, LocatedExpression, LocatedStatement, Statement,
+        UnaryOperator,
     },
-    latex::{BinaryOperator as LatexBinaryOperator, Latex, UnaryOperator as LatexUnaryOperator},
+    latex::{
+        BinaryOperator as LatexBinaryOperator, Cond, Latex, UnaryOperator as LatexUnaryOperator,
+    },
     runtime::ValType,
 };
 use pest::Span;
@@ -227,6 +230,16 @@ pub fn unop_to_latex(op: UnaryOperator) -> LatexUnaryOperator {
     }
 }
 
+pub fn branch_to_cond<'a>(ctx: &mut Context, branch: Branch<'a>) -> Result<Cond, CompileError<'a>> {
+    let leftcondspan = branch.cond_left.0.clone();
+    Ok(Cond {
+        left: compile_expect(ctx, leftcondspan, branch.cond_left, ValType::Number)?,
+        op: branch.cond,
+        right: compile_expr(ctx, branch.cond_right)?.0,
+        result: compile_expr(ctx, branch.val)?.0,
+    })
+}
+
 // Ideally this would be functional and ctx would not need to be mutable, but rust
 //  support for immutable hashmaps isn't built in and mutation is much simpler.
 pub fn compile_expr<'a>(
@@ -308,10 +321,24 @@ pub fn compile_expr<'a>(
         }
         Expression::MacroCall { name, args } => handle_macro(ctx, span, name, args),
         Expression::Piecewise {
-            first: _,
-            rest: _,
-            default: _,
-        } => unimplemented!(),
+            first,
+            rest,
+            default,
+        } => {
+            let def = *default;
+            let dspan = def.0.clone();
+            Ok((
+                Latex::Piecewise {
+                    first: Box::new(branch_to_cond(ctx, *first)?),
+                    rest: rest
+                        .into_iter()
+                        .map(|b| branch_to_cond(ctx, b))
+                        .collect::<Result<Vec<_>, _>>()?,
+                    default: Box::new(compile_expect(ctx, dspan, def, ValType::Number)?),
+                },
+                ValType::Number,
+            ))
+        }
     }
 }
 
@@ -361,7 +388,7 @@ pub fn compile_stmt<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::ast::FunctionDefinition;
+    use crate::core::{ast::FunctionDefinition, latex::CompareOperator};
     use pest::Span;
 
     fn new_ctx<'a>() -> Context<'a> {
@@ -971,6 +998,108 @@ mod tests {
                 span: spn(),
                 kind: CompileErrorKind::ExpectedFunction
             })
+        );
+    }
+
+    #[test]
+    fn piecewise_single() {
+        let mut ctx = new_ctx();
+        ctx.variables.insert("a", ValType::Number);
+        // input taken from parser test output
+        assert_eq!(
+            compile_with_ctx(
+                &mut ctx,
+                Expression::Piecewise {
+                    first: Box::new(Branch {
+                        cond_left: (spn(), Expression::Variable("a")),
+                        cond: CompareOperator::Equal,
+                        cond_right: (spn(), Expression::Num("1")),
+                        val: (spn(), Expression::Num("2"))
+                    }),
+                    rest: vec![],
+                    default: Box::new((spn(), Expression::Num("3")))
+                }
+            ),
+            Ok(Latex::Piecewise {
+                first: Box::new(Cond {
+                    left: Latex::Variable("a".to_string()),
+                    op: CompareOperator::Equal,
+                    right: Latex::Num("1".to_string()),
+                    result: Latex::Num("2".to_string())
+                }),
+                rest: vec![],
+                default: Box::new(Latex::Num("3".to_string()))
+            })
+        );
+    }
+
+    #[test]
+    fn piecewise_multi() {
+        let mut ctx = new_ctx();
+        ctx.variables.insert("a", ValType::Number);
+        // input taken from parser test output
+        assert_eq!(
+            compile_with_ctx(
+                &mut ctx,
+                Expression::Piecewise {
+                    first: Box::new(Branch {
+                        cond_left: (spn(), Expression::Variable("a")),
+                        cond: CompareOperator::GreaterThanEqual,
+                        cond_right: (spn(), Expression::Num("1")),
+                        val: (spn(), Expression::Num("2"))
+                    }),
+                    rest: vec![
+                        Branch {
+                            cond_left: (spn(), Expression::Variable("a")),
+                            cond: CompareOperator::LessThanEqual,
+                            cond_right: (spn(), Expression::Num("3")),
+                            val: (spn(), Expression::Num("4"))
+                        },
+                        Branch {
+                            cond_left: (spn(), Expression::Variable("a")),
+                            cond: CompareOperator::LessThan,
+                            cond_right: (spn(), Expression::Num("5")),
+                            val: (spn(), Expression::Num("6"))
+                        },
+                        Branch {
+                            cond_left: (spn(), Expression::Variable("a")),
+                            cond: CompareOperator::GreaterThan,
+                            cond_right: (spn(), Expression::Num("7")),
+                            val: (spn(), Expression::Num("8"))
+                        }
+                    ],
+                    default: Box::new((spn(), Expression::Num("9")))
+                }
+            ),
+            Ok(Latex::Piecewise {
+                first: Box::new(Cond {
+                    left: Latex::Variable("a".to_string()),
+                    op: CompareOperator::GreaterThanEqual,
+                    right: Latex::Num("1".to_string()),
+                    result: Latex::Num("2".to_string())
+                }),
+                rest: vec![
+                    Cond {
+                        left: Latex::Variable("a".to_string()),
+                        op: CompareOperator::LessThanEqual,
+                        right: Latex::Num("3".to_string()),
+                        result: Latex::Num("4".to_string())
+                    },
+                    Cond {
+                        left: Latex::Variable("a".to_string()),
+                        op: CompareOperator::LessThan,
+                        right: Latex::Num("5".to_string()),
+                        result: Latex::Num("6".to_string())
+                    },
+                    Cond {
+                        left: Latex::Variable("a".to_string()),
+                        op: CompareOperator::GreaterThan,
+                        right: Latex::Num("7".to_string()),
+                        result: Latex::Num("8".to_string())
+                    }
+                ],
+                default: Box::new(Latex::Num("9".to_string()))
+            }),
         );
     }
 }
