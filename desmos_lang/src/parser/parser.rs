@@ -1,8 +1,9 @@
 use crate::core::{
     ast::{
-        BinaryOperator, Expression, FunctionDefinition, LocatedExpression, LocatedStatement,
-        Statement, UnaryOperator,
+        BinaryOperator, Branch, Expression, FunctionDefinition, LocatedExpression,
+        LocatedStatement, Statement, UnaryOperator,
     },
+    latex::CompareOperator,
     runtime::ValType,
 };
 use pest::Span;
@@ -35,6 +36,7 @@ impl DesmosParser {
             [UnaryExpression(n)] => n,
             [BinaryExpression(n)] => n,
             [Term(n)] => n,
+            [Piecewise(n)] => n,
         ))
     }
 }
@@ -145,6 +147,88 @@ impl DesmosParser {
                         )
                 ),
         ))
+    }
+
+    fn Piecewise(input: Node) -> Pesult<LocatedExpression> {
+        let spn = input.as_span();
+        Ok(match_nodes!(
+            input.into_children();
+            [PiecewiseContents(c)] => (spn, c),
+        ))
+    }
+
+    fn PiecewiseContents(input: Node) -> Pesult<Expression> {
+        Ok(match_nodes!(
+            input.into_children();
+            [
+                PiecewiseBranch(first),
+                PiecewiseBranches(rest),
+                OtherwiseBranch(default)
+            ] => Expression::Piecewise {
+                first: Box::new(first),
+                rest: rest,
+                default: Box::new(default),
+            },
+        ))
+    }
+
+    fn PiecewiseBranches(input: Node) -> Pesult<Vec<Branch>> {
+        Ok(match_nodes!(
+            input.into_children();
+            [PiecewiseBranch(branches)..] => branches.collect(),
+        ))
+    }
+
+    fn PiecewiseBranch(input: Node) -> Pesult<Branch> {
+        Ok(match_nodes!(
+            input.into_children();
+            [Condition(cond), Expression(val)] => {
+                let (cond_left, cond, cond_right) = cond;
+                Branch { cond_left, cond, cond_right, val }
+            },
+        ))
+    }
+
+    fn Condition(input: Node) -> Pesult<(LocatedExpression, CompareOperator, LocatedExpression)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [Expression(left), CompareOp(cond), Expression(right)] => (left, cond, right),
+        ))
+    }
+
+    fn Equals(input: Node) -> Pesult<CompareOperator> {
+        Ok(CompareOperator::Equal)
+    }
+
+    fn Less(input: Node) -> Pesult<CompareOperator> {
+        Ok(CompareOperator::LessThan)
+    }
+
+    fn Greater(input: Node) -> Pesult<CompareOperator> {
+        Ok(CompareOperator::GreaterThan)
+    }
+
+    fn LessEq(input: Node) -> Pesult<CompareOperator> {
+        Ok(CompareOperator::LessThanEqual)
+    }
+
+    fn GreaterEq(input: Node) -> Pesult<CompareOperator> {
+        Ok(CompareOperator::GreaterThanEqual)
+    }
+
+    fn CompareOp(input: Node) -> Pesult<CompareOperator> {
+        Ok(match_nodes!(
+            input.into_children();
+            [Equals(v)] => v,
+            [Less(v)] => v,
+            [Greater(v)] => v,
+            [LessEq(v)] => v,
+            [GreaterEq(v)] => v,
+        ))
+    }
+
+    fn OtherwiseBranch(input: Node) -> Pesult<LocatedExpression> {
+        Ok(match_nodes!(input.into_children(); [Expression(e)] => e))
     }
 
     fn Number(input: Node) -> Pesult<LocatedExpression> {
@@ -462,6 +546,61 @@ mod tests {
                     (spn(i, 5, 6), Expression::Num("1")),
                     (spn(i, 8, 9), Expression::Num("2"))
                 ]
+            }
+        )
+    }
+
+    #[test]
+    fn piecewise_single() {
+        let i = "{ a = 1: 2, otherwise: 3 }";
+        parse_test!(
+            i,
+            Expression::Piecewise {
+                first: Box::new(Branch {
+                    cond_left: (spn(i, 2, 3), Expression::Variable("a")),
+                    cond: CompareOperator::Equal,
+                    cond_right: (spn(i, 6, 7), Expression::Num("1")),
+                    val: (spn(i, 9, 10), Expression::Num("2"))
+                }),
+                rest: vec![],
+                default: Box::new((spn(i, 23, 24), Expression::Num("3")))
+            }
+        )
+    }
+
+    #[test]
+    fn piecewise_multi() {
+        let i = "{ a >= 1: 2, a <= 3: 4, a < 5: 6, a > 7: 8, otherwise: 9 }";
+        parse_test!(
+            i,
+            Expression::Piecewise {
+                first: Box::new(Branch {
+                    cond_left: (spn(i, 2, 3), Expression::Variable("a")),
+                    cond: CompareOperator::GreaterThanEqual,
+                    cond_right: (spn(i, 7, 8), Expression::Num("1")),
+                    val: (spn(i, 10, 11), Expression::Num("2"))
+                }),
+                rest: vec![
+                    Branch {
+                        cond_left: (spn(i, 13, 14), Expression::Variable("a")),
+                        cond: CompareOperator::LessThanEqual,
+                        cond_right: (spn(i, 18, 19), Expression::Num("3")),
+                        val: (spn(i, 21, 22), Expression::Num("4"))
+                    },
+                    Branch {
+                        cond_left: (spn(i, 24, 25), Expression::Variable("a")),
+                        cond: CompareOperator::LessThan,
+                        cond_right: (spn(i, 28, 29), Expression::Num("5")),
+                        val: (spn(i, 31, 32), Expression::Num("6"))
+                    },
+                    Branch {
+                        cond_left: (spn(i, 34, 35), Expression::Variable("a")),
+                        cond: CompareOperator::GreaterThan,
+                        cond_right: (spn(i, 38, 39), Expression::Num("7")),
+                        val: (spn(i, 41, 42), Expression::Num("8"))
+                    }
+                ],
+                default: Box::new((spn(i, 55, 56), Expression::Num("9")))
             }
         )
     }

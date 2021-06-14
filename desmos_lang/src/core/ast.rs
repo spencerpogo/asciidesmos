@@ -1,4 +1,4 @@
-use super::runtime::ValType;
+use super::{latex::CompareOperator, runtime::ValType};
 use pest::Span;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -13,6 +13,14 @@ pub enum BinaryOperator {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum UnaryOperator {
     Factorial,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Branch<'a> {
+    pub cond_left: LocatedExpression<'a>,
+    pub cond: CompareOperator,
+    pub cond_right: LocatedExpression<'a>,
+    pub val: LocatedExpression<'a>,
 }
 
 // Expression is a component of a statement
@@ -40,6 +48,11 @@ pub enum Expression<'a> {
         args: Vec<LocatedExpression<'a>>,
     },
     List(Vec<LocatedExpression<'a>>),
+    Piecewise {
+        first: Box<Branch<'a>>,
+        rest: Vec<Branch<'a>>,
+        default: Box<LocatedExpression<'a>>,
+    },
 }
 
 pub type LocatedExpression<'a> = (Span<'a>, Expression<'a>);

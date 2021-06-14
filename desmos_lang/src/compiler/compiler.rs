@@ -307,6 +307,11 @@ pub fn compile_expr<'a>(
             Ok((Latex::List(items), ValType::List))
         }
         Expression::MacroCall { name, args } => handle_macro(ctx, span, name, args),
+        Expression::Piecewise {
+            first: _,
+            rest: _,
+            default: _,
+        } => unimplemented!(),
     }
 }
 

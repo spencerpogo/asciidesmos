@@ -1,7 +1,10 @@
+// RSDesmos Pest Grammar
+// Edit this grammar in the https://pest.rs IDE
+
 Program = { SOI ~ Stmt ~ EOF }
 
-ExpressionNoList =  { UnaryExpression | BinaryExpression | Term }
-Expression = { List | UnaryExpression | BinaryExpression | Term }
+ExpressionNoList =  { UnaryExpression | BinaryExpression | Piecewise | Term }
+Expression = { List | UnaryExpression | BinaryExpression | Piecewise | Term }
 Term = { MacroCall | Call | Variable | Number | "(" ~ Expression ~ ")" }
 
 Factorial = @{ "!" }
@@ -16,6 +19,22 @@ Mod =      @{ "%" }
 BinaryOperator = { Add | Subtract | Multiply | Divide | Mod }
 BinPair = { BinaryOperator ~ Term }
 BinaryExpression = { Term ~ BinPair+ }
+
+Equals =    @{ "=" }
+Less =      @{ "<" }
+Greater =   @{ ">" }
+LessEq =    @{ "<=" }
+GreaterEq = @{ ">=" }
+CompareOp = { Equals | LessEq | GreaterEq | Less | Greater }
+
+Piecewise = { "{" ~ PiecewiseContents ~ "}" }
+PiecewiseContents = { PiecewiseBranch ~ "," ~ PiecewiseBranches  ~ OtherwiseBranch }
+// Same as Arguments
+PiecewiseBranches = { (PiecewiseBranch ~ ",")* }
+PiecewiseBranch = { Condition ~ ":" ~ Expression }
+Condition = { Expression ~ CompareOp ~ Expression }
+// Inspired by haskell
+OtherwiseBranch = { ( "otherwise" | "_" ) ~ ":" ~ Expression }
 
 PositiveSign = @{ "+" }
 NegativeSign = @{ "-" }
