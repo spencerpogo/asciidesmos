@@ -1,6 +1,6 @@
 use crate::core::{
     ast::{
-        BinaryOperator, Branch, Expression, FunctionDefinition, LocatedExpression,
+        BinaryOperator, Branch, CallModifier, Expression, FunctionDefinition, LocatedExpression,
         LocatedStatement, Statement, UnaryOperator,
     },
     latex::CompareOperator,
@@ -63,7 +63,6 @@ impl DesmosParser {
             [Number(n)] => n,
             [Variable(n)] => n,
             [Call(c)] => c,
-            [MacroCall(c)] => c,
         ))
     }
 
@@ -269,34 +268,38 @@ impl DesmosParser {
             s,
             match_nodes!(
                 input.into_children();
-                [Identifier(i)] => Expression::Call {
-                    func: i,
+                [CallStart(s)] => Expression::Call {
+                    modifier: s.1,
+                    func: s.0,
                     args: Vec::new(),
                 },
-                [Identifier(i), Arguments(a)] => Expression::Call {
-                    func: i,
+                [CallStart(s), Arguments(a)] => Expression::Call {
+                    modifier: s.1,
+                    func: s.0,
                     args: a,
                 }
             ),
         ))
     }
 
-    fn MacroCall(input: Node) -> Pesult<LocatedExpression> {
-        // same as Call()
-        let s = input.as_span();
-        Ok((
-            s,
-            match_nodes!(
-                input.into_children();
-                [Identifier(i)] => Expression::MacroCall {
-                    name: i,
-                    args: Vec::new(),
-                },
-                [Identifier(i), Arguments(a)] => Expression::MacroCall {
-                    name: i,
-                    args: a,
-                }
-            ),
+    fn MapCall(input: Node) -> Pesult<CallModifier> {
+        Ok(CallModifier::MapCall)
+    }
+
+    fn MacroCall(input: Node) -> Pesult<CallModifier> {
+        Ok(CallModifier::MacroCall)
+    }
+
+    fn NormalCall(input: Node) -> Pesult<CallModifier> {
+        Ok(CallModifier::NormalCall)
+    }
+
+    fn CallStart(input: Node) -> Pesult<(&str, CallModifier)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [Identifier(i), MapCall(c)] => (i,c ),
+            [Identifier(i), MacroCall(c)] => (i,c ),
+            [Identifier(i), NormalCall(c)] => (i,c ),
         ))
     }
 
@@ -473,6 +476,7 @@ mod tests {
         parse_test!(
             "a()",
             Expression::Call {
+                modifier: CallModifier::NormalCall,
                 func: "a",
                 args: Vec::new(),
             }
@@ -481,12 +485,63 @@ mod tests {
         parse_test!(
             j,
             Expression::Call {
+                modifier: CallModifier::NormalCall,
                 func: "a",
                 args: vec![
                     (spn(j, 2, 3), Expression::Num("1")),
                     (spn(j, 5, 6), Expression::Num("2")),
                     (spn(j, 8, 9), Expression::Num("3")),
                 ]
+            }
+        );
+    }
+
+    #[test]
+    fn mapcall() {
+        let i = "sin@(1, 2)";
+        parse_test!(
+            i,
+            Expression::Call {
+                modifier: CallModifier::MapCall,
+                func: "mac",
+                args: vec![
+                    (spn(i, 5, 6), Expression::Num("1")),
+                    (spn(i, 8, 9), Expression::Num("2"))
+                ]
+            }
+        )
+    }
+
+    #[test]
+    fn macrocall() {
+        let i = "mac!(1, 2)";
+        parse_test!(
+            i,
+            Expression::Call {
+                modifier: CallModifier::NormalCall,
+                func: "mac",
+                args: vec![
+                    (spn(i, 5, 6), Expression::Num("1")),
+                    (spn(i, 8, 9), Expression::Num("2"))
+                ]
+            }
+        )
+    }
+
+    #[test]
+    fn map_piecewise() {
+        let i = "@{a=1:2,otherwise:3}";
+        parse_test!(
+            i,
+            Expression::Piecewise {
+                first: Box::new(Branch {
+                    cond_left: (spn(i, 2, 3), Expression::Variable("a")),
+                    cond: CompareOperator::Equal,
+                    cond_right: (spn(i, 4, 5), Expression::Num("1")),
+                    val: (spn(i, 6, 7), Expression::Num("2")),
+                }),
+                rest: vec![],
+                default: Box::new((spn(i, 20, 21), Expression::Num("3")))
             }
         );
     }
@@ -533,21 +588,6 @@ mod tests {
                 },
                 (spn(i, 31, 32), Expression::Num("1"))
             )
-        )
-    }
-
-    #[test]
-    fn macro_parsing() {
-        let i = "mac!(1, 2)";
-        parse_test!(
-            i,
-            Expression::MacroCall {
-                name: "mac",
-                args: vec![
-                    (spn(i, 5, 6), Expression::Num("1")),
-                    (spn(i, 8, 9), Expression::Num("2"))
-                ]
-            }
         )
     }
 

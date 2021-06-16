@@ -23,6 +23,13 @@ pub struct Branch<'a> {
     pub val: LocatedExpression<'a>,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum CallModifier {
+    MapCall,
+    MacroCall,
+    NormalCall,
+}
+
 // Expression is a component of a statement
 #[derive(Clone, Debug, PartialEq)]
 pub enum Expression<'a> {
@@ -40,11 +47,8 @@ pub enum Expression<'a> {
         operator: UnaryOperator,
     },
     Call {
+        modifier: CallModifier,
         func: &'a str,
-        args: Vec<LocatedExpression<'a>>,
-    },
-    MacroCall {
-        name: &'a str,
         args: Vec<LocatedExpression<'a>>,
     },
     List(Vec<LocatedExpression<'a>>),

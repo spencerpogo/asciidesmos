@@ -5,7 +5,7 @@ Program = { SOI ~ Stmt ~ EOF }
 
 ExpressionNoList =  { UnaryExpression | BinaryExpression | Piecewise | Term }
 Expression = { List | UnaryExpression | BinaryExpression | Piecewise | Term }
-Term = { MacroCall | Call | Variable | Number | "(" ~ Expression ~ ")" }
+Term = { MacroCall | MapCall | Call | Variable | Number | "(" ~ Expression ~ ")" }
 
 Factorial = @{ "!" }
 UnaryOperator = { Factorial }
@@ -36,6 +36,8 @@ Condition = { Expression ~ CompareOp ~ Expression }
 // Inspired by haskell
 OtherwiseBranch = { ( "otherwise" | "_" ) ~ ":" ~ Expression }
 
+MapPiecewise = { "@{" ~ PiecewiseContents ~ "}" }
+
 PositiveSign = @{ "+" }
 NegativeSign = @{ "-" }
 NumberSign = @{ PositiveSign | NegativeSign }
@@ -55,8 +57,11 @@ ArgumentsNoList = { ExpressionNoList ~ ("," ~ ExpressionNoList)*  }
 // Nested lists are not allowed
 List = { "[" ~ ArgumentsNoList? ~ "]" }
 
-Call = { Identifier ~ "(" ~ Arguments? ~ ")" }
-MacroCall = { Identifier ~ "!(" ~ Arguments? ~ ")" }
+MapCall =    @{ "@(" }
+MacroCall =  @{ "!(" }
+NormalCall = @{ "(" }
+CallStart = @{ Identifier ~ ( MapCall | MacroCall | NormalCall ) }
+Call = { CallStart ~ Arguments? ~ ")" }
 
 Type = { "Number" | "List" }
 TypeAnnotation = { ":" ~ Type }
