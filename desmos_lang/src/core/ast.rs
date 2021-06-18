@@ -26,7 +26,6 @@ pub struct Branch<'a> {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum CallModifier {
     MapCall,
-    MacroCall,
     NormalCall,
 }
 

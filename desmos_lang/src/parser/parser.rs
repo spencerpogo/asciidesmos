@@ -286,10 +286,6 @@ impl DesmosParser {
         Ok(CallModifier::MapCall)
     }
 
-    fn MacroCall(input: Node) -> Pesult<CallModifier> {
-        Ok(CallModifier::MacroCall)
-    }
-
     fn NormalCall(input: Node) -> Pesult<CallModifier> {
         Ok(CallModifier::NormalCall)
     }
@@ -297,9 +293,8 @@ impl DesmosParser {
     fn CallStart(input: Node) -> Pesult<(&str, CallModifier)> {
         Ok(match_nodes!(
             input.into_children();
-            [Identifier(i), MapCall(c)] => (i,c ),
-            [Identifier(i), MacroCall(c)] => (i,c ),
-            [Identifier(i), NormalCall(c)] => (i,c ),
+            [Identifier(i), MapCall(c)] => (i, c),
+            [Identifier(i), NormalCall(c)] => (i, c),
         ))
     }
 
@@ -503,7 +498,7 @@ mod tests {
             i,
             Expression::Call {
                 modifier: CallModifier::MapCall,
-                func: "mac",
+                func: "sin",
                 args: vec![
                     (spn(i, 5, 6), Expression::Num("1")),
                     (spn(i, 8, 9), Expression::Num("2"))
@@ -513,35 +508,19 @@ mod tests {
     }
 
     #[test]
-    fn macrocall() {
-        let i = "mac!(1, 2)";
-        parse_test!(
-            i,
-            Expression::Call {
-                modifier: CallModifier::NormalCall,
-                func: "mac",
-                args: vec![
-                    (spn(i, 5, 6), Expression::Num("1")),
-                    (spn(i, 8, 9), Expression::Num("2"))
-                ]
-            }
-        )
-    }
-
-    #[test]
-    fn map_piecewise() {
-        let i = "@{a=1:2,otherwise:3}";
+    fn map_expression() {
+        let i = "@({a=1:2,otherwise:3})";
         parse_test!(
             i,
             Expression::Piecewise {
                 first: Box::new(Branch {
-                    cond_left: (spn(i, 2, 3), Expression::Variable("a")),
+                    cond_left: (spn(i, 3, 4), Expression::Variable("a")),
                     cond: CompareOperator::Equal,
-                    cond_right: (spn(i, 4, 5), Expression::Num("1")),
-                    val: (spn(i, 6, 7), Expression::Num("2")),
+                    cond_right: (spn(i, 5, 6), Expression::Num("1")),
+                    val: (spn(i, 7, 8), Expression::Num("2")),
                 }),
                 rest: vec![],
-                default: Box::new((spn(i, 20, 21), Expression::Num("3")))
+                default: Box::new((spn(i, 21, 22), Expression::Num("3")))
             }
         );
     }

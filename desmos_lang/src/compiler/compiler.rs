@@ -4,8 +4,8 @@ use super::{
 };
 use crate::core::{
     ast::{
-        BinaryOperator, Branch, Expression, LocatedExpression, LocatedStatement, Statement,
-        UnaryOperator,
+        BinaryOperator, Branch, CallModifier, Expression, LocatedExpression, LocatedStatement,
+        Statement, UnaryOperator,
     },
     latex::{
         BinaryOperator as LatexBinaryOperator, Cond, Latex, UnaryOperator as LatexUnaryOperator,
@@ -291,16 +291,23 @@ pub fn compile_expr<'a>(
             },
             ValType::Number,
         )),
-        Expression::Call { func, args } => {
-            let compiled_args = args
-                .into_iter()
-                .map(|(s, e)| -> Result<(Span, Latex, ValType), CompileError> {
-                    let (latex, t) = compile_expr(ctx, (s.clone(), e))?;
-                    Ok((s, latex, t))
-                })
-                .collect::<Result<Vec<(Span, Latex, ValType)>, CompileError>>()?;
-            compile_call(ctx, span, func, compiled_args)
-        }
+        Expression::Call {
+            modifier,
+            func,
+            args,
+        } => match modifier {
+            CallModifier::NormalCall => {
+                let compiled_args = args
+                    .into_iter()
+                    .map(|(s, e)| -> Result<(Span, Latex, ValType), CompileError> {
+                        let (latex, t) = compile_expr(ctx, (s.clone(), e))?;
+                        Ok((s, latex, t))
+                    })
+                    .collect::<Result<Vec<(Span, Latex, ValType)>, CompileError>>()?;
+                compile_call(ctx, span, func, compiled_args)
+            }
+            CallModifier::MapCall => unimplemented!(),
+        },
         Expression::List(values) => {
             let items = values
                 .into_iter()
@@ -319,7 +326,6 @@ pub fn compile_expr<'a>(
 
             Ok((Latex::List(items), ValType::List))
         }
-        Expression::MacroCall { name, args } => handle_macro(ctx, span, name, args),
         Expression::Piecewise {
             first,
             rest,
@@ -528,6 +534,7 @@ mod tests {
     fn call_resolution() {
         check(
             Expression::Call {
+                modifier: CallModifier::NormalCall,
                 func: "sin",
                 args: vec![(spn(), Expression::Num("1"))],
             },
@@ -539,6 +546,7 @@ mod tests {
         );
         assert_eq!(
             compile(Expression::Call {
+                modifier: CallModifier::NormalCall,
                 func: "abc",
                 args: vec![],
             })
@@ -552,6 +560,7 @@ mod tests {
     fn argc_validation() {
         assert_eq!(
             compile(Expression::Call {
+                modifier: CallModifier::NormalCall,
                 func: "sin",
                 args: vec![],
             })
@@ -564,6 +573,7 @@ mod tests {
         );
         assert_eq!(
             compile(Expression::Call {
+                modifier: CallModifier::NormalCall,
                 func: "sin",
                 args: vec![(spn(), Expression::Num("1")), (spn(), Expression::Num("2"))]
             })
@@ -580,6 +590,7 @@ mod tests {
     fn call_arg_checking() {
         assert_eq!(
             compile(Expression::Call {
+                modifier: CallModifier::NormalCall,
                 func: "sin",
                 args: vec![(spn(), Expression::List(vec![(spn(), Expression::Num("1"))]))]
             })
@@ -799,6 +810,7 @@ mod tests {
         compile_stmt_with_ctx(
             &mut ctx,
             Statement::Expression(Expression::Call {
+                modifier: CallModifier::NormalCall,
                 func: "f",
                 args: vec![(spn(), Expression::Num("1"))],
             }),
@@ -825,6 +837,7 @@ mod tests {
             compile_stmt_with_ctx(
                 &mut ctx,
                 Statement::Expression(Expression::Call {
+                    modifier: CallModifier::NormalCall,
                     func: "f",
                     args: vec![(spn(), Expression::Num("1"))],
                 }),
@@ -859,6 +872,7 @@ mod tests {
             compile_stmt_with_ctx(
                 &mut ctx,
                 Statement::Expression(Expression::Call {
+                    modifier: CallModifier::NormalCall,
                     func: "f",
                     args: vec![(spn(), Expression::List(vec![]))],
                 }),
@@ -871,133 +885,6 @@ mod tests {
                     got: ValType::List
                 }
             }
-        );
-    }
-
-    #[test]
-    fn unknown_macro_errors() {
-        let name = "does_not_exist";
-        assert_eq!(
-            compile(Expression::MacroCall { name, args: vec![] }),
-            Err(CompileError {
-                span: spn(),
-                kind: CompileErrorKind::UndefinedMacro(name)
-            })
-        );
-    }
-
-    #[test]
-    fn map_macro_works() {
-        check(
-            Expression::MacroCall {
-                name: "map",
-                args: vec![
-                    (spn(), Expression::Variable("sin")),
-                    (
-                        spn(),
-                        Expression::List(vec![
-                            (spn(), Expression::Num("1")),
-                            (spn(), Expression::Num("2")),
-                        ]),
-                    ),
-                ],
-            },
-            Latex::Call {
-                func: "sin".to_string(),
-                is_builtin: true,
-                args: vec![Latex::List(vec![
-                    Latex::Num("1".to_string()),
-                    Latex::Num("2".to_string()),
-                ])],
-            },
-        );
-    }
-
-    #[test]
-    fn map_macro_multi_args() {
-        let mut ctx = new_ctx();
-        ctx.defined_functions.insert(
-            "multi_arg_test",
-            Rc::new(FunctionSignature {
-                args: vec![ValType::Number, ValType::Number, ValType::Number],
-                ret: ValType::Number,
-            }),
-        );
-        assert_eq!(
-            compile_with_ctx(
-                &mut ctx,
-                Expression::MacroCall {
-                    name: "map",
-                    args: vec![
-                        (spn(), Expression::Variable("multi_arg_test")),
-                        (
-                            spn(),
-                            Expression::List(vec![
-                                (spn(), Expression::Num("1")),
-                                (spn(), Expression::Num("2")),
-                                (spn(), Expression::Num("3"))
-                            ])
-                        ),
-                        (spn(), Expression::Num("4")),
-                        (
-                            spn(),
-                            Expression::List(vec![
-                                (spn(), Expression::Num("5")),
-                                (spn(), Expression::Num("6")),
-                                (spn(), Expression::Num("7"))
-                            ])
-                        ),
-                    ]
-                }
-            ),
-            Ok(Latex::Call {
-                func: "multi_arg_test".to_string(),
-                is_builtin: false,
-                args: vec![
-                    Latex::List(vec![
-                        Latex::Num("1".to_string()),
-                        Latex::Num("2".to_string()),
-                        Latex::Num("3".to_string())
-                    ]),
-                    Latex::Num("4".to_string()),
-                    Latex::List(vec![
-                        Latex::Num("5".to_string()),
-                        Latex::Num("6".to_string()),
-                        Latex::Num("7".to_string())
-                    ])
-                ]
-            })
-        )
-    }
-
-    #[test]
-    fn map_macro_handles_errors() {
-        assert_eq!(
-            compile(Expression::MacroCall {
-                name: "map",
-                args: vec![],
-            }),
-            Err(CompileError {
-                span: spn(),
-                kind: CompileErrorKind::BadMapMacro
-            })
-        )
-    }
-
-    #[test]
-    fn map_macro_checks_fn_type() {
-        assert_eq!(
-            compile(Expression::MacroCall {
-                name: "map",
-                args: vec![
-                    (spn(), Expression::Num("1")),
-                    (spn(), Expression::List(vec![]))
-                ]
-            }),
-            Err(CompileError {
-                span: spn(),
-                kind: CompileErrorKind::ExpectedFunction
-            })
         );
     }
 
