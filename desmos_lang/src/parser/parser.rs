@@ -56,6 +56,14 @@ impl DesmosParser {
         Self::expression(input)
     }
 
+    fn MapExpression(input: Node) -> Pesult<LocatedExpression> {
+        let spn = input.as_span();
+        Ok(match_nodes!(
+            input.into_children();
+            [Expression(e)] => (spn, Expression::MapExpression(Box::new(e))),
+        ))
+    }
+
     fn Term(input: Node) -> Pesult<LocatedExpression> {
         Ok(match_nodes!(
             input.into_children();
@@ -63,6 +71,7 @@ impl DesmosParser {
             [Number(n)] => n,
             [Variable(n)] => n,
             [Call(c)] => c,
+            [MapExpression(e)] => e,
         ))
     }
 
@@ -512,16 +521,19 @@ mod tests {
         let i = "@({a=1:2,otherwise:3})";
         parse_test!(
             i,
-            Expression::Piecewise {
-                first: Box::new(Branch {
-                    cond_left: (spn(i, 3, 4), Expression::Variable("a")),
-                    cond: CompareOperator::Equal,
-                    cond_right: (spn(i, 5, 6), Expression::Num("1")),
-                    val: (spn(i, 7, 8), Expression::Num("2")),
-                }),
-                rest: vec![],
-                default: Box::new((spn(i, 21, 22), Expression::Num("3")))
-            }
+            Expression::MapExpression(Box::new((
+                spn(i, 2, 21),
+                Expression::Piecewise {
+                    first: Box::new(Branch {
+                        cond_left: (spn(i, 3, 4), Expression::Variable("a")),
+                        cond: CompareOperator::Equal,
+                        cond_right: (spn(i, 5, 6), Expression::Num("1")),
+                        val: (spn(i, 7, 8), Expression::Num("2")),
+                    }),
+                    rest: vec![],
+                    default: Box::new((spn(i, 19, 20), Expression::Num("3"))),
+                },
+            )))
         );
     }
 

@@ -56,6 +56,7 @@ pub enum Expression<'a> {
         rest: Vec<Branch<'a>>,
         default: Box<LocatedExpression<'a>>,
     },
+    MapExpression(Box<LocatedExpression<'a>>),
 }
 
 pub type LocatedExpression<'a> = (Span<'a>, Expression<'a>);

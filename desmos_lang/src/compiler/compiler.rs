@@ -345,6 +345,7 @@ pub fn compile_expr<'a>(
                 ValType::Number,
             ))
         }
+        Expression::MapExpression(_) => unimplemented!(),
     }
 }
 
