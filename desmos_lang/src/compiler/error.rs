@@ -1,10 +1,13 @@
-use crate::core::runtime::{ArgCount, ValType};
+use crate::core::{
+    ast::Function,
+    runtime::{ArgCount, ValType},
+};
 use pest::{error as pest_err, Span};
 use std::fmt;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum CompileErrorKind<'a> {
-    UnknownFunction(&'a str),
+    UnknownFunction(Function<'a>),
     WrongArgCount { got: ArgCount, expected: ArgCount },
     TypeMismatch { got: ValType, expected: ValType },
     UndefinedVariable(&'a str),
@@ -26,7 +29,13 @@ struct DummyRuleType {}
 impl CompileError<'_> {
     fn as_msg(&self) -> String {
         match self.kind {
-            CompileErrorKind::UnknownFunction(func) => format!("Unknown function '{}'", func),
+            CompileErrorKind::UnknownFunction(func) => format!(
+                "Unknown function '{}'",
+                match func {
+                    Function::Normal { name } => name.to_string(),
+                    Function::Log { base } => format!("log{}", base),
+                }
+            ),
             CompileErrorKind::WrongArgCount { got, expected } => {
                 format!("Expected {} arguments but got {}", expected, got)
             }

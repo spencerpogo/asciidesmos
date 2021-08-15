@@ -4,8 +4,8 @@ use super::{
 };
 use crate::core::{
     ast::{
-        BinaryOperator, Branch, CallModifier, Expression, LocatedExpression, LocatedStatement,
-        Statement, UnaryOperator,
+        BinaryOperator, Branch, CallModifier, Expression, Function, LocatedExpression,
+        LocatedStatement, Statement, UnaryOperator,
     },
     latex::{
         BinaryOperator as LatexBinaryOperator, Cond, Latex, UnaryOperator as LatexUnaryOperator,
@@ -45,23 +45,39 @@ impl Default for Context<'_> {
     }
 }
 
+pub struct ResolvedFunction {
+    //name: String,
+    func: Rc<FunctionSignature>,
+    is_builtin: bool,
+}
+
 // Returns function and whether it is builtin
-pub fn resolve_function<'a>(
-    ctx: &'a mut Context,
-    func: &str,
-) -> Option<(Rc<FunctionSignature>, bool)> {
-    match ctx.defined_functions.get(func) {
-        None => match builtins::BUILTIN_FUNCTIONS.get(func) {
-            None => None,
-            Some(f) => Some((
-                Rc::new(FunctionSignature {
-                    args: f.args.to_vec(),
-                    ret: f.ret,
+pub fn resolve_function<'a>(ctx: &'a mut Context, func: Function) -> Option<ResolvedFunction> {
+    match func {
+        Function::Log { base } => Some(ResolvedFunction {
+            //name: format!("log_{{{}}}", )
+            func: Rc::new(FunctionSignature {
+                args: vec![ValType::Number],
+                ret: ValType::Number,
+            }),
+            is_builtin: true,
+        }),
+        Function::Normal { name } => match ctx.defined_functions.get(name) {
+            None => match builtins::BUILTIN_FUNCTIONS.get(name) {
+                None => None,
+                Some(f) => Some(ResolvedFunction {
+                    func: Rc::new(FunctionSignature {
+                        args: f.args.to_vec(),
+                        ret: f.ret,
+                    }),
+                    is_builtin: true,
                 }),
-                true,
-            )),
+            },
+            Some(f) => Some(ResolvedFunction {
+                func: f.clone(),
+                is_builtin: false,
+            }),
         },
-        Some(f) => Some((f.clone(), false)),
     }
 }
 
@@ -75,15 +91,15 @@ pub fn resolve_variable<'a>(ctx: &'a mut Context, var: &str) -> Option<&'a ValTy
 pub fn compile_call<'a>(
     ctx: &mut Context,
     span: Span<'a>,
-    fname: &'a str,
+    func: Function<'a>,
     args: Vec<(Span<'a>, Latex, ValType)>,
 ) -> Result<(Latex, ValType), CompileError<'a>> {
-    match resolve_function(ctx, fname) {
+    match resolve_function(ctx, func) {
         None => Err(CompileError {
-            kind: CompileErrorKind::UnknownFunction(fname),
+            kind: CompileErrorKind::UnknownFunction(func),
             span,
         }),
-        Some((func, is_builtin)) => {
+        Some(ResolvedFunction { func, is_builtin }) => {
             // Validate arg count
             let got = args.len();
             let expect = func.args.len();
