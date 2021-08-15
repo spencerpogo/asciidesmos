@@ -1,7 +1,7 @@
 use crate::core::{
     ast::{
-        BinaryOperator, Branch, CallModifier, Expression, FunctionDefinition, LocatedExpression,
-        LocatedStatement, Statement, UnaryOperator,
+        BinaryOperator, Branch, CallModifier, Expression, Function, FunctionDefinition,
+        LocatedExpression, LocatedStatement, Statement, UnaryOperator,
     },
     latex::CompareOperator,
     runtime::ValType,
@@ -299,12 +299,38 @@ impl DesmosParser {
         Ok(CallModifier::NormalCall)
     }
 
-    fn CallStart(input: Node) -> Pesult<(&str, CallModifier)> {
+    fn CallStart(input: Node) -> Pesult<(Function, CallModifier)> {
         Ok(match_nodes!(
             input.into_children();
-            [Identifier(i), MapCall(c)] => (i, c),
-            [Identifier(i), NormalCall(c)] => (i, c),
+            [FuncName(i), MapCall(c)] => (i, c),
+            [FuncName(i), NormalCall(c)] => (i, c),
         ))
+    }
+
+    fn FuncName(input: Node) -> Pesult<Function> {
+        Ok(match_nodes!(
+            input.into_children();
+            [NormalFunc(f)] => f,
+            [LogFunc(f)] => f,
+        ))
+    }
+
+    fn NormalFunc(input: Node) -> Pesult<Function> {
+        Ok(match_nodes!(
+            input.into_children();
+            [Identifier(name)] => Function::Normal { name },
+        ))
+    }
+
+    fn LogFunc(input: Node) -> Pesult<Function> {
+        Ok(match_nodes!(
+            input.into_children();
+            [LogBase(base)] => Function::Log { base },
+        ))
+    }
+
+    fn LogBase(input: Node) -> Pesult<&str> {
+        Ok(input.as_str())
     }
 
     fn Type(input: Node) -> Pesult<ValType> {
@@ -481,7 +507,7 @@ mod tests {
             "a()",
             Expression::Call {
                 modifier: CallModifier::NormalCall,
-                func: "a",
+                func: Function::Normal { name: "a" },
                 args: Vec::new(),
             }
         );
@@ -490,7 +516,7 @@ mod tests {
             j,
             Expression::Call {
                 modifier: CallModifier::NormalCall,
-                func: "a",
+                func: Function::Normal { name: "a" },
                 args: vec![
                     (spn(j, 2, 3), Expression::Num("1")),
                     (spn(j, 5, 6), Expression::Num("2")),
@@ -507,13 +533,35 @@ mod tests {
             i,
             Expression::Call {
                 modifier: CallModifier::MapCall,
-                func: "sin",
+                func: Function::Normal { name: "sin" },
                 args: vec![
                     (spn(i, 5, 6), Expression::Num("1")),
                     (spn(i, 8, 9), Expression::Num("2"))
                 ]
             }
         )
+    }
+
+    #[test]
+    fn logcall() {
+        let i = "log10(1)";
+        parse_test!(
+            i,
+            Expression::Call {
+                modifier: CallModifier::NormalCall,
+                func: Function::Log { base: "10" },
+                args: vec![(spn(i, 6, 7), Expression::Num("1"))]
+            }
+        );
+        let i2 = "loga(1)";
+        parse_test!(
+            i2,
+            Expression::Call {
+                modifier: CallModifier::NormalCall,
+                func: Function::Normal { name: "loga" },
+                args: vec![(spn(i2, 5, 6), Expression::Num("1"))]
+            }
+        );
     }
 
     #[test]

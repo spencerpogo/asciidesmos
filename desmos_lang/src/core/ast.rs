@@ -29,6 +29,12 @@ pub enum CallModifier {
     NormalCall,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum Function<'a> {
+    Normal { name: &'a str },
+    Log { base: &'a str },
+}
+
 // Expression is a component of a statement
 #[derive(Clone, Debug, PartialEq)]
 pub enum Expression<'a> {
@@ -47,7 +53,7 @@ pub enum Expression<'a> {
     },
     Call {
         modifier: CallModifier,
-        func: &'a str,
+        func: Function<'a>,
         args: Vec<LocatedExpression<'a>>,
     },
     List(Vec<LocatedExpression<'a>>),
