@@ -94,58 +94,54 @@ pub fn compile_call<'a>(
     func: Function<'a>,
     args: Vec<(Span<'a>, Latex, ValType)>,
 ) -> Result<(Latex, ValType), CompileError<'a>> {
-    match resolve_function(ctx, func) {
-        None => Err(CompileError {
-            kind: CompileErrorKind::UnknownFunction(func),
+    let rfunc = resolve_function(ctx, func).ok_or(CompileError {
+        kind: CompileErrorKind::UnknownFunction(func),
+        span,
+    })?;
+    // Validate arg count
+    let got = args.len();
+    let expect = rfunc.func.args.len();
+
+    if got != expect {
+        Err(CompileError {
+            kind: CompileErrorKind::WrongArgCount {
+                got,
+                expected: expect,
+            },
             span,
-        }),
-        Some(ResolvedFunction { func, is_builtin }) => {
-            // Validate arg count
-            let got = args.len();
-            let expect = func.args.len();
+        })
+    } else {
+        let mut aiter = args.into_iter();
+        let args_latex = args
+            .into_iter()
+            .zip(rfunc.func.args.iter())
+            .map(|(got_type, expect_type)| -> Result<Latex, _> {
+                // Already checked that they are the same length, so unwrap is safe
+                let (aspan, arg_latex, got_type) = got_type;
+                let is_valid_map = ctx.inside_map_macro
+                    && got_type == ValType::List
+                    && *expect_type == ValType::Number;
+                if !is_valid_map && got_type != *expect_type {
+                    return Err(CompileError {
+                        kind: CompileErrorKind::TypeMismatch {
+                            got: got_type,
+                            expected: *expect_type,
+                        },
+                        span: aspan,
+                    });
+                }
+                Ok(arg_latex)
+            })
+            .collect::<Result<Vec<Latex>, _>>()?;
 
-            if got != expect {
-                Err(CompileError {
-                    kind: CompileErrorKind::WrongArgCount {
-                        got,
-                        expected: expect,
-                    },
-                    span,
-                })
-            } else {
-                let mut aiter = args.into_iter();
-                let args_latex = func
-                    .args
-                    .iter()
-                    .map(|expect_type| -> Result<Latex, _> {
-                        // Already checked that they are the same length, so unwrap is safe
-                        let (aspan, arg_latex, got_type) = aiter.next().unwrap();
-                        let type_errors_ok = ctx.inside_map_macro
-                            && got_type == ValType::List
-                            && *expect_type == ValType::Number;
-                        if !type_errors_ok && got_type != *expect_type {
-                            return Err(CompileError {
-                                kind: CompileErrorKind::TypeMismatch {
-                                    got: got_type,
-                                    expected: *expect_type,
-                                },
-                                span: aspan,
-                            });
-                        }
-                        Ok(arg_latex)
-                    })
-                    .collect::<Result<Vec<Latex>, _>>()?;
-
-                Ok((
-                    Latex::Call {
-                        func: fname.to_string(),
-                        is_builtin,
-                        args: args_latex,
-                    },
-                    func.ret,
-                ))
-            }
-        }
+        Ok((
+            Latex::Call {
+                func: fname.to_string(),
+                is_builtin,
+                args: args_latex,
+            },
+            func.ret,
+        ))
     }
 }
 
