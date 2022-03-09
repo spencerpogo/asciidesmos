@@ -1,4 +1,4 @@
-use super::{latex::CompareOperator, runtime::ValType};
+use super::{latex, runtime::ValType};
 use pest::Span;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -18,7 +18,7 @@ pub enum UnaryOperator {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Branch<'a> {
     pub cond_left: LocatedExpression<'a>,
-    pub cond: CompareOperator,
+    pub cond: latex::CompareOperator,
     pub cond_right: LocatedExpression<'a>,
     pub val: LocatedExpression<'a>,
 }
@@ -33,6 +33,19 @@ pub enum CallModifier {
 pub enum Function<'a> {
     Normal { name: &'a str },
     Log { base: &'a str },
+}
+
+impl Function<'_> {
+    pub fn to_latex(self) -> latex::Function {
+        match self {
+            Function::Normal { name } => latex::Function::Normal {
+                name: name.to_string(),
+            },
+            Function::Log { base } => latex::Function::Log {
+                base: base.to_string(),
+            },
+        }
+    }
 }
 
 // Expression is a component of a statement

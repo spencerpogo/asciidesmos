@@ -1,3 +1,5 @@
+use pest_consume::Parser;
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum BinaryOperator {
     Add,
@@ -29,11 +31,17 @@ pub struct Cond {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum Function {
+    Normal { name: String },
+    Log { base: String },
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum Latex {
     Variable(String),
     Num(String),
     Call {
-        func: String,
+        func: Function,
         is_builtin: bool,
         args: Vec<Latex>,
     },
@@ -58,6 +66,13 @@ pub enum Latex {
         rest: Vec<Cond>,
         default: Box<Latex>,
     },
+}
+
+pub fn function_to_str(function: Function) -> String {
+    match function {
+        Function::Normal { name } => name,
+        Function::Log { base } => format!("log_{{{}}}", base),
+    }
 }
 
 pub fn format_latex_identifier(v: String) -> String {
@@ -126,7 +141,7 @@ pub fn latex_to_str(l: Latex) -> String {
         } => format!(
             "{}{}\\left({}\\right)",
             if is_builtin { "\\" } else { "" },
-            func,
+            function_to_str(func),
             multi_latex_to_str(args).join(",")
         ),
         Latex::BinaryExpression {

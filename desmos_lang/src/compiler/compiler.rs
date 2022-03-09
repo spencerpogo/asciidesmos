@@ -136,11 +136,11 @@ pub fn compile_call<'a>(
 
         Ok((
             Latex::Call {
-                func: fname.to_string(),
-                is_builtin,
+                func: func.to_latex(),
+                is_builtin: rfunc.is_builtin,
                 args: args_latex,
             },
-            func.ret,
+            rfunc.func.ret,
         ))
     }
 }
