@@ -69,7 +69,13 @@ pub enum Latex {
 pub fn function_to_str(function: Function) -> String {
     match function {
         Function::Normal { name } => name,
-        Function::Log { base } => format!("log_{{{}}}", base),
+        Function::Log { base } => {
+            if base.is_empty() {
+                "log".to_string()
+            } else {
+                format!("log_{{{}}}", base)
+            }
+        }
     }
 }
 
@@ -224,5 +230,33 @@ mod tests {
             },
             "\\left\\{1=2:3,4<5:6,7\\right\\}",
         )
+    }
+
+    #[test]
+    fn log() {
+        check(
+            Latex::Call {
+                func: Function::Log {
+                    base: "".to_string(),
+                },
+                args: vec![Latex::Num("10".to_string())],
+                is_builtin: true,
+            },
+            "\\log\\left(10\\right)",
+        );
+    }
+
+    #[test]
+    fn log_base() {
+        check(
+            Latex::Call {
+                func: Function::Log {
+                    base: "5".to_string(),
+                },
+                args: vec![Latex::Num("25".to_string())],
+                is_builtin: true,
+            },
+            "\\log_{5}\\left(25\\right)",
+        );
     }
 }
