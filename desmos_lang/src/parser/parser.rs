@@ -427,7 +427,7 @@ mod tests {
 
     macro_rules! stmt_ptest {
         ($i:expr, $r:expr) => {
-            assert_eq!(parse($i).unwrap(), (spn($i, 0, $i.len()), $r));
+            assert_eq!(parse($i).unwrap(), (spn($i, 0, $i.len()), $r))
         };
     }
 

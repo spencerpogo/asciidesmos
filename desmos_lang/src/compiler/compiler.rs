@@ -8,7 +8,8 @@ use crate::core::{
         LocatedStatement, Statement, UnaryOperator,
     },
     latex::{
-        BinaryOperator as LatexBinaryOperator, Cond, Latex, UnaryOperator as LatexUnaryOperator,
+        self, BinaryOperator as LatexBinaryOperator, Cond, Latex,
+        UnaryOperator as LatexUnaryOperator,
     },
     runtime::ValType,
 };
@@ -54,7 +55,7 @@ pub struct ResolvedFunction {
 // Returns function and whether it is builtin
 pub fn resolve_function<'a>(ctx: &'a mut Context, func: Function) -> Option<ResolvedFunction> {
     match func {
-        Function::Log { base } => Some(ResolvedFunction {
+        Function::Log { base: _ } => Some(ResolvedFunction {
             //name: format!("log_{{{}}}", )
             func: Rc::new(FunctionSignature {
                 args: vec![ValType::Number],
@@ -96,7 +97,7 @@ pub fn compile_call<'a>(
 ) -> Result<(Latex, ValType), CompileError<'a>> {
     let rfunc = resolve_function(ctx, func).ok_or(CompileError {
         kind: CompileErrorKind::UnknownFunction(func),
-        span,
+        span: span.clone(),
     })?;
     // Validate arg count
     let got = args.len();
@@ -111,7 +112,6 @@ pub fn compile_call<'a>(
             span,
         })
     } else {
-        let mut aiter = args.into_iter();
         let args_latex = args
             .into_iter()
             .zip(rfunc.func.args.iter())
@@ -200,7 +200,7 @@ pub fn handle_map_macro<'a>(
             //  true, but save it's old state anyway.
             let was_inside_map_macro = ctx.inside_map_macro;
             ctx.inside_map_macro = true;
-            let r = compile_call(ctx, span, fname, call_args);
+            let r = compile_call(ctx, span, Function::Normal { name: fname }, call_args);
             ctx.inside_map_macro = was_inside_map_macro;
             r
         }
@@ -280,7 +280,9 @@ pub fn compile_expr<'a>(
             Ok((
                 match operator {
                     BinaryOperator::Mod => Latex::Call {
-                        func: "mod".to_string(),
+                        func: latex::Function::Normal {
+                            name: "mod".to_string(),
+                        },
                         is_builtin: true,
                         args: vec![lv, rv],
                     },
@@ -522,7 +524,9 @@ mod tests {
                 right: Box::new((spn(), Expression::Num("2"))),
             },
             Latex::Call {
-                func: "mod".to_string(),
+                func: latex::Function::Normal {
+                    name: "mod".to_string(),
+                },
                 is_builtin: true,
                 args: vec![Latex::Num("1".to_string()), Latex::Num("2".to_string())],
             },
@@ -548,11 +552,13 @@ mod tests {
         check(
             Expression::Call {
                 modifier: CallModifier::NormalCall,
-                func: "sin",
+                func: Function::Normal { name: "sin" },
                 args: vec![(spn(), Expression::Num("1"))],
             },
             Latex::Call {
-                func: "sin".to_string(),
+                func: latex::Function::Normal {
+                    name: "sin".to_string(),
+                },
                 is_builtin: true,
                 args: vec![Latex::Num("1".to_string())],
             },
@@ -560,12 +566,12 @@ mod tests {
         assert_eq!(
             compile(Expression::Call {
                 modifier: CallModifier::NormalCall,
-                func: "abc",
+                func: Function::Normal { name: "abc" },
                 args: vec![],
             })
             .unwrap_err()
             .kind,
-            CompileErrorKind::UnknownFunction("abc")
+            CompileErrorKind::UnknownFunction(Function::Normal { name: "abc" })
         );
     }
 
@@ -574,7 +580,7 @@ mod tests {
         assert_eq!(
             compile(Expression::Call {
                 modifier: CallModifier::NormalCall,
-                func: "sin",
+                func: Function::Normal { name: "sin" },
                 args: vec![],
             })
             .unwrap_err()
@@ -587,7 +593,7 @@ mod tests {
         assert_eq!(
             compile(Expression::Call {
                 modifier: CallModifier::NormalCall,
-                func: "sin",
+                func: Function::Normal { name: "sin" },
                 args: vec![(spn(), Expression::Num("1")), (spn(), Expression::Num("2"))]
             })
             .unwrap_err()
@@ -604,7 +610,7 @@ mod tests {
         assert_eq!(
             compile(Expression::Call {
                 modifier: CallModifier::NormalCall,
-                func: "sin",
+                func: Function::Normal { name: "sin" },
                 args: vec![(spn(), Expression::List(vec![(spn(), Expression::Num("1"))]))]
             })
             .unwrap_err()
@@ -824,7 +830,7 @@ mod tests {
             &mut ctx,
             Statement::Expression(Expression::Call {
                 modifier: CallModifier::NormalCall,
-                func: "f",
+                func: Function::Normal { name: "f" },
                 args: vec![(spn(), Expression::Num("1"))],
             }),
         )
@@ -851,7 +857,7 @@ mod tests {
                 &mut ctx,
                 Statement::Expression(Expression::Call {
                     modifier: CallModifier::NormalCall,
-                    func: "f",
+                    func: Function::Normal { name: "f" },
                     args: vec![(spn(), Expression::Num("1"))],
                 }),
             )
@@ -886,7 +892,7 @@ mod tests {
                 &mut ctx,
                 Statement::Expression(Expression::Call {
                     modifier: CallModifier::NormalCall,
-                    func: "f",
+                    func: Function::Normal { name: "f" },
                     args: vec![(spn(), Expression::List(vec![]))],
                 }),
             )
@@ -914,11 +920,11 @@ mod tests {
                         cond_left: (spn(), Expression::Variable("a")),
                         cond: CompareOperator::Equal,
                         cond_right: (spn(), Expression::Num("1")),
-                        val: (spn(), Expression::Num("2"))
+                        val: (spn(), Expression::Num("2")),
                     }),
                     rest: vec![],
-                    default: Box::new((spn(), Expression::Num("3")))
-                }
+                    default: Box::new((spn(), Expression::Num("3"))),
+                },
             ),
             Ok(Latex::Piecewise {
                 first: Box::new(Cond {

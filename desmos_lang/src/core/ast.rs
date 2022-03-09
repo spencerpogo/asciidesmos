@@ -29,7 +29,7 @@ pub enum CallModifier {
     NormalCall,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Function<'a> {
     Normal { name: &'a str },
     Log { base: &'a str },

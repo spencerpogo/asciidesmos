@@ -1,5 +1,3 @@
-use pest_consume::Parser;
-
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum BinaryOperator {
     Add,
