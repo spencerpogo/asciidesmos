@@ -56,7 +56,6 @@ pub struct ResolvedFunction {
 pub fn resolve_function<'a>(ctx: &'a mut Context, func: Function) -> Option<ResolvedFunction> {
     match func {
         Function::Log { base: _ } => Some(ResolvedFunction {
-            //name: format!("log_{{{}}}", )
             func: Rc::new(FunctionSignature {
                 args: vec![ValType::Number],
                 ret: ValType::Number,
