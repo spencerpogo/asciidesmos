@@ -1007,4 +1007,40 @@ mod tests {
             }),
         );
     }
+
+    #[test]
+    fn log() {
+        check(
+            Expression::Call {
+                func: Function::Log { base: "" },
+                args: vec![(spn(), Expression::Num("10"))],
+                modifier: CallModifier::NormalCall,
+            },
+            Latex::Call {
+                func: latex::Function::Log {
+                    base: "".to_string(),
+                },
+                args: vec![Latex::Num("10".to_string())],
+                is_builtin: true,
+            },
+        );
+    }
+
+    #[test]
+    fn log_base() {
+        check(
+            Expression::Call {
+                func: Function::Log { base: "5" },
+                args: vec![(spn(), Expression::Num("25"))],
+                modifier: CallModifier::NormalCall,
+            },
+            Latex::Call {
+                func: latex::Function::Log {
+                    base: "5".to_string(),
+                },
+                args: vec![Latex::Num("25".to_string())],
+                is_builtin: true,
+            },
+        );
+    }
 }
