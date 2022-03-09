@@ -19,6 +19,12 @@ macro_rules! n {
     };
 }
 
+macro_rules! nn {
+    () => {
+        f!(&[Num, Num], Num)
+    };
+}
+
 macro_rules! l {
     () => {
         f!(&[List], Num)
@@ -28,12 +34,6 @@ macro_rules! l {
 macro_rules! ll {
     () => {
         f!(&[List, List], Num)
-    };
-}
-
-macro_rules! nn {
-    () => {
-        f!(&[Num, Num], Num)
     };
 }
 
