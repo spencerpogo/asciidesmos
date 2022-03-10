@@ -291,46 +291,54 @@ impl DesmosParser {
         ))
     }
 
+    fn CallStart(input: Node) -> Pesult<(Function, CallModifier)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [LogBaseFunc(i)] => i,
+            [LogFunc(i)] => i,
+            [NormalFunc(i)] => i,
+        ))
+    }
+
+    fn LogBaseFunc(input: Node) -> Pesult<(Function, CallModifier)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [LogBase(i), CallArgsStart(m)] => (Function::Log { base: i }, m),
+        ))
+    }
+
+    fn LogBase(input: Node) -> Pesult<&str> {
+        Ok(input.as_str())
+    }
+
+    fn LogFunc(input: Node) -> Pesult<(Function, CallModifier)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [CallArgsStart(m)] => (Function::Log { base: "" }, m),
+        ))
+    }
+
+    fn NormalFunc(input: Node) -> Pesult<(Function, CallModifier)> {
+        Ok(match_nodes!(
+            input.into_children();
+            [Identifier(name), CallArgsStart(m)] => (Function::Normal { name }, m),
+        ))
+    }
+
+    fn CallArgsStart(input: Node) -> Pesult<CallModifier> {
+        Ok(match_nodes!(
+            input.into_children();
+            [MapCall(m)] => m,
+            [NormalCall(m)] => m,
+        ))
+    }
+
     fn MapCall(input: Node) -> Pesult<CallModifier> {
         Ok(CallModifier::MapCall)
     }
 
     fn NormalCall(input: Node) -> Pesult<CallModifier> {
         Ok(CallModifier::NormalCall)
-    }
-
-    fn CallStart(input: Node) -> Pesult<(Function, CallModifier)> {
-        Ok(match_nodes!(
-            input.into_children();
-            [FuncName(i), MapCall(c)] => (i, c),
-            [FuncName(i), NormalCall(c)] => (i, c),
-        ))
-    }
-
-    fn FuncName(input: Node) -> Pesult<Function> {
-        Ok(match_nodes!(
-            input.into_children();
-            [NormalFunc(f)] => f,
-            [LogFunc(f)] => f,
-        ))
-    }
-
-    fn NormalFunc(input: Node) -> Pesult<Function> {
-        Ok(match_nodes!(
-            input.into_children();
-            [Identifier(name)] => Function::Normal { name },
-        ))
-    }
-
-    fn LogFunc(input: Node) -> Pesult<Function> {
-        Ok(match_nodes!(
-            input.into_children();
-            [LogBase(base)] => Function::Log { base },
-        ))
-    }
-
-    fn LogBase(input: Node) -> Pesult<&str> {
-        Ok(input.as_str())
     }
 
     fn Type(input: Node) -> Pesult<ValType> {
@@ -544,22 +552,40 @@ mod tests {
 
     #[test]
     fn logcall() {
-        let i = "log10(1)";
+        let i = "log(1)";
+        parse_test!(
+            i,
+            Expression::Call {
+                modifier: CallModifier::NormalCall,
+                func: Function::Log { base: "" },
+                args: vec![(spn(i, 4, 5), Expression::Num("1"))]
+            }
+        );
+        let i = "log_10(1)";
         parse_test!(
             i,
             Expression::Call {
                 modifier: CallModifier::NormalCall,
                 func: Function::Log { base: "10" },
-                args: vec![(spn(i, 6, 7), Expression::Num("1"))]
+                args: vec![(spn(i, 7, 8), Expression::Num("1"))]
             }
         );
-        let i2 = "loga(1)";
+        let i2 = "log_a(1)";
         parse_test!(
             i2,
             Expression::Call {
                 modifier: CallModifier::NormalCall,
+                func: Function::Log { base: "a" },
+                args: vec![(spn(i2, 6, 7), Expression::Num("1"))]
+            }
+        );
+        let i3 = "loga(1)";
+        parse_test!(
+            i3,
+            Expression::Call {
+                modifier: CallModifier::NormalCall,
                 func: Function::Normal { name: "loga" },
-                args: vec![(spn(i2, 5, 6), Expression::Num("1"))]
+                args: vec![(spn(i3, 5, 6), Expression::Num("1"))]
             }
         );
     }

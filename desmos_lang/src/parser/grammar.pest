@@ -58,11 +58,14 @@ List = { "[" ~ ArgumentsNoList? ~ "]" }
 
 MapCall =    @{ "@(" }
 NormalCall = @{ "(" }
-LogBase = @{ ASCII_DIGIT+ }
-LogFunc = ${ "log" ~ LogBase }
-NormalFunc = { Identifier }
-FuncName = { LogFunc | NormalFunc }
-CallStart = ${ FuncName ~ ( MapCall | NormalCall ) }
+CallArgsStart = { MapCall | NormalCall }
+
+LogBase = @{ ASCII_DIGIT+ | Identifier }
+LogBaseFunc = ${ "log_" ~ LogBase ~ CallArgsStart }
+LogFunc = ${ "log" ~ CallArgsStart }
+NormalFunc = { Identifier ~ CallArgsStart }
+
+CallStart = ${ LogBaseFunc | LogFunc | NormalFunc }
 Call = { CallStart ~ Arguments? ~ ")" }
 
 Type = { "Number" | "List" }
