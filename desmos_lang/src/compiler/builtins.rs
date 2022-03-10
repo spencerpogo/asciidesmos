@@ -100,8 +100,7 @@ pub static BUILTIN_FUNCTIONS: Map<&'static str, Function> = phf_map! {
     "exp" => n!(), // e^x
     "ln" => n!(),
     "log" => n!(),
-
-    // TODO: Support log_{a} where a is an arbitrary integer
+    // log_{base} is supported through a special case in the parser
 
     // TODO: Support for sqrt and nthroot
     // TODO: Support integral
