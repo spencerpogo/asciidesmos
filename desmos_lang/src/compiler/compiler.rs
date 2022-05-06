@@ -33,7 +33,6 @@ pub struct Context<'a> {
     pub variables: HashMap<&'a str, ValType>,
     pub locals: HashMap<&'a str, ValType>,
     pub defined_functions: HashMap<&'a str, Rc<FunctionSignature>>,
-    pub inside_map_macro: bool,
 }
 
 impl Context<'_> {
@@ -42,7 +41,6 @@ impl Context<'_> {
             variables: HashMap::new(),
             locals: HashMap::new(),
             defined_functions: HashMap::new(),
-            inside_map_macro: false,
         }
     }
 }
@@ -101,6 +99,7 @@ pub fn compile_call<'a>(
     ctx: &mut Context,
     span: Span<'a>,
     func: Function<'a>,
+    modifier: CallModifier,
     args: Vec<(Span<'a>, Latex, ValType)>,
 ) -> Result<(Latex, ValType), CompileError<'a>> {
     let rfunc = resolve_function(ctx, func).ok_or(CompileError {
@@ -128,7 +127,7 @@ pub fn compile_call<'a>(
                     .map(|(got_type, expect_type)| -> Result<Latex, _> {
                         // Already checked that they are the same length, so unwrap is safe
                         let (aspan, arg_latex, got_type) = got_type;
-                        let is_valid_map = ctx.inside_map_macro
+                        let is_valid_map = modifier == CallModifier::MapCall
                             && got_type == ValType::List
                             && *expect_type == ValType::Number;
                         if !is_valid_map && got_type != *expect_type {
@@ -155,7 +154,7 @@ pub fn compile_call<'a>(
             }
         }
         FunctionArgs::Variadic => {
-            if ctx.inside_map_macro {
+            if modifier == CallModifier::MapCall {
                 if args.len() == 1 {
                     let first = args.first().unwrap();
                     if first.2 == ValType::List {
@@ -251,61 +250,6 @@ pub fn compile_expect<'a>(
     Ok(s)
 }
 
-pub fn handle_map_macro<'a>(
-    ctx: &mut Context,
-    span: Span<'a>,
-    args: Vec<LocatedExpression<'a>>,
-) -> Result<(Latex, ValType), CompileError<'a>> {
-    if args.len() < 2 {
-        return Err(CompileError {
-            span,
-            kind: CompileErrorKind::BadMapMacro,
-        });
-    }
-
-    let mut argsiter = args.into_iter();
-    let (fspan, fexpr) = argsiter.next().unwrap();
-    match fexpr {
-        Expression::Variable(fname) => {
-            let call_args = argsiter
-                .map(
-                    |(aspan, aexpr)| -> Result<(Span, Latex, ValType), CompileError> {
-                        let (latex, t) = compile_expr(ctx, (aspan.clone(), aexpr))?;
-                        Ok((aspan, latex, t))
-                    },
-                )
-                .collect::<Result<Vec<(Span, Latex, ValType)>, CompileError>>()?;
-            //compile_expect(ctx, lspan.clone(), (lspan, lexpr), ValType::List)?;
-            // There should be no situtation in which ctx.inside_map_macro is currently
-            //  true, but save it's old state anyway.
-            let was_inside_map_macro = ctx.inside_map_macro;
-            ctx.inside_map_macro = true;
-            let r = compile_call(ctx, span, Function::Normal { name: fname }, call_args);
-            ctx.inside_map_macro = was_inside_map_macro;
-            r
-        }
-        _ => Err(CompileError {
-            span: fspan,
-            kind: CompileErrorKind::ExpectedFunction,
-        }),
-    }
-}
-
-pub fn handle_macro<'a>(
-    ctx: &mut Context,
-    span: Span<'a>,
-    name: &'a str,
-    args: Vec<LocatedExpression<'a>>,
-) -> Result<(Latex, ValType), CompileError<'a>> {
-    match name {
-        "map" => handle_map_macro(ctx, span, args),
-        _ => Err(CompileError {
-            span,
-            kind: CompileErrorKind::UndefinedMacro(name),
-        }),
-    }
-}
-
 pub fn binop_to_latex(op: BinaryOperator) -> LatexBinaryOperator {
     match op {
         BinaryOperator::Add => LatexBinaryOperator::Add,
@@ -389,19 +333,16 @@ pub fn compile_expr<'a>(
             modifier,
             func,
             args,
-        } => match modifier {
-            CallModifier::NormalCall => {
-                let compiled_args = args
-                    .into_iter()
-                    .map(|(s, e)| -> Result<(Span, Latex, ValType), CompileError> {
-                        let (latex, t) = compile_expr(ctx, (s.clone(), e))?;
-                        Ok((s, latex, t))
-                    })
-                    .collect::<Result<Vec<(Span, Latex, ValType)>, CompileError>>()?;
-                compile_call(ctx, span, func, compiled_args)
-            }
-            CallModifier::MapCall => unimplemented!(),
-        },
+        } => {
+            let compiled_args = args
+                .into_iter()
+                .map(|(s, e)| -> Result<(Span, Latex, ValType), CompileError> {
+                    let (latex, t) = compile_expr(ctx, (s.clone(), e))?;
+                    Ok((s, latex, t))
+                })
+                .collect::<Result<Vec<(Span, Latex, ValType)>, CompileError>>()?;
+            compile_call(ctx, span, func, modifier, compiled_args)
+        }
         Expression::List(values) => {
             let items = values
                 .into_iter()
@@ -1194,25 +1135,30 @@ mod tests {
                 span: spn()
             })
         );
-        assert_eq!(
-            compile_with_ctx(
-                &mut Context {
-                    inside_map_macro: true,
-                    ..Default::default()
-                },
-                inp
-            ),
-            Ok(Latex::Call {
+        check(
+            Expression::Call {
+                modifier: CallModifier::MapCall,
+                func: Function::Normal { name: "lcm" },
+                args: vec![(
+                    spn(),
+                    Expression::List(vec![
+                        (spn(), Expression::Num("1")),
+                        (spn(), Expression::Num("2")),
+                        (spn(), Expression::Num("3")),
+                    ]),
+                )],
+            },
+            Latex::Call {
                 func: latex::Function::Normal {
-                    name: "lcm".to_string()
+                    name: "lcm".to_string(),
                 },
                 args: vec![Latex::List(vec![
                     Latex::Num("1".to_string()),
                     Latex::Num("2".to_string()),
-                    Latex::Num("3".to_string())
+                    Latex::Num("3".to_string()),
                 ])],
-                is_builtin: true
-            })
+                is_builtin: true,
+            },
         );
     }
 }
