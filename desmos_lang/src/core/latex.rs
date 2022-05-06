@@ -134,6 +134,15 @@ pub fn cond_to_str(cond: Cond) -> String {
     )
 }
 
+fn latex_call_to_str(func: Function, is_builtin: bool, args: Vec<Latex>) -> String {
+    format!(
+        "{}{}\\left({}\\right)",
+        if is_builtin { "\\" } else { "" },
+        function_to_str(func),
+        multi_latex_to_str(args).join(",")
+    )
+}
+
 pub fn latex_to_str(l: Latex) -> String {
     match l {
         Latex::Variable(s) => format_latex_identifier(s),
@@ -142,12 +151,7 @@ pub fn latex_to_str(l: Latex) -> String {
             func,
             is_builtin,
             args,
-        } => format!(
-            "{}{}\\left({}\\right)",
-            if is_builtin { "\\" } else { "" },
-            function_to_str(func),
-            multi_latex_to_str(args).join(",")
-        ),
+        } => latex_call_to_str(func, is_builtin, args),
         Latex::BinaryExpression {
             left,
             operator,
