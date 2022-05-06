@@ -156,8 +156,7 @@ pub fn latex_to_str(l: Latex) -> String {
         Latex::UnaryExpression { left, operator } => match operator {
             UnaryOperator::Factorial => format!("{}!", latex_to_str(*left),),
         },
-
-        Latex::List(items) => multi_latex_to_str(items).join(","),
+        Latex::List(items) => format!("\\left[{}\\right]", multi_latex_to_str(items).join(",")),
         Latex::Assignment(left, right) => {
             format!("{}={}", latex_to_str(*left), latex_to_str(*right))
         }
