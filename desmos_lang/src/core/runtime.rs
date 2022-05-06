@@ -7,7 +7,13 @@ pub enum ValType {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum Args<'a> {
+    Static(&'a [ValType]),
+    Variadic,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct Function<'a> {
-    pub args: &'a [ValType],
+    pub args: Args<'a>,
     pub ret: ValType,
 }

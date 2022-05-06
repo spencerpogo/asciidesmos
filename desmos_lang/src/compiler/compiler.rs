@@ -11,14 +11,21 @@ use crate::core::{
         self, BinaryOperator as LatexBinaryOperator, Cond, Latex,
         UnaryOperator as LatexUnaryOperator,
     },
-    runtime::ValType,
+    runtime::{Args, ValType},
 };
 use pest::Span;
 use std::collections::HashMap;
 use std::rc::Rc;
 
+// heap version of core::runtime::Args
+pub enum FunctionArgs {
+    Static(Vec<ValType>),
+    Variadic,
+}
+
+// heap version of core::runtime::Function
 pub struct FunctionSignature {
-    pub args: Vec<ValType>,
+    pub args: FunctionArgs,
     pub ret: ValType,
 }
 
@@ -47,7 +54,6 @@ impl Default for Context<'_> {
 }
 
 pub struct ResolvedFunction {
-    //name: String,
     func: Rc<FunctionSignature>,
     is_builtin: bool,
 }
@@ -57,7 +63,7 @@ pub fn resolve_function<'a>(ctx: &'a mut Context, func: Function) -> Option<Reso
     match func {
         Function::Log { base: _ } => Some(ResolvedFunction {
             func: Rc::new(FunctionSignature {
-                args: vec![ValType::Number],
+                args: FunctionArgs::Static(vec![ValType::Number]),
                 ret: ValType::Number,
             }),
             is_builtin: true,
@@ -67,7 +73,10 @@ pub fn resolve_function<'a>(ctx: &'a mut Context, func: Function) -> Option<Reso
                 None => None,
                 Some(f) => Some(ResolvedFunction {
                     func: Rc::new(FunctionSignature {
-                        args: f.args.to_vec(),
+                        args: match f.args {
+                            Args::Static(args) => FunctionArgs::Static(args.to_vec()),
+                            Args::Variadic => FunctionArgs::Variadic,
+                        },
                         ret: f.ret,
                     }),
                     is_builtin: true,
@@ -98,49 +107,121 @@ pub fn compile_call<'a>(
         kind: CompileErrorKind::UnknownFunction(func),
         span: span.clone(),
     })?;
-    // Validate arg count
-    let got = args.len();
-    let expect = rfunc.func.args.len();
+    match &rfunc.func.args {
+        FunctionArgs::Static(rargs) => {
+            // Validate arg count
+            let got = args.len();
+            let expect = rargs.len();
 
-    if got != expect {
-        Err(CompileError {
-            kind: CompileErrorKind::WrongArgCount {
-                got,
-                expected: expect,
-            },
-            span,
-        })
-    } else {
-        let args_latex = args
-            .into_iter()
-            .zip(rfunc.func.args.iter())
-            .map(|(got_type, expect_type)| -> Result<Latex, _> {
-                // Already checked that they are the same length, so unwrap is safe
-                let (aspan, arg_latex, got_type) = got_type;
-                let is_valid_map = ctx.inside_map_macro
-                    && got_type == ValType::List
-                    && *expect_type == ValType::Number;
-                if !is_valid_map && got_type != *expect_type {
-                    return Err(CompileError {
-                        kind: CompileErrorKind::TypeMismatch {
-                            got: got_type,
-                            expected: *expect_type,
+            if got != expect {
+                Err(CompileError {
+                    kind: CompileErrorKind::WrongArgCount {
+                        got,
+                        expected: expect,
+                    },
+                    span,
+                })
+            } else {
+                let args_latex = args
+                    .into_iter()
+                    .zip(rargs.iter())
+                    .map(|(got_type, expect_type)| -> Result<Latex, _> {
+                        // Already checked that they are the same length, so unwrap is safe
+                        let (aspan, arg_latex, got_type) = got_type;
+                        let is_valid_map = ctx.inside_map_macro
+                            && got_type == ValType::List
+                            && *expect_type == ValType::Number;
+                        if !is_valid_map && got_type != *expect_type {
+                            return Err(CompileError {
+                                kind: CompileErrorKind::TypeMismatch {
+                                    got: got_type,
+                                    expected: *expect_type,
+                                },
+                                span: aspan,
+                            });
+                        }
+                        Ok(arg_latex)
+                    })
+                    .collect::<Result<Vec<Latex>, _>>()?;
+
+                Ok((
+                    Latex::Call {
+                        func: func.to_latex(),
+                        is_builtin: rfunc.is_builtin,
+                        args: args_latex,
+                    },
+                    rfunc.func.ret,
+                ))
+            }
+        }
+        FunctionArgs::Variadic => {
+            if ctx.inside_map_macro {
+                if args.len() == 1 {
+                    let first = args.first().unwrap();
+                    if first.2 == ValType::List {
+                        Ok((
+                            Latex::Call {
+                                func: func.to_latex(),
+                                is_builtin: rfunc.is_builtin,
+                                args: vec![first.1.clone()],
+                            },
+                            rfunc.func.ret,
+                        ))
+                    } else {
+                        Err(CompileError {
+                            kind: CompileErrorKind::TypeMismatch {
+                                got: first.2,
+                                expected: ValType::List,
+                            },
+                            span: span,
+                        })
+                    }
+                } else {
+                    Err(CompileError {
+                        kind: CompileErrorKind::WrongArgCount {
+                            got: args.len(),
+                            expected: 1,
                         },
-                        span: aspan,
-                    });
+                        span: span,
+                    })
                 }
-                Ok(arg_latex)
-            })
-            .collect::<Result<Vec<Latex>, _>>()?;
-
-        Ok((
-            Latex::Call {
-                func: func.to_latex(),
-                is_builtin: rfunc.is_builtin,
-                args: args_latex,
-            },
-            rfunc.func.ret,
-        ))
+            } else {
+                if args.is_empty() {
+                    Err(CompileError {
+                        kind: CompileErrorKind::WrongArgCount {
+                            got: 0,
+                            expected: 1,
+                        },
+                        span: span,
+                    })
+                } else {
+                    let args_latex = args
+                        .into_iter()
+                        .map(|a| -> Result<Latex, _> {
+                            if a.2 == ValType::Number {
+                                Ok(a.1)
+                            } else {
+                                Err(CompileError {
+                                    kind: CompileErrorKind::TypeMismatch {
+                                        got: a.2,
+                                        expected: ValType::Number,
+                                    },
+                                    span: a.0,
+                                })
+                            }
+                        })
+                        .collect::<Result<Vec<Latex>, _>>()?;
+                    Ok((
+                        Latex::Call {
+                            func: func.to_latex(),
+                            is_builtin: rfunc.is_builtin,
+                            args: args_latex,
+                        },
+                        rfunc.func.ret,
+                    ))
+                }
+            }
+        }
     }
 }
 
@@ -391,7 +472,7 @@ pub fn compile_stmt<'a>(
             ctx.defined_functions.insert(
                 fdef.name,
                 Rc::new(FunctionSignature {
-                    args: fdef.args.iter().map(|a| a.1).collect(),
+                    args: FunctionArgs::Static(fdef.args.iter().map(|a| a.1).collect()),
                     ret,
                 }),
             );
@@ -408,7 +489,10 @@ pub fn compile_stmt<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::{ast::FunctionDefinition, latex::CompareOperator};
+    use crate::{
+        compiler::builtins::BUILTIN_FUNCTIONS,
+        core::{ast::FunctionDefinition, latex::CompareOperator},
+    };
     use pest::Span;
 
     fn new_ctx<'a>() -> Context<'a> {
@@ -1041,6 +1125,94 @@ mod tests {
                 args: vec![Latex::Num("25".to_string())],
                 is_builtin: true,
             },
+        );
+    }
+
+    #[test]
+    fn call_variadic() {
+        assert_eq!(BUILTIN_FUNCTIONS.get("lcm").unwrap().args, Args::Variadic);
+        assert_eq!(
+            compile(Expression::Call {
+                modifier: CallModifier::NormalCall,
+                func: Function::Normal { name: "lcm" },
+                args: vec![],
+            }),
+            Err(CompileError {
+                kind: CompileErrorKind::WrongArgCount {
+                    got: 0,
+                    expected: 1
+                },
+                span: spn()
+            })
+        );
+        check(
+            Expression::Call {
+                modifier: CallModifier::NormalCall,
+                func: Function::Normal { name: "lcm" },
+                args: vec![
+                    (spn(), Expression::Num("1")),
+                    (spn(), Expression::Num("2")),
+                    (spn(), Expression::Num("3")),
+                ],
+            },
+            Latex::Call {
+                func: latex::Function::Normal {
+                    name: "lcm".to_string(),
+                },
+                args: vec![
+                    Latex::Num("1".to_string()),
+                    Latex::Num("2".to_string()),
+                    Latex::Num("3".to_string()),
+                ],
+                is_builtin: true,
+            },
+        );
+    }
+
+    #[test]
+    fn map_variadic() {
+        assert_eq!(BUILTIN_FUNCTIONS.get("lcm").unwrap().args, Args::Variadic);
+        let inp = Expression::Call {
+            modifier: CallModifier::NormalCall,
+            func: Function::Normal { name: "lcm" },
+            args: vec![(
+                spn(),
+                Expression::List(vec![
+                    (spn(), Expression::Num("1")),
+                    (spn(), Expression::Num("2")),
+                    (spn(), Expression::Num("3")),
+                ]),
+            )],
+        };
+        assert_eq!(
+            compile(inp.clone()),
+            Err(CompileError {
+                kind: CompileErrorKind::TypeMismatch {
+                    got: ValType::List,
+                    expected: ValType::Number
+                },
+                span: spn()
+            })
+        );
+        assert_eq!(
+            compile_with_ctx(
+                &mut Context {
+                    inside_map_macro: true,
+                    ..Default::default()
+                },
+                inp
+            ),
+            Ok(Latex::Call {
+                func: latex::Function::Normal {
+                    name: "lcm".to_string()
+                },
+                args: vec![Latex::List(vec![
+                    Latex::Num("1".to_string()),
+                    Latex::Num("2".to_string()),
+                    Latex::Num("3".to_string())
+                ])],
+                is_builtin: true
+            })
         );
     }
 }

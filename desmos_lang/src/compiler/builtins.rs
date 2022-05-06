@@ -1,5 +1,5 @@
 use crate::core::runtime::{
-    Function,
+    Args, Function,
     ValType::{List, Number as Num},
 };
 use phf::{phf_map, Map};
@@ -7,7 +7,7 @@ use phf::{phf_map, Map};
 macro_rules! f {
     ($args:expr, $ret:expr) => {
         Function {
-            args: $args,
+            args: Args::Static($args),
             ret: $ret,
         }
     };
@@ -89,8 +89,14 @@ pub static BUILTIN_FUNCTIONS: Map<&'static str, Function> = phf_map! {
     "shuffle" => l!(),
 
     // TODO: Support variadic functions
-    // "lcm"
-    // "gcd"
+    "lcm" => Function {
+        args: Args::Variadic,
+        ret: Num,
+    },
+    "gcd" => Function {
+        args: Args::Variadic,
+        ret: Num,
+    },
 
     "mod" => nn!(),
 
