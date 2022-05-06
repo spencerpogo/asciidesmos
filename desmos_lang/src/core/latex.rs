@@ -146,9 +146,9 @@ fn _latex_call_to_str(func: Function, is_builtin: bool, args: Vec<Latex>) -> Str
 fn latex_call_to_str(func: Function, is_builtin: bool, args: Vec<Latex>) -> String {
     match &func {
         Function::Normal { name } => {
-            if is_builtin && name == "sqrt" {
-                // there should only be one arg
-                format!("\\sqrt{{{}}}", multi_latex_to_str(args).join(","))
+            if is_builtin && (name == "sqrt" || name == "nthroot") {
+                // there should only be one arg in case of sqrt, two in case of nthroot
+                format!("\\sqrt{{{}}}", multi_latex_to_str(args).join("}{"))
             } else {
                 _latex_call_to_str(func, is_builtin, args)
             }

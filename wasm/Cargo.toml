@@ -1,0 +1,12 @@
+[package]
+name = "desmosc-wasm"
+version = "0.1.0"
+authors = ["Scoder12"]
+edition = "2018"
+
+[dependencies]
+desmos_lang = { path = "../desmos_lang" }
+wasm-bindgen = "0.2.80"
+
+[lib]
+crate-type = ["cdylib"]

@@ -108,8 +108,9 @@ pub static BUILTIN_FUNCTIONS: Map<&'static str, Function> = phf_map! {
     "log" => n!(),
     // log_{base} is supported through a special case in the parser
 
-    "sqrt" => n!(),
     // supported through a special case in IR output
+    "sqrt" => n!(),
+    "nthroot" => nn!(),
 
     // TODO: Support for nthroot
     // TODO: Support integral
