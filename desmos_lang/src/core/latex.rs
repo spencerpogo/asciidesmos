@@ -134,13 +134,27 @@ pub fn cond_to_str(cond: Cond) -> String {
     )
 }
 
-fn latex_call_to_str(func: Function, is_builtin: bool, args: Vec<Latex>) -> String {
+fn _latex_call_to_str(func: Function, is_builtin: bool, args: Vec<Latex>) -> String {
     format!(
         "{}{}\\left({}\\right)",
         if is_builtin { "\\" } else { "" },
         function_to_str(func),
         multi_latex_to_str(args).join(",")
     )
+}
+
+fn latex_call_to_str(func: Function, is_builtin: bool, args: Vec<Latex>) -> String {
+    match &func {
+        Function::Normal { name } => {
+            if is_builtin && name == "sqrt" {
+                // there should only be one arg
+                format!("\\sqrt{{{}}}", multi_latex_to_str(args).join(","))
+            } else {
+                _latex_call_to_str(func, is_builtin, args)
+            }
+        }
+        _ => _latex_call_to_str(func, is_builtin, args),
+    }
 }
 
 pub fn latex_to_str(l: Latex) -> String {
