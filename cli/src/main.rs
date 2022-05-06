@@ -28,21 +28,26 @@ impl<'a> From<CompileError<'a>> for EvalError<'a> {
     }
 }
 
-fn try_eval(inp: &str, debug: bool) -> Result<String, EvalError<'_>> {
+struct Flags {
+    ast: bool,
+    ir: bool,
+}
+
+fn try_eval(inp: &str, flags: Flags) -> Result<String, EvalError<'_>> {
     let ast = parse(inp)?;
-    if debug {
-        eprintln!("AST:\n{:#?}", ast);
+    if flags.ast {
+        eprintln!("{:#?}", ast);
     }
     let ir = compile_stmt(&mut Context::new(), ast)?;
-    if debug {
-        eprintln!("IR:\n{:#?}", ir);
+    if flags.ir {
+        eprintln!("{:#?}", ir);
     }
     let r = latex_to_str(ir);
     Ok(r)
 }
 
-fn process(inp: &str, debug: bool) -> i32 {
-    match try_eval(inp, debug) {
+fn process(inp: &str, flags: Flags) -> i32 {
+    match try_eval(inp, flags) {
         Ok(s) => {
             println!("{}", s);
             0
@@ -78,25 +83,29 @@ fn main() {
                 .takes_value(true)
                 .conflicts_with("eval"),
         )
+        .arg(Arg::with_name("ast").long("ast").help("Dumps AST"))
         .arg(
-            Arg::with_name("debug")
-                .long("debug")
-                .help("Dumps AST and IR"),
+            Arg::with_name("ir")
+                .long("ir")
+                .help("Dumps IR (latex syntax tree)"),
         );
 
     let matches = app.get_matches();
     // flags
-    let debug = matches.is_present("debug");
+    let flags = Flags {
+        ast: matches.is_present("ast"),
+        ir: matches.is_present("ir"),
+    };
 
     let exit_code = if let Some(input) = matches.value_of("eval") {
-        process(input, debug)
+        process(input, flags)
     } else if let Some(filename) = matches.value_of("file") {
         // TODO: Better error handling here?
         let mut file = File::open(filename).expect("Unable to read input");
         let mut contents = String::new();
         file.read_to_string(&mut contents)
             .expect("Unable to decode file contents");
-        process(contents.as_str(), debug)
+        process(contents.as_str(), flags)
     } else {
         unimplemented!("REPL/pipe unimplemented")
     };
