@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>wasm example</title>
+  </head>
+  <body>
+    <form action="#" method="GET" id="tryit">
+      <label>
+        <h3>Enter code</h3>
+        <textarea id="code-input" disabled="disabled"></textarea>
+      </label>
+      <br />
+      <button type="submit">Run</button>
+    </form>
+    <label>
+      <h3>Output</h3>
+      <textarea id="output" cols="100" rows="7" disabled="disabled"></textarea>
+    </label>
+    <div style="display: flex">
+      <label style="margin-right: 5px">
+        <h3>AST</h3>
+        <textarea id="ast" cols="50" rows="30" disabled="disabled"></textarea>
+      </label>
+      <label>
+        <h3>IR</h3>
+        <textarea id="ir" cols="50" rows="30" disabled="disabled"></textarea>
+      </label>
+    </div>
+    <script type="module">
+      const i = document.getElementById.bind(document);
+      const form = i("tryit");
+      const input = i("code-input");
+      const ast = i("ast");
+      const ir = i("ir");
+      const output = i("output");
+      ast.value = ir.value = output.value = "";
+
+      import init, { try_eval } from "./pkg/desmosc_wasm.js";
+      await init();
+
+      input.disabled = false;
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const r = try_eval(input.value);
+        ast.value = r.ast;
+        ir.value = r.ir;
+        output.value = r.output;
+      });
+    </script>
+  </body>
+</html>
