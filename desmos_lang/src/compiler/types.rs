@@ -1,6 +1,5 @@
 use std::{collections::HashMap, rc::Rc};
-
-use crate::core::runtime::ValType;
+use types::ValType;
 
 // heap version of core::runtime::Args
 pub enum FunctionArgs {

@@ -1,13 +1,12 @@
-use crate::core::{
-    ast::{
-        BinaryOperator, Branch, CallModifier, Expression, Function, FunctionDefinition,
-        LocatedExpression, LocatedStatement, Statement, UnaryOperator,
-    },
-    latex::CompareOperator,
-    runtime::ValType,
+use ast::{
+    BinaryOperator, Branch, CallModifier, Expression, Function, FunctionDefinition,
+    LocatedExpression, LocatedStatement, Statement, UnaryOperator,
 };
+// TODO: Port this to the ast
+use latex::CompareOperator;
 use pest::Span;
 use pest_consume::{match_nodes, Error, Node as PestNode, Parser as PestConsumeParser};
+use types::ValType;
 
 // pest + result = pesult ;)
 pub type ParseError = Error<Rule>;

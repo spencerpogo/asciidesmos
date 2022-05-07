@@ -1,8 +1,8 @@
-use std::rc::Rc;
-
+use ast;
+use latex;
 use pest::Span;
-
-use crate::core::{ast, latex, runtime};
+use std::rc::Rc;
+use types;
 
 use super::{
     builtins,
@@ -15,8 +15,8 @@ pub fn resolve_function<'a>(ctx: &'a mut Context, func: ast::Function) -> Option
     match func {
         ast::Function::Log { base: _ } => Some(ResolvedFunction {
             func: Rc::new(FunctionSignature {
-                args: FunctionArgs::Static(vec![runtime::ValType::Number]),
-                ret: runtime::ValType::Number,
+                args: FunctionArgs::Static(vec![types::ValType::Number]),
+                ret: types::ValType::Number,
             }),
             is_builtin: true,
         }),
@@ -26,8 +26,8 @@ pub fn resolve_function<'a>(ctx: &'a mut Context, func: ast::Function) -> Option
                 Some(f) => Some(ResolvedFunction {
                     func: Rc::new(FunctionSignature {
                         args: match f.args {
-                            runtime::Args::Static(args) => FunctionArgs::Static(args.to_vec()),
-                            runtime::Args::Variadic => FunctionArgs::Variadic,
+                            types::Args::Static(args) => FunctionArgs::Static(args.to_vec()),
+                            types::Args::Variadic => FunctionArgs::Variadic,
                         },
                         ret: f.ret,
                     }),
@@ -47,8 +47,8 @@ pub fn compile_call<'a>(
     span: Span<'a>,
     func: ast::Function<'a>,
     modifier: ast::CallModifier,
-    args: Vec<(Span<'a>, latex::Latex, runtime::ValType)>,
-) -> Result<(latex::Latex, runtime::ValType), CompileError<'a>> {
+    args: Vec<(Span<'a>, latex::Latex, types::ValType)>,
+) -> Result<(latex::Latex, types::ValType), CompileError<'a>> {
     let rfunc = resolve_function(ctx, func).ok_or(CompileError {
         kind: CompileErrorKind::UnknownFunction(func),
         span: span.clone(),
@@ -75,8 +75,8 @@ pub fn compile_call<'a>(
                         // Already checked that they are the same length, so unwrap is safe
                         let (aspan, arg_latex, got_type) = got_type;
                         let is_valid_map = modifier == ast::CallModifier::MapCall
-                            && got_type == runtime::ValType::List
-                            && *expect_type == runtime::ValType::Number;
+                            && got_type == types::ValType::List
+                            && *expect_type == types::ValType::Number;
                         if !is_valid_map && got_type != *expect_type {
                             return Err(CompileError {
                                 kind: CompileErrorKind::TypeMismatch {
@@ -104,7 +104,7 @@ pub fn compile_call<'a>(
             if modifier == ast::CallModifier::MapCall {
                 if args.len() == 1 {
                     let first = args.first().unwrap();
-                    if first.2 == runtime::ValType::List {
+                    if first.2 == types::ValType::List {
                         Ok((
                             latex::Latex::Call {
                                 func: func.to_latex(),
@@ -117,7 +117,7 @@ pub fn compile_call<'a>(
                         Err(CompileError {
                             kind: CompileErrorKind::TypeMismatch {
                                 got: first.2,
-                                expected: runtime::ValType::List,
+                                expected: types::ValType::List,
                             },
                             span: span,
                         })
@@ -144,13 +144,13 @@ pub fn compile_call<'a>(
                     let args_latex = args
                         .into_iter()
                         .map(|a| -> Result<latex::Latex, _> {
-                            if a.2 == runtime::ValType::Number {
+                            if a.2 == types::ValType::Number {
                                 Ok(a.1)
                             } else {
                                 Err(CompileError {
                                     kind: CompileErrorKind::TypeMismatch {
                                         got: a.2,
-                                        expected: runtime::ValType::Number,
+                                        expected: types::ValType::Number,
                                     },
                                     span: a.0,
                                 })

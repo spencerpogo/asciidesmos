@@ -1,5 +1,6 @@
-use super::{latex, runtime::ValType};
+use latex;
 use pest::Span;
+use types::ValType;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum BinaryOperator {

@@ -1,2 +1,2 @@
 [workspace]
-members = ["cli", "desmos_lang", "wasm"]
+members = ["ast", "cli", "desmos_lang", "graph", "types", "latex", "wasm"]

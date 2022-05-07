@@ -1,8 +1,8 @@
-use crate::core::runtime::{
+use phf::{phf_map, Map};
+use types::{
     Args, Function,
     ValType::{List, Number as Num},
 };
-use phf::{phf_map, Map};
 
 macro_rules! f {
     ($args:expr, $ret:expr) => {

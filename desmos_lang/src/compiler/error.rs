@@ -1,13 +1,10 @@
-use crate::core::{
-    ast::Function,
-    runtime::{ArgCount, ValType},
-};
 use pest::{error as pest_err, Span};
 use std::fmt;
+use types::{ArgCount, ValType};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum CompileErrorKind<'a> {
-    UnknownFunction(Function<'a>),
+    UnknownFunction(ast::Function<'a>),
     WrongArgCount { got: ArgCount, expected: ArgCount },
     TypeMismatch { got: ValType, expected: ValType },
     UndefinedVariable(&'a str),
@@ -32,8 +29,8 @@ impl CompileError<'_> {
             CompileErrorKind::UnknownFunction(func) => format!(
                 "Unknown function '{}'",
                 match func {
-                    Function::Normal { name } => name.to_string(),
-                    Function::Log { base } => format!("log{}", base),
+                    ast::Function::Normal { name } => name.to_string(),
+                    ast::Function::Log { base } => format!("log{}", base),
                 }
             ),
             CompileErrorKind::WrongArgCount { got, expected } => {

@@ -1,7 +1,6 @@
 use clap::{App, Arg};
 use desmos_lang::{
     compiler::{compile_stmt, error::CompileError, Context},
-    core::latex::latex_to_str,
     parser::parser::{parse, ParseError},
 };
 use std::fs::File;
@@ -39,7 +38,7 @@ fn try_eval(inp: &str, flags: Flags) -> Result<String, EvalError<'_>> {
     if flags.ir {
         eprintln!("{:#?}", ir);
     }
-    let r = latex_to_str(ir);
+    let r = latex::latex_to_str(ir);
     Ok(r)
 }
 

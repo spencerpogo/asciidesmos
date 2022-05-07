@@ -1,21 +1,17 @@
 use super::{
-    call,
     error::{CompileError, CompileErrorKind},
     types::{Context, FunctionArgs, FunctionSignature},
 };
-use crate::core::{
-    ast::{
-        BinaryOperator, Branch, Expression, LocatedExpression, LocatedStatement, Statement,
-        UnaryOperator,
-    },
-    latex::{
-        self, BinaryOperator as LatexBinaryOperator, Cond, Latex,
-        UnaryOperator as LatexUnaryOperator,
-    },
-    runtime::ValType,
+use ast::{
+    BinaryOperator, Branch, Expression, LocatedExpression, LocatedStatement, Statement,
+    UnaryOperator,
+};
+use latex::{
+    self, BinaryOperator as LatexBinaryOperator, Cond, Latex, UnaryOperator as LatexUnaryOperator,
 };
 use pest::Span;
 use std::rc::Rc;
+use types::ValType;
 
 pub fn resolve_variable<'a>(ctx: &'a mut Context, var: &str) -> Option<&'a ValType> {
     match ctx.variables.get(var) {
@@ -141,7 +137,7 @@ pub fn compile_expr<'a>(
                     Ok((s, latex, t))
                 })
                 .collect::<Result<Vec<(Span, Latex, ValType)>, CompileError>>()?;
-            call::compile_call(ctx, span, func, modifier, compiled_args)
+            super::call::compile_call(ctx, span, func, modifier, compiled_args)
         }
         Expression::List(values) => {
             let items = values
@@ -230,14 +226,9 @@ pub fn compile_stmt<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        compiler::builtins::BUILTIN_FUNCTIONS,
-        core::{
-            ast::{self, FunctionDefinition},
-            latex::CompareOperator,
-            runtime,
-        },
-    };
+    use crate::compiler::builtins::BUILTIN_FUNCTIONS;
+    use ast::{self, FunctionDefinition};
+    use latex::CompareOperator;
     use pest::Span;
 
     fn new_ctx<'a>() -> Context<'a> {
@@ -877,7 +868,7 @@ mod tests {
     fn call_variadic() {
         assert_eq!(
             BUILTIN_FUNCTIONS.get("lcm").unwrap().args,
-            runtime::Args::Variadic
+            types::Args::Variadic
         );
         assert_eq!(
             compile(Expression::Call {
@@ -921,7 +912,7 @@ mod tests {
     fn map_variadic() {
         assert_eq!(
             BUILTIN_FUNCTIONS.get("lcm").unwrap().args,
-            runtime::Args::Variadic
+            types::Args::Variadic
         );
         let inp = Expression::Call {
             modifier: ast::CallModifier::NormalCall,

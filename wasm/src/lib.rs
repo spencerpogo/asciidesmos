@@ -1,6 +1,5 @@
 use desmos_lang::{
     compiler::{compile_stmt, error::CompileError, Context},
-    core::latex::latex_to_str,
     parser::parser::{parse, ParseError},
 };
 use wasm_bindgen::prelude::*;
@@ -40,7 +39,7 @@ fn eval(inp: &str) -> Result<EvalResult, EvalError<'_>> {
     let ast_str = format!("{:#?}", ast);
     let ir = compile_stmt(&mut Context::new(), ast)?;
     let ir_str = format!("{:#?}", ir);
-    let output = latex_to_str(ir);
+    let output = latex::latex_to_str(ir);
     Ok(EvalResult {
         ast: ast_str,
         ir: ir_str,
