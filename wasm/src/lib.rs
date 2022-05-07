@@ -1,8 +1,5 @@
 use desmos_lang::{
-    compiler::{
-        compiler::{compile_stmt, Context},
-        error::CompileError,
-    },
+    compiler::{compiler::compile_stmt, error::CompileError, types::Context},
     core::latex::latex_to_str,
     parser::parser::{parse, ParseError},
 };

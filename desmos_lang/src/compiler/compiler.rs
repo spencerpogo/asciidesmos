@@ -1,187 +1,26 @@
 use super::{
-    builtins,
+    call,
     error::{CompileError, CompileErrorKind},
-    types::{Context, FunctionArgs, FunctionSignature, ResolvedFunction},
+    types::{Context, FunctionArgs, FunctionSignature},
 };
 use crate::core::{
     ast::{
-        BinaryOperator, Branch, CallModifier, Expression, Function, LocatedExpression,
-        LocatedStatement, Statement, UnaryOperator,
+        BinaryOperator, Branch, Expression, LocatedExpression, LocatedStatement, Statement,
+        UnaryOperator,
     },
     latex::{
         self, BinaryOperator as LatexBinaryOperator, Cond, Latex,
         UnaryOperator as LatexUnaryOperator,
     },
-    runtime::{Args, ValType},
+    runtime::ValType,
 };
 use pest::Span;
 use std::rc::Rc;
-
-// Returns function and whether it is builtin
-pub fn resolve_function<'a>(ctx: &'a mut Context, func: Function) -> Option<ResolvedFunction> {
-    match func {
-        Function::Log { base: _ } => Some(ResolvedFunction {
-            func: Rc::new(FunctionSignature {
-                args: FunctionArgs::Static(vec![ValType::Number]),
-                ret: ValType::Number,
-            }),
-            is_builtin: true,
-        }),
-        Function::Normal { name } => match ctx.defined_functions.get(name) {
-            None => match builtins::BUILTIN_FUNCTIONS.get(name) {
-                None => None,
-                Some(f) => Some(ResolvedFunction {
-                    func: Rc::new(FunctionSignature {
-                        args: match f.args {
-                            Args::Static(args) => FunctionArgs::Static(args.to_vec()),
-                            Args::Variadic => FunctionArgs::Variadic,
-                        },
-                        ret: f.ret,
-                    }),
-                    is_builtin: true,
-                }),
-            },
-            Some(f) => Some(ResolvedFunction {
-                func: f.clone(),
-                is_builtin: false,
-            }),
-        },
-    }
-}
 
 pub fn resolve_variable<'a>(ctx: &'a mut Context, var: &str) -> Option<&'a ValType> {
     match ctx.variables.get(var) {
         Some(r) => Some(r),
         None => ctx.locals.get(var),
-    }
-}
-
-pub fn compile_call<'a>(
-    ctx: &mut Context,
-    span: Span<'a>,
-    func: Function<'a>,
-    modifier: CallModifier,
-    args: Vec<(Span<'a>, Latex, ValType)>,
-) -> Result<(Latex, ValType), CompileError<'a>> {
-    let rfunc = resolve_function(ctx, func).ok_or(CompileError {
-        kind: CompileErrorKind::UnknownFunction(func),
-        span: span.clone(),
-    })?;
-    match &rfunc.func.args {
-        FunctionArgs::Static(rargs) => {
-            // Validate arg count
-            let got = args.len();
-            let expect = rargs.len();
-
-            if got != expect {
-                Err(CompileError {
-                    kind: CompileErrorKind::WrongArgCount {
-                        got,
-                        expected: expect,
-                    },
-                    span,
-                })
-            } else {
-                let args_latex = args
-                    .into_iter()
-                    .zip(rargs.iter())
-                    .map(|(got_type, expect_type)| -> Result<Latex, _> {
-                        // Already checked that they are the same length, so unwrap is safe
-                        let (aspan, arg_latex, got_type) = got_type;
-                        let is_valid_map = modifier == CallModifier::MapCall
-                            && got_type == ValType::List
-                            && *expect_type == ValType::Number;
-                        if !is_valid_map && got_type != *expect_type {
-                            return Err(CompileError {
-                                kind: CompileErrorKind::TypeMismatch {
-                                    got: got_type,
-                                    expected: *expect_type,
-                                },
-                                span: aspan,
-                            });
-                        }
-                        Ok(arg_latex)
-                    })
-                    .collect::<Result<Vec<Latex>, _>>()?;
-
-                Ok((
-                    Latex::Call {
-                        func: func.to_latex(),
-                        is_builtin: rfunc.is_builtin,
-                        args: args_latex,
-                    },
-                    rfunc.func.ret,
-                ))
-            }
-        }
-        FunctionArgs::Variadic => {
-            if modifier == CallModifier::MapCall {
-                if args.len() == 1 {
-                    let first = args.first().unwrap();
-                    if first.2 == ValType::List {
-                        Ok((
-                            Latex::Call {
-                                func: func.to_latex(),
-                                is_builtin: rfunc.is_builtin,
-                                args: vec![first.1.clone()],
-                            },
-                            rfunc.func.ret,
-                        ))
-                    } else {
-                        Err(CompileError {
-                            kind: CompileErrorKind::TypeMismatch {
-                                got: first.2,
-                                expected: ValType::List,
-                            },
-                            span: span,
-                        })
-                    }
-                } else {
-                    Err(CompileError {
-                        kind: CompileErrorKind::WrongArgCount {
-                            got: args.len(),
-                            expected: 1,
-                        },
-                        span: span,
-                    })
-                }
-            } else {
-                if args.is_empty() {
-                    Err(CompileError {
-                        kind: CompileErrorKind::WrongArgCount {
-                            got: 0,
-                            expected: 1,
-                        },
-                        span: span,
-                    })
-                } else {
-                    let args_latex = args
-                        .into_iter()
-                        .map(|a| -> Result<Latex, _> {
-                            if a.2 == ValType::Number {
-                                Ok(a.1)
-                            } else {
-                                Err(CompileError {
-                                    kind: CompileErrorKind::TypeMismatch {
-                                        got: a.2,
-                                        expected: ValType::Number,
-                                    },
-                                    span: a.0,
-                                })
-                            }
-                        })
-                        .collect::<Result<Vec<Latex>, _>>()?;
-                    Ok((
-                        Latex::Call {
-                            func: func.to_latex(),
-                            is_builtin: rfunc.is_builtin,
-                            args: args_latex,
-                        },
-                        rfunc.func.ret,
-                    ))
-                }
-            }
-        }
     }
 }
 
@@ -302,7 +141,7 @@ pub fn compile_expr<'a>(
                     Ok((s, latex, t))
                 })
                 .collect::<Result<Vec<(Span, Latex, ValType)>, CompileError>>()?;
-            compile_call(ctx, span, func, modifier, compiled_args)
+            call::compile_call(ctx, span, func, modifier, compiled_args)
         }
         Expression::List(values) => {
             let items = values
@@ -393,7 +232,11 @@ mod tests {
     use super::*;
     use crate::{
         compiler::builtins::BUILTIN_FUNCTIONS,
-        core::{ast::FunctionDefinition, latex::CompareOperator},
+        core::{
+            ast::{self, FunctionDefinition},
+            latex::CompareOperator,
+            runtime,
+        },
     };
     use pest::Span;
 
@@ -536,8 +379,8 @@ mod tests {
     fn call_resolution() {
         check(
             Expression::Call {
-                modifier: CallModifier::NormalCall,
-                func: Function::Normal { name: "sin" },
+                modifier: ast::CallModifier::NormalCall,
+                func: ast::Function::Normal { name: "sin" },
                 args: vec![(spn(), Expression::Num("1"))],
             },
             Latex::Call {
@@ -550,13 +393,13 @@ mod tests {
         );
         assert_eq!(
             compile(Expression::Call {
-                modifier: CallModifier::NormalCall,
-                func: Function::Normal { name: "abc" },
+                modifier: ast::CallModifier::NormalCall,
+                func: ast::Function::Normal { name: "abc" },
                 args: vec![],
             })
             .unwrap_err()
             .kind,
-            CompileErrorKind::UnknownFunction(Function::Normal { name: "abc" })
+            CompileErrorKind::UnknownFunction(ast::Function::Normal { name: "abc" })
         );
     }
 
@@ -564,8 +407,8 @@ mod tests {
     fn argc_validation() {
         assert_eq!(
             compile(Expression::Call {
-                modifier: CallModifier::NormalCall,
-                func: Function::Normal { name: "sin" },
+                modifier: ast::CallModifier::NormalCall,
+                func: ast::Function::Normal { name: "sin" },
                 args: vec![],
             })
             .unwrap_err()
@@ -577,8 +420,8 @@ mod tests {
         );
         assert_eq!(
             compile(Expression::Call {
-                modifier: CallModifier::NormalCall,
-                func: Function::Normal { name: "sin" },
+                modifier: ast::CallModifier::NormalCall,
+                func: ast::Function::Normal { name: "sin" },
                 args: vec![(spn(), Expression::Num("1")), (spn(), Expression::Num("2"))]
             })
             .unwrap_err()
@@ -594,8 +437,8 @@ mod tests {
     fn call_arg_checking() {
         assert_eq!(
             compile(Expression::Call {
-                modifier: CallModifier::NormalCall,
-                func: Function::Normal { name: "sin" },
+                modifier: ast::CallModifier::NormalCall,
+                func: ast::Function::Normal { name: "sin" },
                 args: vec![(spn(), Expression::List(vec![(spn(), Expression::Num("1"))]))]
             })
             .unwrap_err()
@@ -814,8 +657,8 @@ mod tests {
         compile_stmt_with_ctx(
             &mut ctx,
             Statement::Expression(Expression::Call {
-                modifier: CallModifier::NormalCall,
-                func: Function::Normal { name: "f" },
+                modifier: ast::CallModifier::NormalCall,
+                func: ast::Function::Normal { name: "f" },
                 args: vec![(spn(), Expression::Num("1"))],
             }),
         )
@@ -841,8 +684,8 @@ mod tests {
             compile_stmt_with_ctx(
                 &mut ctx,
                 Statement::Expression(Expression::Call {
-                    modifier: CallModifier::NormalCall,
-                    func: Function::Normal { name: "f" },
+                    modifier: ast::CallModifier::NormalCall,
+                    func: ast::Function::Normal { name: "f" },
                     args: vec![(spn(), Expression::Num("1"))],
                 }),
             )
@@ -876,8 +719,8 @@ mod tests {
             compile_stmt_with_ctx(
                 &mut ctx,
                 Statement::Expression(Expression::Call {
-                    modifier: CallModifier::NormalCall,
-                    func: Function::Normal { name: "f" },
+                    modifier: ast::CallModifier::NormalCall,
+                    func: ast::Function::Normal { name: "f" },
                     args: vec![(spn(), Expression::List(vec![]))],
                 }),
             )
@@ -998,9 +841,9 @@ mod tests {
     fn log() {
         check(
             Expression::Call {
-                func: Function::Log { base: "" },
+                func: ast::Function::Log { base: "" },
                 args: vec![(spn(), Expression::Num("10"))],
-                modifier: CallModifier::NormalCall,
+                modifier: ast::CallModifier::NormalCall,
             },
             Latex::Call {
                 func: latex::Function::Log {
@@ -1016,9 +859,9 @@ mod tests {
     fn log_base() {
         check(
             Expression::Call {
-                func: Function::Log { base: "5" },
+                func: ast::Function::Log { base: "5" },
                 args: vec![(spn(), Expression::Num("25"))],
-                modifier: CallModifier::NormalCall,
+                modifier: ast::CallModifier::NormalCall,
             },
             Latex::Call {
                 func: latex::Function::Log {
@@ -1032,11 +875,14 @@ mod tests {
 
     #[test]
     fn call_variadic() {
-        assert_eq!(BUILTIN_FUNCTIONS.get("lcm").unwrap().args, Args::Variadic);
+        assert_eq!(
+            BUILTIN_FUNCTIONS.get("lcm").unwrap().args,
+            runtime::Args::Variadic
+        );
         assert_eq!(
             compile(Expression::Call {
-                modifier: CallModifier::NormalCall,
-                func: Function::Normal { name: "lcm" },
+                modifier: ast::CallModifier::NormalCall,
+                func: ast::Function::Normal { name: "lcm" },
                 args: vec![],
             }),
             Err(CompileError {
@@ -1049,8 +895,8 @@ mod tests {
         );
         check(
             Expression::Call {
-                modifier: CallModifier::NormalCall,
-                func: Function::Normal { name: "lcm" },
+                modifier: ast::CallModifier::NormalCall,
+                func: ast::Function::Normal { name: "lcm" },
                 args: vec![
                     (spn(), Expression::Num("1")),
                     (spn(), Expression::Num("2")),
@@ -1073,10 +919,13 @@ mod tests {
 
     #[test]
     fn map_variadic() {
-        assert_eq!(BUILTIN_FUNCTIONS.get("lcm").unwrap().args, Args::Variadic);
+        assert_eq!(
+            BUILTIN_FUNCTIONS.get("lcm").unwrap().args,
+            runtime::Args::Variadic
+        );
         let inp = Expression::Call {
-            modifier: CallModifier::NormalCall,
-            func: Function::Normal { name: "lcm" },
+            modifier: ast::CallModifier::NormalCall,
+            func: ast::Function::Normal { name: "lcm" },
             args: vec![(
                 spn(),
                 Expression::List(vec![
@@ -1098,8 +947,8 @@ mod tests {
         );
         check(
             Expression::Call {
-                modifier: CallModifier::MapCall,
-                func: Function::Normal { name: "lcm" },
+                modifier: ast::CallModifier::MapCall,
+                func: ast::Function::Normal { name: "lcm" },
                 args: vec![(
                     spn(),
                     Expression::List(vec![
