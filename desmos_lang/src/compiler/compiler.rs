@@ -1,6 +1,7 @@
 use super::{
     builtins,
     error::{CompileError, CompileErrorKind},
+    types::{Context, FunctionArgs, FunctionSignature, ResolvedFunction},
 };
 use crate::core::{
     ast::{
@@ -14,47 +15,7 @@ use crate::core::{
     runtime::{Args, ValType},
 };
 use pest::Span;
-use std::collections::HashMap;
 use std::rc::Rc;
-
-// heap version of core::runtime::Args
-pub enum FunctionArgs {
-    Static(Vec<ValType>),
-    Variadic,
-}
-
-// heap version of core::runtime::Function
-pub struct FunctionSignature {
-    pub args: FunctionArgs,
-    pub ret: ValType,
-}
-
-pub struct Context<'a> {
-    pub variables: HashMap<&'a str, ValType>,
-    pub locals: HashMap<&'a str, ValType>,
-    pub defined_functions: HashMap<&'a str, Rc<FunctionSignature>>,
-}
-
-impl Context<'_> {
-    pub fn new() -> Self {
-        Self {
-            variables: HashMap::new(),
-            locals: HashMap::new(),
-            defined_functions: HashMap::new(),
-        }
-    }
-}
-
-impl Default for Context<'_> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-pub struct ResolvedFunction {
-    func: Rc<FunctionSignature>,
-    is_builtin: bool,
-}
 
 // Returns function and whether it is builtin
 pub fn resolve_function<'a>(ctx: &'a mut Context, func: Function) -> Option<ResolvedFunction> {
