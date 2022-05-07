@@ -1,5 +1,8 @@
-pub mod builtins;
-pub mod call;
-pub mod compiler;
+mod builtins;
+mod call;
+mod compiler;
 pub mod error;
-pub mod types;
+mod types;
+
+pub use compiler::compile_stmt;
+pub use types::Context;

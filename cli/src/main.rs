@@ -1,6 +1,6 @@
 use clap::{App, Arg};
 use desmos_lang::{
-    compiler::{compiler::compile_stmt, error::CompileError, types::Context},
+    compiler::{compile_stmt, error::CompileError, Context},
     core::latex::latex_to_str,
     parser::parser::{parse, ParseError},
 };
