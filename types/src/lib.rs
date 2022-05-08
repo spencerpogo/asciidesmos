@@ -30,6 +30,10 @@ impl Span {
     pub fn new(file_id: FileID, range: std::ops::Range<usize>) -> Self {
         Self { file_id, range }
     }
+
+    pub fn dummy() -> Self {
+        Self::new(0, 0..0)
+    }
 }
 
 #[cfg(feature = "chumsky")]

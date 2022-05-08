@@ -39,14 +39,15 @@ fn parser() -> impl Parser<char, ast::LocatedExpression, Error = Err> {
             )
             .foldl(|lhs, (op, rhs)| -> ast::LocatedExpression {
                 (
-                    types::Span::new(0, 0..0),
+                    types::Span::dummy(),
                     ast::Expression::BinaryExpr {
                         left: Box::new(lhs),
                         operator: op,
                         right: Box::new(rhs),
                     },
                 )
-            });
+            })
+            .map_with_span(|(_, v), s| (s, v));
 
         let add_sub = mult_divide
             .clone()
@@ -59,14 +60,15 @@ fn parser() -> impl Parser<char, ast::LocatedExpression, Error = Err> {
             )
             .foldl(|lhs, (op, rhs)| {
                 (
-                    types::Span::new(0, 0..0),
+                    types::Span::dummy(),
                     ast::Expression::BinaryExpr {
                         left: Box::new(lhs),
                         operator: op,
                         right: Box::new(rhs),
                     },
                 )
-            });
+            })
+            .map_with_span(|(_, v), s| (s, v));
 
         add_sub.or(unary)
     })
@@ -115,7 +117,7 @@ mod tests {
     #[test]
     fn basic_math() {
         check(
-            "-1 * 2",
+            "-1 + 2",
             (
                 s(0..6),
                 ast::Expression::BinaryExpr {
@@ -126,10 +128,39 @@ mod tests {
                             operator: ast::UnaryOperator::Negate,
                         },
                     )),
-                    operator: ast::BinaryOperator::Multiply,
+                    operator: ast::BinaryOperator::Add,
                     right: Box::new((s(5..6), num("2"))),
                 },
             ),
         );
+    }
+
+    #[test]
+    fn precedence() {
+        check(
+            "1*2 + 3*4",
+            (
+                s(0..9),
+                ast::Expression::BinaryExpr {
+                    left: Box::new((
+                        s(0..4),
+                        ast::Expression::BinaryExpr {
+                            left: Box::new((s(0..1), num("1"))),
+                            operator: ast::BinaryOperator::Multiply,
+                            right: Box::new((s(2..3), num("2"))),
+                        },
+                    )),
+                    operator: ast::BinaryOperator::Add,
+                    right: Box::new((
+                        s(6..9),
+                        ast::Expression::BinaryExpr {
+                            left: Box::new((s(6..7), num("3"))),
+                            operator: ast::BinaryOperator::Multiply,
+                            right: Box::new((s(8..9), num("4"))),
+                        },
+                    )),
+                },
+            ),
+        )
     }
 }
