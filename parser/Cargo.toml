@@ -1,0 +1,9 @@
+[package]
+name = "parser"
+version = "0.1.0"
+authors = ["Scoder12"]
+edition = "2018"
+
+[dependencies]
+chumsky = "0.8.0"
+ast = { path = "../ast" }
