@@ -214,6 +214,7 @@ version = "0.1.0"
 dependencies = [
  "ast",
  "chumsky",
+ "types",
 ]
 
 [[package]]
@@ -431,6 +432,9 @@ dependencies = [
 [[package]]
 name = "types"
 version = "0.1.0"
+dependencies = [
+ "chumsky",
+]
 
 [[package]]
 name = "ucd-trie"

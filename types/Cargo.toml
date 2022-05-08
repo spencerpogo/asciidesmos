@@ -5,3 +5,8 @@ authors = ["Scoder12"]
 edition = "2018"
 
 [dependencies]
+chumsky = { version = "0.8.0", optional = true }
+
+[features]
+default = []
+chumsky = ["dep:chumsky"]

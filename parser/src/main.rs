@@ -1,34 +1,11 @@
 use chumsky::prelude::*;
 
-#[derive(Debug)]
-enum Expr {
-    Num(f64),
-    /*Var(String),
-
-    Neg(Box<Expr>),
-    Add(Box<Expr>, Box<Expr>),
-    Sub(Box<Expr>, Box<Expr>),
-    Mul(Box<Expr>, Box<Expr>),
-    Div(Box<Expr>, Box<Expr>),
-
-    Call(String, Vec<Expr>),
-    Let {
-        name: String,
-        rhs: Box<Expr>,
-        then: Box<Expr>,
-    },
-    Fn {
-        name: String,
-        args: Vec<String>,
-        body: Box<Expr>,
-        then: Box<Expr>,
-    },*/
-}
-
-fn parser() -> impl Parser<char, Expr, Error = Simple<char>> {
+fn parser() -> impl Parser<char, ast::LocatedExpression, Error = Simple<char, types::Span>> {
     recursive(|expr| {
         let int = text::int(10)
-            .map(|s: String| Expr::Num(s.parse().unwrap()))
+            .map_with_span(|s: String, span| -> ast::LocatedExpression {
+                (span, ast::Expression::Num(s))
+            })
             .padded();
 
         let atom = int.or(expr.delimited_by(just('('), just(')')));
