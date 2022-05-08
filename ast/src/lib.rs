@@ -30,13 +30,13 @@ pub enum CallModifier {
     NormalCall,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum Function<'a> {
-    Normal { name: &'a str },
-    Log { base: &'a str },
+#[derive(Clone, Debug, PartialEq)]
+pub enum Function {
+    Normal { name: String },
+    Log { base: String },
 }
 
-impl Function<'_> {
+impl Function {
     pub fn to_latex(self) -> latex::Function {
         match self {
             Function::Normal { name } => latex::Function::Normal {
@@ -52,8 +52,8 @@ impl Function<'_> {
 // Expression is a component of a statement
 #[derive(Clone, Debug, PartialEq)]
 pub enum Expression<'a> {
-    Num(&'a str),
-    Variable(&'a str),
+    Num(String),
+    Variable(String),
     BinaryExpr {
         left: Box<LocatedExpression<'a>>,
         // Should probably make an enum for this, but its not worth the work to encode
@@ -67,7 +67,7 @@ pub enum Expression<'a> {
     },
     Call {
         modifier: CallModifier,
-        func: Function<'a>,
+        func: Function,
         args: Vec<LocatedExpression<'a>>,
     },
     List(Vec<LocatedExpression<'a>>),
@@ -82,16 +82,16 @@ pub enum Expression<'a> {
 pub type LocatedExpression<'a> = (Span<'a>, Expression<'a>);
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct FunctionDefinition<'a> {
-    pub name: &'a str,
-    pub args: Vec<(&'a str, ValType)>,
+pub struct FunctionDefinition {
+    pub name: String,
+    pub args: Vec<(String, ValType)>,
     pub ret_annotation: Option<ValType>,
 }
 
 // A statement is a part of a program
 #[derive(Clone, Debug, PartialEq)]
 pub enum Statement<'a> {
-    FuncDef(FunctionDefinition<'a>, LocatedExpression<'a>),
+    FuncDef(FunctionDefinition, LocatedExpression<'a>),
     Expression(Expression<'a>),
 }
 

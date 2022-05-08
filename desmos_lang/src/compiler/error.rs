@@ -3,12 +3,12 @@ use std::fmt;
 use types::{ArgCount, ValType};
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum CompileErrorKind<'a> {
-    UnknownFunction(ast::Function<'a>),
+pub enum CompileErrorKind {
+    UnknownFunction(ast::Function),
     WrongArgCount { got: ArgCount, expected: ArgCount },
     TypeMismatch { got: ValType, expected: ValType },
-    UndefinedVariable(&'a str),
-    UndefinedMacro(&'a str),
+    UndefinedVariable(String),
+    UndefinedMacro(String),
     BadMapMacro,
     ExpectedFunction,
     NoNestedList,
@@ -16,7 +16,7 @@ pub enum CompileErrorKind<'a> {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct CompileError<'a> {
-    pub kind: CompileErrorKind<'a>,
+    pub kind: CompileErrorKind,
     pub span: Span<'a>,
 }
 
@@ -25,7 +25,7 @@ struct DummyRuleType {}
 
 impl CompileError<'_> {
     fn as_msg(&self) -> String {
-        match self.kind {
+        match &self.kind {
             CompileErrorKind::UnknownFunction(func) => format!(
                 "Unknown function '{}'",
                 match func {

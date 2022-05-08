@@ -15,8 +15,8 @@ pub struct FunctionSignature {
 
 pub struct Context<'a> {
     pub variables: HashMap<&'a str, ValType>,
-    pub locals: HashMap<&'a str, ValType>,
-    pub defined_functions: HashMap<&'a str, Rc<FunctionSignature>>,
+    pub locals: HashMap<String, ValType>,
+    pub defined_functions: HashMap<String, Rc<FunctionSignature>>,
 }
 
 impl Context<'_> {

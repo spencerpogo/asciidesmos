@@ -20,8 +20,8 @@ pub fn resolve_function<'a>(ctx: &'a mut Context, func: ast::Function) -> Option
             }),
             is_builtin: true,
         }),
-        ast::Function::Normal { name } => match ctx.defined_functions.get(name) {
-            None => match builtins::BUILTIN_FUNCTIONS.get(name) {
+        ast::Function::Normal { name } => match ctx.defined_functions.get(&*name) {
+            None => match builtins::BUILTIN_FUNCTIONS.get(&*name) {
                 None => None,
                 Some(f) => Some(ResolvedFunction {
                     func: Rc::new(FunctionSignature {
@@ -45,12 +45,12 @@ pub fn resolve_function<'a>(ctx: &'a mut Context, func: ast::Function) -> Option
 pub fn compile_call<'a>(
     ctx: &mut Context,
     span: Span<'a>,
-    func: ast::Function<'a>,
+    func: ast::Function,
     modifier: ast::CallModifier,
     args: Vec<(Span<'a>, latex::Latex, types::ValType)>,
 ) -> Result<(latex::Latex, types::ValType), CompileError<'a>> {
-    let rfunc = resolve_function(ctx, func).ok_or(CompileError {
-        kind: CompileErrorKind::UnknownFunction(func),
+    let rfunc = resolve_function(ctx, func.clone()).ok_or(CompileError {
+        kind: CompileErrorKind::UnknownFunction(func.clone()),
         span: span.clone(),
     })?;
     match &rfunc.func.args {

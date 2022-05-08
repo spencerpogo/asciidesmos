@@ -13,10 +13,10 @@ use pest::Span;
 use std::rc::Rc;
 use types::ValType;
 
-pub fn resolve_variable<'a>(ctx: &'a mut Context, var: &str) -> Option<&'a ValType> {
-    match ctx.variables.get(var) {
+pub fn resolve_variable<'a>(ctx: &'a mut Context, var: String) -> Option<&'a ValType> {
+    match ctx.variables.get(&*var) {
         Some(r) => Some(r),
-        None => ctx.locals.get(var),
+        None => ctx.locals.get(&*var),
     }
 }
 
@@ -82,8 +82,8 @@ pub fn compile_expr<'a>(
 
     match expr.1 {
         Expression::Num(val) => Ok((Latex::Num(val.to_string()), ValType::Number)),
-        Expression::Variable(val) => match resolve_variable(ctx, val) {
-            Some(var_type) => Ok((Latex::Variable(val.to_string()), *var_type)),
+        Expression::Variable(val) => match resolve_variable(ctx, val.clone()) {
+            Some(var_type) => Ok((Latex::Variable(val), *var_type)),
             None => Err(CompileError {
                 kind: CompileErrorKind::UndefinedVariable(val),
                 span,
@@ -193,7 +193,7 @@ pub fn compile_stmt<'a>(
             let old_locals = ctx.locals.clone();
             // Add args into locals
             for (aname, atype) in fdef.args.iter() {
-                ctx.locals.insert(aname, *atype);
+                ctx.locals.insert(aname.clone(), *atype);
             }
             let span = e.0.clone();
             // Evaluate the body with the new ctx
@@ -207,7 +207,7 @@ pub fn compile_stmt<'a>(
 
             // Add function to context
             ctx.defined_functions.insert(
-                fdef.name,
+                fdef.name.clone(),
                 Rc::new(FunctionSignature {
                     args: FunctionArgs::Static(fdef.args.iter().map(|a| a.1).collect()),
                     ret,
@@ -215,7 +215,7 @@ pub fn compile_stmt<'a>(
             );
 
             Ok(Latex::FuncDef {
-                name: fdef.name.to_string(),
+                name: fdef.name,
                 args: fdef.args.iter().map(|a| a.0.to_string()).collect(),
                 body: Box::new(body),
             })
@@ -286,8 +286,14 @@ mod tests {
 
     #[test]
     fn num() {
-        check(Expression::Num("5"), Latex::Num("5".to_string()));
-        check(Expression::Num("2.3"), Latex::Num("2.3".to_string()));
+        check(
+            Expression::Num("5".to_string()),
+            Latex::Num("5".to_string()),
+        );
+        check(
+            Expression::Num("2.3".to_string()),
+            Latex::Num("2.3".to_string()),
+        );
     }
 
     #[test]
@@ -295,13 +301,13 @@ mod tests {
         check_with_var(
             "a",
             ValType::Number,
-            Expression::Variable("a"),
+            Expression::Variable("a".to_string()),
             Latex::Variable("a".to_string()),
         );
         check_with_var(
             "abc",
             ValType::Number,
-            Expression::Variable("abc"),
+            Expression::Variable("abc".to_string()),
             Latex::Variable("abc".to_string()),
         );
     }
@@ -309,12 +315,16 @@ mod tests {
     #[test]
     fn variable_resolution() {
         assert_eq!(
-            compile(Expression::Variable("")).unwrap_err().kind,
-            CompileErrorKind::UndefinedVariable("")
+            compile(Expression::Variable("".to_string()))
+                .unwrap_err()
+                .kind,
+            CompileErrorKind::UndefinedVariable("".to_string())
         );
         assert_eq!(
-            compile(Expression::Variable("abc")).unwrap_err().kind,
-            CompileErrorKind::UndefinedVariable("abc")
+            compile(Expression::Variable("abc".to_string()))
+                .unwrap_err()
+                .kind,
+            CompileErrorKind::UndefinedVariable("abc".to_string())
         );
     }
 
@@ -322,9 +332,9 @@ mod tests {
     fn binary_expr() {
         check(
             Expression::BinaryExpr {
-                left: Box::new((spn(), Expression::Num("1"))),
+                left: Box::new((spn(), Expression::Num("1".to_string()))),
                 operator: BinaryOperator::Add,
-                right: Box::new((spn(), Expression::Num("2"))),
+                right: Box::new((spn(), Expression::Num("2".to_string()))),
             },
             Latex::BinaryExpression {
                 left: Box::new(Latex::Num("1".to_string())),
@@ -338,9 +348,9 @@ mod tests {
     fn test_mod() {
         check(
             Expression::BinaryExpr {
-                left: Box::new((spn(), Expression::Num("1"))),
+                left: Box::new((spn(), Expression::Num("1".to_string()))),
                 operator: BinaryOperator::Mod,
-                right: Box::new((spn(), Expression::Num("2"))),
+                right: Box::new((spn(), Expression::Num("2".to_string()))),
             },
             Latex::Call {
                 func: latex::Function::Normal {
@@ -356,7 +366,7 @@ mod tests {
     fn unary_expression() {
         check(
             Expression::UnaryExpr {
-                val: Box::new((spn(), Expression::Num("2"))),
+                val: Box::new((spn(), Expression::Num("2".to_string()))),
                 operator: UnaryOperator::Factorial,
             },
             Latex::UnaryExpression {
@@ -371,8 +381,10 @@ mod tests {
         check(
             Expression::Call {
                 modifier: ast::CallModifier::NormalCall,
-                func: ast::Function::Normal { name: "sin" },
-                args: vec![(spn(), Expression::Num("1"))],
+                func: ast::Function::Normal {
+                    name: "sin".to_string(),
+                },
+                args: vec![(spn(), Expression::Num("1".to_string()))],
             },
             Latex::Call {
                 func: latex::Function::Normal {
@@ -385,12 +397,16 @@ mod tests {
         assert_eq!(
             compile(Expression::Call {
                 modifier: ast::CallModifier::NormalCall,
-                func: ast::Function::Normal { name: "abc" },
+                func: ast::Function::Normal {
+                    name: "abc".to_string()
+                },
                 args: vec![],
             })
             .unwrap_err()
             .kind,
-            CompileErrorKind::UnknownFunction(ast::Function::Normal { name: "abc" })
+            CompileErrorKind::UnknownFunction(ast::Function::Normal {
+                name: "abc".to_string()
+            })
         );
     }
 
@@ -399,7 +415,9 @@ mod tests {
         assert_eq!(
             compile(Expression::Call {
                 modifier: ast::CallModifier::NormalCall,
-                func: ast::Function::Normal { name: "sin" },
+                func: ast::Function::Normal {
+                    name: "sin".to_string()
+                },
                 args: vec![],
             })
             .unwrap_err()
@@ -412,8 +430,13 @@ mod tests {
         assert_eq!(
             compile(Expression::Call {
                 modifier: ast::CallModifier::NormalCall,
-                func: ast::Function::Normal { name: "sin" },
-                args: vec![(spn(), Expression::Num("1")), (spn(), Expression::Num("2"))]
+                func: ast::Function::Normal {
+                    name: "sin".to_string()
+                },
+                args: vec![
+                    (spn(), Expression::Num("1".to_string())),
+                    (spn(), Expression::Num("2".to_string()))
+                ]
             })
             .unwrap_err()
             .kind,
@@ -429,8 +452,13 @@ mod tests {
         assert_eq!(
             compile(Expression::Call {
                 modifier: ast::CallModifier::NormalCall,
-                func: ast::Function::Normal { name: "sin" },
-                args: vec![(spn(), Expression::List(vec![(spn(), Expression::Num("1"))]))]
+                func: ast::Function::Normal {
+                    name: "sin".to_string()
+                },
+                args: vec![(
+                    spn(),
+                    Expression::List(vec![(spn(), Expression::Num("1".to_string()))])
+                )]
             })
             .unwrap_err()
             .kind,
@@ -445,9 +473,12 @@ mod tests {
     fn binexp_typecheck() {
         assert_eq!(
             compile(Expression::BinaryExpr {
-                left: Box::new((spn(), Expression::List(vec![(spn(), Expression::Num("1"))]))),
+                left: Box::new((
+                    spn(),
+                    Expression::List(vec![(spn(), Expression::Num("1".to_string()))])
+                )),
                 operator: BinaryOperator::Add,
-                right: Box::new((spn(), Expression::Num("2")))
+                right: Box::new((spn(), Expression::Num("2".to_string())))
             })
             .unwrap_err()
             .kind,
@@ -462,7 +493,10 @@ mod tests {
     fn unary_typecheck() {
         assert_eq!(
             compile(Expression::UnaryExpr {
-                val: Box::new((spn(), Expression::List(vec![(spn(), Expression::Num("1"))]))),
+                val: Box::new((
+                    spn(),
+                    Expression::List(vec![(spn(), Expression::Num("1".to_string()))])
+                )),
                 operator: UnaryOperator::Factorial,
             })
             .unwrap_err()
@@ -477,13 +511,13 @@ mod tests {
     #[test]
     fn list() {
         check(
-            Expression::List(vec![(spn(), Expression::Num("1"))]),
+            Expression::List(vec![(spn(), Expression::Num("1".to_string()))]),
             Latex::List(vec![Latex::Num("1".to_string())]),
         );
         check(
             Expression::List(vec![
-                (spn(), Expression::Num("1")),
-                (spn(), Expression::Num("2")),
+                (spn(), Expression::Num("1".to_string())),
+                (spn(), Expression::Num("2".to_string())),
             ]),
             Latex::List(vec![
                 Latex::Num("1".to_string()),
@@ -497,7 +531,7 @@ mod tests {
         assert_eq!(
             compile(Expression::List(vec![(
                 spn(),
-                Expression::List(vec![(spn(), Expression::Num("1"))])
+                Expression::List(vec![(spn(), Expression::Num("1".to_string()))])
             )])),
             Err(CompileError {
                 span: spn(),
@@ -509,7 +543,7 @@ mod tests {
     #[test]
     fn expression_stmt() {
         check_stmt(
-            Statement::Expression(Expression::Num("1")),
+            Statement::Expression(Expression::Num("1".to_string())),
             Latex::Num("1".to_string()),
         );
     }
@@ -519,11 +553,11 @@ mod tests {
         check_stmt(
             Statement::FuncDef(
                 FunctionDefinition {
-                    name: "abc",
-                    args: vec![("def", ValType::Number)],
+                    name: "abc".to_string(),
+                    args: vec![("def".to_string(), ValType::Number)],
                     ret_annotation: None,
                 },
-                (spn(), Expression::Num("1")),
+                (spn(), Expression::Num("1".to_string())),
             ),
             Latex::FuncDef {
                 name: "abc".to_string(),
@@ -538,11 +572,14 @@ mod tests {
         check_stmt(
             Statement::FuncDef(
                 FunctionDefinition {
-                    name: "f",
-                    args: vec![("abc", ValType::List), ("def", ValType::Number)],
+                    name: "f".to_string(),
+                    args: vec![
+                        ("abc".to_string(), ValType::List),
+                        ("def".to_string(), ValType::Number),
+                    ],
                     ret_annotation: None,
                 },
-                (spn(), Expression::Num("1")),
+                (spn(), Expression::Num("1".to_string())),
             ),
             Latex::FuncDef {
                 name: "f".to_string(),
@@ -560,11 +597,11 @@ mod tests {
                 &mut ctx,
                 Statement::FuncDef(
                     FunctionDefinition {
-                        name: "f",
-                        args: vec![("a", ValType::Number)],
+                        name: "f".to_string(),
+                        args: vec![("a".to_string(), ValType::Number)],
                         ret_annotation: None,
                     },
-                    (spn(), Expression::Variable("a")),
+                    (spn(), Expression::Variable("a".to_string())),
                 )
             ),
             Ok(Latex::FuncDef {
@@ -575,10 +612,10 @@ mod tests {
         );
         // Check that the variable is no longer in scope
         assert_eq!(
-            compile_with_ctx(&mut ctx, Expression::Variable("a")),
+            compile_with_ctx(&mut ctx, Expression::Variable("a".to_string())),
             Err(CompileError {
                 span: spn(),
-                kind: CompileErrorKind::UndefinedVariable("a")
+                kind: CompileErrorKind::UndefinedVariable("a".to_string())
             })
         )
     }
@@ -588,11 +625,11 @@ mod tests {
         assert_eq!(
             compile_stmt(Statement::FuncDef(
                 FunctionDefinition {
-                    name: "f",
-                    args: vec![("a", ValType::Number)],
+                    name: "f".to_string(),
+                    args: vec![("a".to_string(), ValType::Number)],
                     ret_annotation: Some(ValType::List),
                 },
-                (spn(), Expression::Num("1")),
+                (spn(), Expression::Num("1".to_string())),
             ))
             .unwrap_err(),
             CompileError {
@@ -612,19 +649,22 @@ mod tests {
             &mut ctx,
             Statement::FuncDef(
                 FunctionDefinition {
-                    name: "f",
-                    args: vec![("a", ValType::Number)],
+                    name: "f".to_string(),
+                    args: vec![("a".to_string(), ValType::Number)],
                     ret_annotation: None,
                 },
-                (spn(), Expression::Variable("a")),
+                (spn(), Expression::Variable("a".to_string())),
             ),
         )
         .unwrap();
         assert_eq!(
-            compile_stmt_with_ctx(&mut ctx, Statement::Expression(Expression::Variable("a")))
-                .unwrap_err(),
+            compile_stmt_with_ctx(
+                &mut ctx,
+                Statement::Expression(Expression::Variable("a".to_string()))
+            )
+            .unwrap_err(),
             CompileError {
-                kind: CompileErrorKind::UndefinedVariable("a"),
+                kind: CompileErrorKind::UndefinedVariable("a".to_string()),
                 span: spn()
             }
         );
@@ -637,11 +677,11 @@ mod tests {
             &mut ctx,
             Statement::FuncDef(
                 FunctionDefinition {
-                    name: "f",
-                    args: vec![("a", ValType::Number)],
+                    name: "f".to_string(),
+                    args: vec![("a".to_string(), ValType::Number)],
                     ret_annotation: None,
                 },
-                (spn(), Expression::Variable("a")),
+                (spn(), Expression::Variable("a".to_string())),
             ),
         )
         .unwrap();
@@ -649,8 +689,10 @@ mod tests {
             &mut ctx,
             Statement::Expression(Expression::Call {
                 modifier: ast::CallModifier::NormalCall,
-                func: ast::Function::Normal { name: "f" },
-                args: vec![(spn(), Expression::Num("1"))],
+                func: ast::Function::Normal {
+                    name: "f".to_string(),
+                },
+                args: vec![(spn(), Expression::Num("1".to_string()))],
             }),
         )
         .unwrap();
@@ -663,11 +705,11 @@ mod tests {
             &mut ctx,
             Statement::FuncDef(
                 FunctionDefinition {
-                    name: "f",
+                    name: "f".to_string(),
                     args: vec![],
                     ret_annotation: None,
                 },
-                (spn(), Expression::Num("1")),
+                (spn(), Expression::Num("1".to_string())),
             ),
         )
         .unwrap();
@@ -676,8 +718,10 @@ mod tests {
                 &mut ctx,
                 Statement::Expression(Expression::Call {
                     modifier: ast::CallModifier::NormalCall,
-                    func: ast::Function::Normal { name: "f" },
-                    args: vec![(spn(), Expression::Num("1"))],
+                    func: ast::Function::Normal {
+                        name: "f".to_string()
+                    },
+                    args: vec![(spn(), Expression::Num("1".to_string()))],
                 }),
             )
             .unwrap_err(),
@@ -698,11 +742,11 @@ mod tests {
             &mut ctx,
             Statement::FuncDef(
                 FunctionDefinition {
-                    name: "f",
-                    args: vec![("a", ValType::Number)],
+                    name: "f".to_string(),
+                    args: vec![("a".to_string(), ValType::Number)],
                     ret_annotation: None,
                 },
-                (spn(), Expression::Num("1")),
+                (spn(), Expression::Num("1".to_string())),
             ),
         )
         .unwrap();
@@ -711,7 +755,9 @@ mod tests {
                 &mut ctx,
                 Statement::Expression(Expression::Call {
                     modifier: ast::CallModifier::NormalCall,
-                    func: ast::Function::Normal { name: "f" },
+                    func: ast::Function::Normal {
+                        name: "f".to_string()
+                    },
                     args: vec![(spn(), Expression::List(vec![]))],
                 }),
             )
@@ -736,13 +782,13 @@ mod tests {
                 &mut ctx,
                 Expression::Piecewise {
                     first: Box::new(Branch {
-                        cond_left: (spn(), Expression::Variable("a")),
+                        cond_left: (spn(), Expression::Variable("a".to_string())),
                         cond: CompareOperator::Equal,
-                        cond_right: (spn(), Expression::Num("1")),
-                        val: (spn(), Expression::Num("2")),
+                        cond_right: (spn(), Expression::Num("1".to_string())),
+                        val: (spn(), Expression::Num("2".to_string())),
                     }),
                     rest: vec![],
-                    default: Box::new((spn(), Expression::Num("3"))),
+                    default: Box::new((spn(), Expression::Num("3".to_string()))),
                 },
             ),
             Ok(Latex::Piecewise {
@@ -768,32 +814,32 @@ mod tests {
                 &mut ctx,
                 Expression::Piecewise {
                     first: Box::new(Branch {
-                        cond_left: (spn(), Expression::Variable("a")),
+                        cond_left: (spn(), Expression::Variable("a".to_string())),
                         cond: CompareOperator::GreaterThanEqual,
-                        cond_right: (spn(), Expression::Num("1")),
-                        val: (spn(), Expression::Num("2"))
+                        cond_right: (spn(), Expression::Num("1".to_string())),
+                        val: (spn(), Expression::Num("2".to_string()))
                     }),
                     rest: vec![
                         Branch {
-                            cond_left: (spn(), Expression::Variable("a")),
+                            cond_left: (spn(), Expression::Variable("a".to_string())),
                             cond: CompareOperator::LessThanEqual,
-                            cond_right: (spn(), Expression::Num("3")),
-                            val: (spn(), Expression::Num("4"))
+                            cond_right: (spn(), Expression::Num("3".to_string())),
+                            val: (spn(), Expression::Num("4".to_string()))
                         },
                         Branch {
-                            cond_left: (spn(), Expression::Variable("a")),
+                            cond_left: (spn(), Expression::Variable("a".to_string())),
                             cond: CompareOperator::LessThan,
-                            cond_right: (spn(), Expression::Num("5")),
-                            val: (spn(), Expression::Num("6"))
+                            cond_right: (spn(), Expression::Num("5".to_string())),
+                            val: (spn(), Expression::Num("6".to_string()))
                         },
                         Branch {
-                            cond_left: (spn(), Expression::Variable("a")),
+                            cond_left: (spn(), Expression::Variable("a".to_string())),
                             cond: CompareOperator::GreaterThan,
-                            cond_right: (spn(), Expression::Num("7")),
-                            val: (spn(), Expression::Num("8"))
+                            cond_right: (spn(), Expression::Num("7".to_string())),
+                            val: (spn(), Expression::Num("8".to_string()))
                         }
                     ],
-                    default: Box::new((spn(), Expression::Num("9")))
+                    default: Box::new((spn(), Expression::Num("9".to_string())))
                 }
             ),
             Ok(Latex::Piecewise {
@@ -832,8 +878,10 @@ mod tests {
     fn log() {
         check(
             Expression::Call {
-                func: ast::Function::Log { base: "" },
-                args: vec![(spn(), Expression::Num("10"))],
+                func: ast::Function::Log {
+                    base: "".to_string(),
+                },
+                args: vec![(spn(), Expression::Num("10".to_string()))],
                 modifier: ast::CallModifier::NormalCall,
             },
             Latex::Call {
@@ -850,8 +898,10 @@ mod tests {
     fn log_base() {
         check(
             Expression::Call {
-                func: ast::Function::Log { base: "5" },
-                args: vec![(spn(), Expression::Num("25"))],
+                func: ast::Function::Log {
+                    base: "5".to_string(),
+                },
+                args: vec![(spn(), Expression::Num("25".to_string()))],
                 modifier: ast::CallModifier::NormalCall,
             },
             Latex::Call {
@@ -873,7 +923,9 @@ mod tests {
         assert_eq!(
             compile(Expression::Call {
                 modifier: ast::CallModifier::NormalCall,
-                func: ast::Function::Normal { name: "lcm" },
+                func: ast::Function::Normal {
+                    name: "lcm".to_string()
+                },
                 args: vec![],
             }),
             Err(CompileError {
@@ -887,11 +939,13 @@ mod tests {
         check(
             Expression::Call {
                 modifier: ast::CallModifier::NormalCall,
-                func: ast::Function::Normal { name: "lcm" },
+                func: ast::Function::Normal {
+                    name: "lcm".to_string(),
+                },
                 args: vec![
-                    (spn(), Expression::Num("1")),
-                    (spn(), Expression::Num("2")),
-                    (spn(), Expression::Num("3")),
+                    (spn(), Expression::Num("1".to_string())),
+                    (spn(), Expression::Num("2".to_string())),
+                    (spn(), Expression::Num("3".to_string())),
                 ],
             },
             Latex::Call {
@@ -916,13 +970,15 @@ mod tests {
         );
         let inp = Expression::Call {
             modifier: ast::CallModifier::NormalCall,
-            func: ast::Function::Normal { name: "lcm" },
+            func: ast::Function::Normal {
+                name: "lcm".to_string(),
+            },
             args: vec![(
                 spn(),
                 Expression::List(vec![
-                    (spn(), Expression::Num("1")),
-                    (spn(), Expression::Num("2")),
-                    (spn(), Expression::Num("3")),
+                    (spn(), Expression::Num("1".to_string())),
+                    (spn(), Expression::Num("2".to_string())),
+                    (spn(), Expression::Num("3".to_string())),
                 ]),
             )],
         };
@@ -939,13 +995,15 @@ mod tests {
         check(
             Expression::Call {
                 modifier: ast::CallModifier::MapCall,
-                func: ast::Function::Normal { name: "lcm" },
+                func: ast::Function::Normal {
+                    name: "lcm".to_string(),
+                },
                 args: vec![(
                     spn(),
                     Expression::List(vec![
-                        (spn(), Expression::Num("1")),
-                        (spn(), Expression::Num("2")),
-                        (spn(), Expression::Num("3")),
+                        (spn(), Expression::Num("1".to_string())),
+                        (spn(), Expression::Num("2".to_string())),
+                        (spn(), Expression::Num("3".to_string())),
                     ]),
                 )],
             },
