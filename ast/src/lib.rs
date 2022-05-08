@@ -12,6 +12,7 @@ pub enum BinaryOperator {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum UnaryOperator {
+    Negate,
     Factorial,
 }
 
@@ -94,4 +95,4 @@ pub enum Statement {
     Expression(Expression),
 }
 
-pub type LocatedStatement = (Span, Statement);
+pub struct LocatedStatement {}
