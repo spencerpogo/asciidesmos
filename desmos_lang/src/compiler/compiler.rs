@@ -9,7 +9,6 @@ use ast::{
 use latex::{
     self, BinaryOperator as LatexBinaryOperator, Cond, Latex, UnaryOperator as LatexUnaryOperator,
 };
-use pest::Span;
 use std::rc::Rc;
 use types::ValType;
 
@@ -20,7 +19,7 @@ pub fn resolve_variable<'a>(ctx: &'a mut Context, var: String) -> Option<&'a Val
     }
 }
 
-pub fn check_type(span: Span, got: ValType, expect: ValType) -> Result<(), CompileError> {
+pub fn check_type(span: types::Span, got: ValType, expect: ValType) -> Result<(), CompileError> {
     if got != expect {
         Err(CompileError {
             kind: CompileErrorKind::TypeMismatch {
@@ -37,10 +36,10 @@ pub fn check_type(span: Span, got: ValType, expect: ValType) -> Result<(), Compi
 // Combination of compile_expr and check_type
 pub fn compile_expect<'a>(
     ctx: &mut Context,
-    span: Span<'a>,
-    expr: LocatedExpression<'a>,
+    span: types::Span,
+    expr: LocatedExpression,
     expect: ValType,
-) -> Result<Latex, CompileError<'a>> {
+) -> Result<Latex, CompileError> {
     let (s, t) = compile_expr(ctx, expr)?;
     check_type(span, t, expect)?;
     Ok(s)
@@ -62,7 +61,7 @@ pub fn unop_to_latex(op: UnaryOperator) -> LatexUnaryOperator {
     }
 }
 
-pub fn branch_to_cond<'a>(ctx: &mut Context, branch: Branch<'a>) -> Result<Cond, CompileError<'a>> {
+pub fn branch_to_cond<'a>(ctx: &mut Context, branch: Branch) -> Result<Cond, CompileError> {
     let leftcondspan = branch.cond_left.0.clone();
     Ok(Cond {
         left: compile_expect(ctx, leftcondspan, branch.cond_left, ValType::Number)?,
@@ -76,8 +75,8 @@ pub fn branch_to_cond<'a>(ctx: &mut Context, branch: Branch<'a>) -> Result<Cond,
 //  support for immutable hashmaps isn't built in and mutation is much simpler.
 pub fn compile_expr<'a>(
     ctx: &mut Context,
-    expr: LocatedExpression<'a>,
-) -> Result<(Latex, ValType), CompileError<'a>> {
+    expr: LocatedExpression,
+) -> Result<(Latex, ValType), CompileError> {
     let span = expr.0;
 
     match expr.1 {
@@ -132,11 +131,13 @@ pub fn compile_expr<'a>(
         } => {
             let compiled_args = args
                 .into_iter()
-                .map(|(s, e)| -> Result<(Span, Latex, ValType), CompileError> {
-                    let (latex, t) = compile_expr(ctx, (s.clone(), e))?;
-                    Ok((s, latex, t))
-                })
-                .collect::<Result<Vec<(Span, Latex, ValType)>, CompileError>>()?;
+                .map(
+                    |(s, e)| -> Result<(types::Span, Latex, ValType), CompileError> {
+                        let (latex, t) = compile_expr(ctx, (s.clone(), e))?;
+                        Ok((s, latex, t))
+                    },
+                )
+                .collect::<Result<Vec<(types::Span, Latex, ValType)>, CompileError>>()?;
             super::call::compile_call(ctx, span, func, modifier, compiled_args)
         }
         Expression::List(values) => {
@@ -182,8 +183,8 @@ pub fn compile_expr<'a>(
 
 pub fn compile_stmt<'a>(
     ctx: &mut Context<'a>,
-    expr: LocatedStatement<'a>,
-) -> Result<Latex, CompileError<'a>> {
+    expr: LocatedStatement,
+) -> Result<Latex, CompileError> {
     let s = expr.0;
 
     match expr.1 {
@@ -229,7 +230,6 @@ mod tests {
     use crate::compiler::builtins::BUILTIN_FUNCTIONS;
     use ast::{self, FunctionDefinition};
     use latex::CompareOperator;
-    use pest::Span;
 
     fn new_ctx<'a>() -> Context<'a> {
         Context::new()
@@ -239,10 +239,7 @@ mod tests {
         compile_with_ctx(&mut new_ctx(), exp)
     }
 
-    fn compile_with_ctx<'a>(
-        ctx: &mut Context,
-        exp: Expression<'a>,
-    ) -> Result<Latex, CompileError<'a>> {
+    fn compile_with_ctx<'a>(ctx: &mut Context, exp: Expression) -> Result<Latex, CompileError> {
         Ok(compile_expr(ctx, (spn(), exp))?.0)
     }
 
@@ -252,8 +249,8 @@ mod tests {
 
     fn compile_stmt_with_ctx<'a>(
         ctx: &mut Context<'a>,
-        stmt: Statement<'a>,
-    ) -> Result<Latex, CompileError<'a>> {
+        stmt: Statement,
+    ) -> Result<Latex, CompileError> {
         super::compile_stmt(ctx, (spn(), stmt))
     }
 
@@ -265,23 +262,19 @@ mod tests {
         assert_eq!(compile(exp).unwrap(), r);
     }
 
-    fn comp_with_var<'a>(
-        v: &str,
-        vtype: ValType,
-        exp: Expression<'a>,
-    ) -> Result<Latex, CompileError<'a>> {
+    fn comp_with_var<'a>(v: &str, vtype: ValType, exp: Expression) -> Result<Latex, CompileError> {
         let mut ctx = new_ctx();
         ctx.variables.insert(v, vtype);
         compile_with_ctx(&mut ctx, exp)
     }
 
-    fn check_with_var<'a>(v: &str, vtype: ValType, exp: Expression<'a>, r: Latex) {
+    fn check_with_var<'a>(v: &str, vtype: ValType, exp: Expression, r: Latex) {
         assert_eq!(comp_with_var(v, vtype, exp), Ok(r));
     }
 
     #[inline]
-    fn spn<'a>() -> Span<'a> {
-        Span::new("", 0, 0).unwrap()
+    fn spn<'a>() -> types::Span {
+        0..0
     }
 
     #[test]

@@ -1,6 +1,5 @@
 use ast;
 use latex;
-use pest::Span;
 use std::rc::Rc;
 use types;
 
@@ -44,11 +43,11 @@ pub fn resolve_function<'a>(ctx: &'a mut Context, func: ast::Function) -> Option
 
 pub fn compile_call<'a>(
     ctx: &mut Context,
-    span: Span<'a>,
+    span: types::Span,
     func: ast::Function,
     modifier: ast::CallModifier,
-    args: Vec<(Span<'a>, latex::Latex, types::ValType)>,
-) -> Result<(latex::Latex, types::ValType), CompileError<'a>> {
+    args: Vec<(types::Span, latex::Latex, types::ValType)>,
+) -> Result<(latex::Latex, types::ValType), CompileError> {
     let rfunc = resolve_function(ctx, func.clone()).ok_or(CompileError {
         kind: CompileErrorKind::UnknownFunction(func.clone()),
         span: span.clone(),

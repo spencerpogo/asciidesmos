@@ -1,4 +1,3 @@
-use pest::{error as pest_err, Span};
 use std::fmt;
 use types::{ArgCount, ValType};
 
@@ -15,15 +14,15 @@ pub enum CompileErrorKind {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct CompileError<'a> {
+pub struct CompileError {
     pub kind: CompileErrorKind,
-    pub span: Span<'a>,
+    pub span: types::Span,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Copy, PartialOrd, Ord)]
 struct DummyRuleType {}
 
-impl CompileError<'_> {
+impl CompileError {
     fn as_msg(&self) -> String {
         match &self.kind {
             CompileErrorKind::UnknownFunction(func) => format!(
@@ -56,14 +55,9 @@ impl CompileError<'_> {
     }
 }
 
-impl fmt::Display for CompileError<'_> {
+impl fmt::Display for CompileError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let s: pest_err::Error<DummyRuleType> = pest_err::Error::new_from_span(
-            pest_err::ErrorVariant::CustomError {
-                message: self.as_msg(),
-            },
-            self.span.clone(),
-        );
-        write!(f, "{}", s)
+        // TODO: ariadne!
+        write!(f, "{:#?} {}", self.span, self.as_msg())
     }
 }

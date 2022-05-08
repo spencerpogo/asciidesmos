@@ -17,3 +17,5 @@ pub struct Function<'a> {
     pub args: Args<'a>,
     pub ret: ValType,
 }
+
+pub type Span = std::ops::Range<usize>;

@@ -1,6 +1,5 @@
 use latex;
-use pest::Span;
-use types::ValType;
+use types::{Span, ValType};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum BinaryOperator {
@@ -17,11 +16,11 @@ pub enum UnaryOperator {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Branch<'a> {
-    pub cond_left: LocatedExpression<'a>,
+pub struct Branch {
+    pub cond_left: LocatedExpression,
     pub cond: latex::CompareOperator,
-    pub cond_right: LocatedExpression<'a>,
-    pub val: LocatedExpression<'a>,
+    pub cond_right: LocatedExpression,
+    pub val: LocatedExpression,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -51,35 +50,35 @@ impl Function {
 
 // Expression is a component of a statement
 #[derive(Clone, Debug, PartialEq)]
-pub enum Expression<'a> {
+pub enum Expression {
     Num(String),
     Variable(String),
     BinaryExpr {
-        left: Box<LocatedExpression<'a>>,
+        left: Box<LocatedExpression>,
         // Should probably make an enum for this, but its not worth the work to encode
         //  it just to stringify it again later
         operator: BinaryOperator,
-        right: Box<LocatedExpression<'a>>,
+        right: Box<LocatedExpression>,
     },
     UnaryExpr {
-        val: Box<LocatedExpression<'a>>,
+        val: Box<LocatedExpression>,
         operator: UnaryOperator,
     },
     Call {
         modifier: CallModifier,
         func: Function,
-        args: Vec<LocatedExpression<'a>>,
+        args: Vec<LocatedExpression>,
     },
-    List(Vec<LocatedExpression<'a>>),
+    List(Vec<LocatedExpression>),
     Piecewise {
-        first: Box<Branch<'a>>,
-        rest: Vec<Branch<'a>>,
-        default: Box<LocatedExpression<'a>>,
+        first: Box<Branch>,
+        rest: Vec<Branch>,
+        default: Box<LocatedExpression>,
     },
-    MapExpression(Box<LocatedExpression<'a>>),
+    MapExpression(Box<LocatedExpression>),
 }
 
-pub type LocatedExpression<'a> = (Span<'a>, Expression<'a>);
+pub type LocatedExpression = (Span, Expression);
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct FunctionDefinition {
@@ -90,9 +89,9 @@ pub struct FunctionDefinition {
 
 // A statement is a part of a program
 #[derive(Clone, Debug, PartialEq)]
-pub enum Statement<'a> {
-    FuncDef(FunctionDefinition, LocatedExpression<'a>),
-    Expression(Expression<'a>),
+pub enum Statement {
+    FuncDef(FunctionDefinition, LocatedExpression),
+    Expression(Expression),
 }
 
-pub type LocatedStatement<'a> = (Span<'a>, Statement<'a>);
+pub type LocatedStatement = (Span, Statement);
