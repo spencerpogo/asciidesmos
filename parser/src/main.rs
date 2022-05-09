@@ -26,7 +26,7 @@ fn parser() -> impl Parser<char, ast::LocatedExpression, Error = Err> {
                     },
                 )
             })
-            .or(atom.clone());
+            .or(atom);
 
         let mult_divide = unary
             .clone()
@@ -60,8 +60,9 @@ fn parser() -> impl Parser<char, ast::LocatedExpression, Error = Err> {
                     .repeated(),
             )
             .foldl(|lhs, (op, rhs)| {
+                println!("span={:#?} op={:#?} lhs={:#?}", lhs.0, op, lhs);
                 (
-                    types::Span::dummy(),
+                    types::Span::new(3, 5..7),
                     ast::Expression::BinaryExpr {
                         left: Box::new(lhs),
                         operator: op,
@@ -69,7 +70,10 @@ fn parser() -> impl Parser<char, ast::LocatedExpression, Error = Err> {
                     },
                 )
             })
-            .map_with_span(|(_, v), s| (s, v));
+            .map_with_span(|(ls, v), s| {
+                println!("l_span={:#?} r_span={:#?}", ls, s);
+                (s, v)
+            });
 
         add_sub.or(unary)
     })
@@ -118,6 +122,7 @@ mod tests {
 
     #[test]
     fn basic_math() {
+        println!("basic_math");
         check(
             "-1 + 2",
             (
@@ -139,6 +144,7 @@ mod tests {
 
     #[test]
     fn precedence() {
+        println!("precedence");
         check(
             "1*2 - 3/4 + 5%6",
             (
@@ -146,7 +152,7 @@ mod tests {
                 ast::Expression::BinaryExpr {
                     left: Box::new((
                         // TODO: this indicates a bug!
-                        types::Span::new(0, 0..0),
+                        s(0..0),
                         ast::Expression::BinaryExpr {
                             left: Box::new((
                                 s(0..4),
