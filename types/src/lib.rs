@@ -28,12 +28,19 @@ pub struct Span {
 
 impl Span {
     pub fn new(file_id: FileID, range: std::ops::Range<usize>) -> Self {
-        if file_id == 3 { println!("file_id 3 created"); }
         Self { file_id, range }
     }
 
     pub fn dummy() -> Self {
         Self::new(0, 0..0)
+    }
+
+    pub fn with_end_of(&self, other: &Self) -> Option<Self> {
+        if self.file_id == other.file_id {
+            Some(Self::new(self.file_id, self.range.start..other.range.end))
+        } else {
+            None
+        }
     }
 }
 

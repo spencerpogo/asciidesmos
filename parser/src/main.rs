@@ -38,17 +38,16 @@ fn parser() -> impl Parser<char, ast::LocatedExpression, Error = Err> {
                     .then(unary.clone())
                     .repeated(),
             )
-            .foldl(|lhs, (op, rhs)| -> ast::LocatedExpression {
+            .foldl(|lhs: ast::LocatedExpression, (op, rhs)| {
                 (
-                    types::Span::dummy(),
+                    lhs.0.with_end_of(&rhs.0).expect("Parsing the same file"),
                     ast::Expression::BinaryExpr {
                         left: Box::new(lhs),
                         operator: op,
                         right: Box::new(rhs),
                     },
                 )
-            })
-            .map_with_span(|(_, v), s| (s, v));
+            });
 
         let add_sub = mult_divide
             .clone()
@@ -59,20 +58,15 @@ fn parser() -> impl Parser<char, ast::LocatedExpression, Error = Err> {
                     .then(mult_divide)
                     .repeated(),
             )
-            .foldl(|lhs, (op, rhs)| {
-                println!("span={:#?} op={:#?} lhs={:#?}", lhs.0, op, lhs);
+            .foldl(|lhs: ast::LocatedExpression, (op, rhs)| {
                 (
-                    types::Span::new(3, 5..7),
+                    lhs.0.with_end_of(&rhs.0).expect("Parsing the same file"),
                     ast::Expression::BinaryExpr {
                         left: Box::new(lhs),
                         operator: op,
                         right: Box::new(rhs),
                     },
                 )
-            })
-            .map_with_span(|(ls, v), s| {
-                println!("l_span={:#?} r_span={:#?}", ls, s);
-                (s, v)
             });
 
         add_sub.or(unary)
@@ -151,8 +145,7 @@ mod tests {
                 s(0..15),
                 ast::Expression::BinaryExpr {
                     left: Box::new((
-                        // TODO: this indicates a bug!
-                        s(0..0),
+                        s(0..10),
                         ast::Expression::BinaryExpr {
                             left: Box::new((
                                 s(0..4),
