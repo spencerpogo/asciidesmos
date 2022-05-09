@@ -11,7 +11,7 @@ fn parser() -> impl Parser<char, ast::LocatedExpression, Error = Err> {
             .padded();
 
         // parenthesis have highest precedence
-        let atom = int.or(expr.delimited_by(just('('), just(')')));
+        let atom = int.or(expr.clone().delimited_by(just('('), just(')')));
 
         let op = |c| just(c).padded();
 
@@ -36,19 +36,32 @@ fn parser() -> impl Parser<char, ast::LocatedExpression, Error = Err> {
                     .or(op('/').to(ast::BinaryOperator::Divide))
                     .or(op('%').to(ast::BinaryOperator::Mod))
                     .then(unary.clone())
-                    .repeated(),
+                    .map(
+                        |v| -> Option<(ast::BinaryOperator, ast::LocatedExpression)> {
+                            Option::Some(v)
+                        },
+                    )
+                    .or(empty().to(Option::None)),
             )
-            .foldl(|lhs, (op, rhs)| -> ast::LocatedExpression {
-                (
-                    types::Span::dummy(),
-                    ast::Expression::BinaryExpr {
-                        left: Box::new(lhs),
-                        operator: op,
-                        right: Box::new(rhs),
-                    },
-                )
-            })
-            .map_with_span(|(_, v), s| (s, v));
+            .map_with_span(
+                |(lhs, maybe_rhs): (
+                    ast::LocatedExpression,
+                    Option<(ast::BinaryOperator, ast::LocatedExpression)>,
+                ),
+                 s| {
+                    match maybe_rhs {
+                        Some((op, rhs)) => (
+                            s,
+                            ast::Expression::BinaryExpr {
+                                left: Box::new(lhs),
+                                operator: op,
+                                right: Box::new(rhs),
+                            },
+                        ),
+                        None => lhs,
+                    }
+                },
+            );
 
         let add_sub = mult_divide
             .clone()
@@ -57,23 +70,28 @@ fn parser() -> impl Parser<char, ast::LocatedExpression, Error = Err> {
                     .to(ast::BinaryOperator::Add)
                     .or(op('-').to(ast::BinaryOperator::Subtract))
                     .then(mult_divide)
-                    .repeated(),
+                    .map(Option::Some)
+                    .or(empty().to(Option::None)),
             )
-            .foldl(|lhs, (op, rhs)| {
-                println!("span={:#?} op={:#?} lhs={:#?}", lhs.0, op, lhs);
-                (
-                    types::Span::new(3, 5..7),
-                    ast::Expression::BinaryExpr {
-                        left: Box::new(lhs),
-                        operator: op,
-                        right: Box::new(rhs),
-                    },
-                )
-            })
-            .map_with_span(|(ls, v), s| {
-                println!("l_span={:#?} r_span={:#?}", ls, s);
-                (s, v)
-            });
+            .map_with_span(
+                |(lhs, maybe_rhs): (
+                    ast::LocatedExpression,
+                    Option<(ast::BinaryOperator, ast::LocatedExpression)>,
+                ),
+                 s| {
+                    match maybe_rhs {
+                        Some((op, rhs)) => (
+                            s,
+                            ast::Expression::BinaryExpr {
+                                left: Box::new(lhs),
+                                operator: op,
+                                right: Box::new(rhs),
+                            },
+                        ),
+                        None => lhs,
+                    }
+                },
+            );
 
         add_sub.or(unary)
     })
@@ -145,17 +163,17 @@ mod tests {
     #[test]
     fn precedence() {
         println!("precedence");
+        println!("{:#?}", parse(1337, "1*2 - 3/4 + 5%6".to_string()));
         check(
             "1*2 - 3/4 + 5%6",
             (
                 s(0..15),
                 ast::Expression::BinaryExpr {
                     left: Box::new((
-                        // TODO: this indicates a bug!
-                        s(0..0),
+                        s(0..4),
                         ast::Expression::BinaryExpr {
                             left: Box::new((
-                                s(0..4),
+                                s(0..1),
                                 ast::Expression::BinaryExpr {
                                     left: Box::new((s(0..1), num("1"))),
                                     operator: ast::BinaryOperator::Multiply,

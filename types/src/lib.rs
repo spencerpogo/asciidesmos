@@ -28,7 +28,6 @@ pub struct Span {
 
 impl Span {
     pub fn new(file_id: FileID, range: std::ops::Range<usize>) -> Self {
-        if file_id == 3 { println!("file_id 3 created"); }
         Self { file_id, range }
     }
 
