@@ -2,6 +2,21 @@ use chumsky::prelude::*;
 
 pub type Err = Simple<char, types::Span>;
 
+macro_rules! to_binary_exprs {
+    ($e:expr) => {
+        ($e).foldl(|lhs: ast::LocatedExpression, (op, rhs)| {
+            (
+                lhs.0.with_end_of(&rhs.0).expect("Parsing the same file"),
+                ast::Expression::BinaryExpr {
+                    left: Box::new(lhs),
+                    operator: op,
+                    right: Box::new(rhs),
+                },
+            )
+        })
+    };
+}
+
 fn parser() -> impl Parser<char, ast::LocatedExpression, Error = Err> {
     recursive(|expr| {
         let int = text::int(10)
@@ -28,46 +43,22 @@ fn parser() -> impl Parser<char, ast::LocatedExpression, Error = Err> {
             })
             .or(atom);
 
-        let mult_divide = unary
-            .clone()
-            .then(
-                op('*')
-                    .to(ast::BinaryOperator::Multiply)
-                    .or(op('/').to(ast::BinaryOperator::Divide))
-                    .or(op('%').to(ast::BinaryOperator::Mod))
-                    .then(unary.clone())
-                    .repeated(),
-            )
-            .foldl(|lhs: ast::LocatedExpression, (op, rhs)| {
-                (
-                    lhs.0.with_end_of(&rhs.0).expect("Parsing the same file"),
-                    ast::Expression::BinaryExpr {
-                        left: Box::new(lhs),
-                        operator: op,
-                        right: Box::new(rhs),
-                    },
-                )
-            });
+        let mult_divide = to_binary_exprs!(unary.clone().then(
+            op('*')
+                .to(ast::BinaryOperator::Multiply)
+                .or(op('/').to(ast::BinaryOperator::Divide))
+                .or(op('%').to(ast::BinaryOperator::Mod))
+                .then(unary.clone())
+                .repeated(),
+        ));
 
-        let add_sub = mult_divide
-            .clone()
-            .then(
-                op('+')
-                    .to(ast::BinaryOperator::Add)
-                    .or(op('-').to(ast::BinaryOperator::Subtract))
-                    .then(mult_divide)
-                    .repeated(),
-            )
-            .foldl(|lhs: ast::LocatedExpression, (op, rhs)| {
-                (
-                    lhs.0.with_end_of(&rhs.0).expect("Parsing the same file"),
-                    ast::Expression::BinaryExpr {
-                        left: Box::new(lhs),
-                        operator: op,
-                        right: Box::new(rhs),
-                    },
-                )
-            });
+        let add_sub = to_binary_exprs!(mult_divide.clone().then(
+            op('+')
+                .to(ast::BinaryOperator::Add)
+                .or(op('-').to(ast::BinaryOperator::Subtract))
+                .then(mult_divide)
+                .repeated(),
+        ));
 
         add_sub.or(unary)
     })
