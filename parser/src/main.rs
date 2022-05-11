@@ -107,7 +107,6 @@ mod tests {
 
     #[test]
     fn basic_math() {
-        println!("basic_math");
         check(
             "-1 + 2",
             (
@@ -129,7 +128,6 @@ mod tests {
 
     #[test]
     fn precedence() {
-        println!("precedence");
         check(
             "1*2 - 3/4 + 5%6",
             (
