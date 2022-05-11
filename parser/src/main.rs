@@ -25,8 +25,12 @@ fn parser() -> impl Parser<char, ast::LocatedExpression, Error = Err> {
             })
             .padded();
 
+        let ident = text::ident()
+            .map_with_span(|s: String, span| (span, ast::Expression::Variable(s)))
+            .padded();
+
         // parenthesis have highest precedence
-        let atom = int.or(expr.delimited_by(just('('), just(')')));
+        let atom = int.or(ident).or(expr.delimited_by(just('('), just(')')));
 
         let op = |c| just(c).padded();
 
@@ -105,6 +109,10 @@ mod tests {
         ast::Expression::Num(s.to_string())
     }
 
+    fn var(s: &str) -> ast::Expression {
+        ast::Expression::Variable(s.to_string())
+    }
+
     #[test]
     fn basic_math() {
         check(
@@ -167,5 +175,11 @@ mod tests {
                 },
             ),
         )
+    }
+
+    #[test]
+    fn variable() {
+        check("a", (s(0..1), var("a")));
+        check("_1", (s(0..2), var("_1")));
     }
 }
