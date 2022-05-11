@@ -68,7 +68,7 @@ fn parser() -> impl Parser<char, ast::LocatedExpression, Error = Err> {
 
         let call_inner = expr
             .clone()
-            .then(just(',').padded().ignore_then(expr).repeated())
+            .then(just(',').padded().ignore_then(expr.clone()).repeated())
             .map(|(lhs, rhs)| std::iter::once(lhs).chain(rhs).collect())
             .or(empty().map(|_| vec![]));
 
@@ -92,7 +92,17 @@ fn parser() -> impl Parser<char, ast::LocatedExpression, Error = Err> {
                 },
             );
 
-        call.or(add_sub).or(unary)
+        let list_inner = expr
+            .clone()
+            .then(just(',').padded().ignore_then(expr).repeated())
+            .map(|(lhs, rhs)| std::iter::once(lhs).chain(rhs).collect())
+            .or(empty().map(|_| vec![]));
+
+        let list = list_inner
+            .delimited_by(just('['), just(']'))
+            .map_with_span(|inner, span| (span, ast::Expression::List(inner)));
+
+        call.or(add_sub).or(list).or(unary)
     })
     .then_ignore(end())
 }
@@ -260,5 +270,17 @@ mod tests {
                 },
             ),
         );
+    }
+
+    #[test]
+    fn list() {
+        check(
+            "[ 1 , 2 ]",
+            (
+                s(0..9),
+                ast::Expression::List(vec![(s(2..3), num("1")), (s(6..7), num("2"))]),
+            ),
+        );
+        check("[ a( 1 ) ]", (s(0..0), ast::Expression::List(vec![])))
     }
 }
