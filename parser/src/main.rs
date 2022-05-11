@@ -30,7 +30,9 @@ fn parser() -> impl Parser<char, ast::LocatedExpression, Error = Err> {
             .padded();
 
         // parenthesis have highest precedence
-        let atom = int.or(ident).or(expr.delimited_by(just('('), just(')')));
+        let atom = int
+            .or(ident)
+            .or(expr.clone().delimited_by(just('('), just(')')));
 
         let op = |c| just(c).padded();
 
@@ -64,7 +66,33 @@ fn parser() -> impl Parser<char, ast::LocatedExpression, Error = Err> {
                 .repeated(),
         ));
 
-        add_sub.or(unary)
+        let call_inner = expr
+            .clone()
+            .then(just(',').padded().ignore_then(expr).repeated())
+            .map(|(lhs, rhs)| std::iter::once(lhs).chain(rhs).collect())
+            .or(empty().map(|_| vec![]));
+
+        let call = text::ident::<char, Err>()
+            .then(
+                just('@')
+                    .to(ast::CallModifier::MapCall)
+                    .or(empty().to(ast::CallModifier::NormalCall)),
+            )
+            .then(call_inner.delimited_by(just('('), just(')')))
+            .map_with_span(
+                |((name, modifier), args): ((String, ast::CallModifier), _), s| {
+                    (
+                        s,
+                        ast::Expression::Call {
+                            modifier,
+                            func: ast::Function::Normal { name },
+                            args,
+                        },
+                    )
+                },
+            );
+
+        call.or(add_sub).or(unary)
     })
     .then_ignore(end())
 }
@@ -181,5 +209,56 @@ mod tests {
     fn variable() {
         check("a", (s(0..1), var("a")));
         check("_1", (s(0..2), var("_1")));
+    }
+
+    #[test]
+    fn call() {
+        check(
+            "_a1(1+2, 3*4)",
+            (
+                s(0..13),
+                ast::Expression::Call {
+                    modifier: ast::CallModifier::NormalCall,
+                    func: ast::Function::Normal {
+                        name: "_a1".to_string(),
+                    },
+                    args: vec![
+                        (
+                            s(4..7),
+                            ast::Expression::BinaryExpr {
+                                left: Box::new((s(4..5), num("1"))),
+                                operator: ast::BinaryOperator::Add,
+                                right: Box::new((s(6..7), num("2"))),
+                            },
+                        ),
+                        (
+                            s(9..12),
+                            ast::Expression::BinaryExpr {
+                                left: Box::new((s(9..10), num("3"))),
+                                operator: ast::BinaryOperator::Multiply,
+                                right: Box::new((s(11..12), num("4"))),
+                            },
+                        ),
+                    ],
+                },
+            ),
+        );
+    }
+
+    #[test]
+    fn mapcall() {
+        check(
+            "a@( 1,2 )",
+            (
+                s(0..9),
+                ast::Expression::Call {
+                    modifier: ast::CallModifier::MapCall,
+                    func: ast::Function::Normal {
+                        name: "a".to_string(),
+                    },
+                    args: vec![(s(4..5), num("1")), (s(6..7), num("2"))],
+                },
+            ),
+        );
     }
 }
