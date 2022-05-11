@@ -351,4 +351,97 @@ mod tests {
             },
         );
     }
+
+    #[test]
+    fn call_resolution() {
+        check(
+            Expression::Call {
+                modifier: ast::CallModifier::NormalCall,
+                func: ast::Function::Normal {
+                    name: "sin".to_string(),
+                },
+                args: vec![(spn(), Expression::Num("1".to_string()))],
+            },
+            Latex::Call {
+                func: latex::Function::Normal {
+                    name: "sin".to_string(),
+                },
+                is_builtin: true,
+                args: vec![Latex::Num("1".to_string())],
+            },
+        );
+        assert_eq!(
+            compile(Expression::Call {
+                modifier: ast::CallModifier::NormalCall,
+                func: ast::Function::Normal {
+                    name: "abc".to_string()
+                },
+                args: vec![],
+            })
+            .unwrap_err()
+            .kind,
+            CompileErrorKind::UnknownFunction(ast::Function::Normal {
+                name: "abc".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn argc_validation() {
+        assert_eq!(
+            compile(Expression::Call {
+                modifier: ast::CallModifier::NormalCall,
+                func: ast::Function::Normal {
+                    name: "sin".to_string()
+                },
+                args: vec![],
+            })
+            .unwrap_err()
+            .kind,
+            CompileErrorKind::WrongArgCount {
+                got: 0,
+                expected: 1
+            }
+        );
+        assert_eq!(
+            compile(Expression::Call {
+                modifier: ast::CallModifier::NormalCall,
+                func: ast::Function::Normal {
+                    name: "sin".to_string()
+                },
+                args: vec![
+                    (spn(), Expression::Num("1".to_string())),
+                    (spn(), Expression::Num("2".to_string()))
+                ]
+            })
+            .unwrap_err()
+            .kind,
+            CompileErrorKind::WrongArgCount {
+                got: 2,
+                expected: 1,
+            }
+        );
+    }
+
+    #[test]
+    fn call_arg_checking() {
+        assert_eq!(
+            compile(Expression::Call {
+                modifier: ast::CallModifier::NormalCall,
+                func: ast::Function::Normal {
+                    name: "sin".to_string()
+                },
+                args: vec![(
+                    spn(),
+                    Expression::List(vec![(spn(), Expression::Num("1".to_string()))])
+                )]
+            })
+            .unwrap_err()
+            .kind,
+            CompileErrorKind::TypeMismatch {
+                got: ValType::List,
+                expected: ValType::Number
+            }
+        );
+    }
 }
