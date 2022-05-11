@@ -195,3 +195,160 @@ pub fn compile_call(
         FunctionArgs::Variadic => compile_variadic_call(span, func, modifier, args, rfunc),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::super::compiler::tests::{check, compile, spn};
+    use super::*;
+    use ast::Expression;
+    use builtins::BUILTIN_FUNCTIONS;
+    use latex::Latex;
+    use types::ValType;
+
+    #[test]
+    fn log() {
+        check(
+            Expression::Call {
+                func: ast::Function::Log {
+                    base: "".to_string(),
+                },
+                args: vec![(spn(), Expression::Num("10".to_string()))],
+                modifier: ast::CallModifier::NormalCall,
+            },
+            Latex::Call {
+                func: latex::Function::Log {
+                    base: "".to_string(),
+                },
+                args: vec![Latex::Num("10".to_string())],
+                is_builtin: true,
+            },
+        );
+    }
+
+    #[test]
+    fn log_base() {
+        check(
+            Expression::Call {
+                func: ast::Function::Log {
+                    base: "5".to_string(),
+                },
+                args: vec![(spn(), Expression::Num("25".to_string()))],
+                modifier: ast::CallModifier::NormalCall,
+            },
+            Latex::Call {
+                func: latex::Function::Log {
+                    base: "5".to_string(),
+                },
+                args: vec![Latex::Num("25".to_string())],
+                is_builtin: true,
+            },
+        );
+    }
+
+    #[test]
+    fn call_variadic() {
+        assert_eq!(
+            BUILTIN_FUNCTIONS.get("lcm").unwrap().args,
+            types::Args::Variadic
+        );
+        assert_eq!(
+            compile(Expression::Call {
+                modifier: ast::CallModifier::NormalCall,
+                func: ast::Function::Normal {
+                    name: "lcm".to_string()
+                },
+                args: vec![],
+            }),
+            Err(CompileError {
+                kind: CompileErrorKind::WrongArgCount {
+                    got: 0,
+                    expected: 1
+                },
+                span: spn()
+            })
+        );
+        check(
+            Expression::Call {
+                modifier: ast::CallModifier::NormalCall,
+                func: ast::Function::Normal {
+                    name: "lcm".to_string(),
+                },
+                args: vec![
+                    (spn(), Expression::Num("1".to_string())),
+                    (spn(), Expression::Num("2".to_string())),
+                    (spn(), Expression::Num("3".to_string())),
+                ],
+            },
+            Latex::Call {
+                func: latex::Function::Normal {
+                    name: "lcm".to_string(),
+                },
+                args: vec![
+                    Latex::Num("1".to_string()),
+                    Latex::Num("2".to_string()),
+                    Latex::Num("3".to_string()),
+                ],
+                is_builtin: true,
+            },
+        );
+    }
+
+    #[test]
+    fn map_variadic() {
+        assert_eq!(
+            BUILTIN_FUNCTIONS.get("lcm").unwrap().args,
+            types::Args::Variadic
+        );
+        let inp = Expression::Call {
+            modifier: ast::CallModifier::NormalCall,
+            func: ast::Function::Normal {
+                name: "lcm".to_string(),
+            },
+            args: vec![(
+                spn(),
+                Expression::List(vec![
+                    (spn(), Expression::Num("1".to_string())),
+                    (spn(), Expression::Num("2".to_string())),
+                    (spn(), Expression::Num("3".to_string())),
+                ]),
+            )],
+        };
+        assert_eq!(
+            compile(inp.clone()),
+            Err(CompileError {
+                kind: CompileErrorKind::TypeMismatch {
+                    got: ValType::List,
+                    expected: ValType::Number
+                },
+                span: spn()
+            })
+        );
+        check(
+            Expression::Call {
+                modifier: ast::CallModifier::MapCall,
+                func: ast::Function::Normal {
+                    name: "lcm".to_string(),
+                },
+                args: vec![(
+                    spn(),
+                    Expression::List(vec![
+                        (spn(), Expression::Num("1".to_string())),
+                        (spn(), Expression::Num("2".to_string())),
+                        (spn(), Expression::Num("3".to_string())),
+                    ]),
+                )],
+            },
+            Latex::Call {
+                func: latex::Function::Normal {
+                    name: "lcm".to_string(),
+                },
+                args: vec![Latex::List(vec![
+                    Latex::Num("1".to_string()),
+                    Latex::Num("2".to_string()),
+                    Latex::Num("3".to_string()),
+                ])],
+                is_builtin: true,
+            },
+        );
+    }
+}

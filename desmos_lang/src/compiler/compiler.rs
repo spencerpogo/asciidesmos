@@ -226,55 +226,58 @@ pub fn compile_stmt<'a>(
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
-    use crate::compiler::builtins::BUILTIN_FUNCTIONS;
     use ast::{self, FunctionDefinition};
     use types::CompareOperator;
 
-    fn new_ctx<'a>() -> Context<'a> {
+    pub fn new_ctx<'a>() -> Context<'a> {
         Context::new()
     }
 
-    fn compile(exp: Expression) -> Result<Latex, CompileError> {
+    pub fn compile(exp: Expression) -> Result<Latex, CompileError> {
         compile_with_ctx(&mut new_ctx(), exp)
     }
 
-    fn compile_with_ctx<'a>(ctx: &mut Context, exp: Expression) -> Result<Latex, CompileError> {
+    pub fn compile_with_ctx<'a>(ctx: &mut Context, exp: Expression) -> Result<Latex, CompileError> {
         Ok(compile_expr(ctx, (spn(), exp))?.0)
     }
 
-    fn compile_stmt(stmt: Statement) -> Result<Latex, CompileError> {
+    pub fn compile_stmt(stmt: Statement) -> Result<Latex, CompileError> {
         compile_stmt_with_ctx(&mut new_ctx(), stmt)
     }
 
-    fn compile_stmt_with_ctx<'a>(
+    pub fn compile_stmt_with_ctx<'a>(
         ctx: &mut Context<'a>,
         stmt: Statement,
     ) -> Result<Latex, CompileError> {
         super::compile_stmt(ctx, (spn(), stmt))
     }
 
-    fn check_stmt(stmt: Statement, r: Latex) {
+    pub fn check_stmt(stmt: Statement, r: Latex) {
         assert_eq!(compile_stmt(stmt).unwrap(), r);
     }
 
-    fn check(exp: Expression, r: Latex) {
+    pub fn check(exp: Expression, r: Latex) {
         assert_eq!(compile(exp).unwrap(), r);
     }
 
-    fn comp_with_var<'a>(v: &str, vtype: ValType, exp: Expression) -> Result<Latex, CompileError> {
+    pub fn comp_with_var<'a>(
+        v: &str,
+        vtype: ValType,
+        exp: Expression,
+    ) -> Result<Latex, CompileError> {
         let mut ctx = new_ctx();
         ctx.variables.insert(v, vtype);
         compile_with_ctx(&mut ctx, exp)
     }
 
-    fn check_with_var<'a>(v: &str, vtype: ValType, exp: Expression, r: Latex) {
+    pub fn check_with_var<'a>(v: &str, vtype: ValType, exp: Expression, r: Latex) {
         assert_eq!(comp_with_var(v, vtype, exp), Ok(r));
     }
 
     #[inline]
-    fn spn<'a>() -> types::Span {
+    pub fn spn<'a>() -> types::Span {
         types::Span::new(1234, 0..0)
     }
 
@@ -865,153 +868,6 @@ mod tests {
                 ],
                 default: Box::new(Latex::Num("9".to_string()))
             }),
-        );
-    }
-
-    #[test]
-    fn log() {
-        check(
-            Expression::Call {
-                func: ast::Function::Log {
-                    base: "".to_string(),
-                },
-                args: vec![(spn(), Expression::Num("10".to_string()))],
-                modifier: ast::CallModifier::NormalCall,
-            },
-            Latex::Call {
-                func: latex::Function::Log {
-                    base: "".to_string(),
-                },
-                args: vec![Latex::Num("10".to_string())],
-                is_builtin: true,
-            },
-        );
-    }
-
-    #[test]
-    fn log_base() {
-        check(
-            Expression::Call {
-                func: ast::Function::Log {
-                    base: "5".to_string(),
-                },
-                args: vec![(spn(), Expression::Num("25".to_string()))],
-                modifier: ast::CallModifier::NormalCall,
-            },
-            Latex::Call {
-                func: latex::Function::Log {
-                    base: "5".to_string(),
-                },
-                args: vec![Latex::Num("25".to_string())],
-                is_builtin: true,
-            },
-        );
-    }
-
-    #[test]
-    fn call_variadic() {
-        assert_eq!(
-            BUILTIN_FUNCTIONS.get("lcm").unwrap().args,
-            types::Args::Variadic
-        );
-        assert_eq!(
-            compile(Expression::Call {
-                modifier: ast::CallModifier::NormalCall,
-                func: ast::Function::Normal {
-                    name: "lcm".to_string()
-                },
-                args: vec![],
-            }),
-            Err(CompileError {
-                kind: CompileErrorKind::WrongArgCount {
-                    got: 0,
-                    expected: 1
-                },
-                span: spn()
-            })
-        );
-        check(
-            Expression::Call {
-                modifier: ast::CallModifier::NormalCall,
-                func: ast::Function::Normal {
-                    name: "lcm".to_string(),
-                },
-                args: vec![
-                    (spn(), Expression::Num("1".to_string())),
-                    (spn(), Expression::Num("2".to_string())),
-                    (spn(), Expression::Num("3".to_string())),
-                ],
-            },
-            Latex::Call {
-                func: latex::Function::Normal {
-                    name: "lcm".to_string(),
-                },
-                args: vec![
-                    Latex::Num("1".to_string()),
-                    Latex::Num("2".to_string()),
-                    Latex::Num("3".to_string()),
-                ],
-                is_builtin: true,
-            },
-        );
-    }
-
-    #[test]
-    fn map_variadic() {
-        assert_eq!(
-            BUILTIN_FUNCTIONS.get("lcm").unwrap().args,
-            types::Args::Variadic
-        );
-        let inp = Expression::Call {
-            modifier: ast::CallModifier::NormalCall,
-            func: ast::Function::Normal {
-                name: "lcm".to_string(),
-            },
-            args: vec![(
-                spn(),
-                Expression::List(vec![
-                    (spn(), Expression::Num("1".to_string())),
-                    (spn(), Expression::Num("2".to_string())),
-                    (spn(), Expression::Num("3".to_string())),
-                ]),
-            )],
-        };
-        assert_eq!(
-            compile(inp.clone()),
-            Err(CompileError {
-                kind: CompileErrorKind::TypeMismatch {
-                    got: ValType::List,
-                    expected: ValType::Number
-                },
-                span: spn()
-            })
-        );
-        check(
-            Expression::Call {
-                modifier: ast::CallModifier::MapCall,
-                func: ast::Function::Normal {
-                    name: "lcm".to_string(),
-                },
-                args: vec![(
-                    spn(),
-                    Expression::List(vec![
-                        (spn(), Expression::Num("1".to_string())),
-                        (spn(), Expression::Num("2".to_string())),
-                        (spn(), Expression::Num("3".to_string())),
-                    ]),
-                )],
-            },
-            Latex::Call {
-                func: latex::Function::Normal {
-                    name: "lcm".to_string(),
-                },
-                args: vec![Latex::List(vec![
-                    Latex::Num("1".to_string()),
-                    Latex::Num("2".to_string()),
-                    Latex::Num("3".to_string()),
-                ])],
-                is_builtin: true,
-            },
         );
     }
 }
