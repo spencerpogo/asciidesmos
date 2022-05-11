@@ -8,6 +8,7 @@ pub enum BinaryOperator {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum UnaryOperator {
+    Negate,
     Factorial,
 }
 
@@ -172,6 +173,7 @@ pub fn latex_to_str(l: Latex) -> String {
             right,
         } => binaryoperator_to_str(*left, operator, *right),
         Latex::UnaryExpression { left, operator } => match operator {
+            UnaryOperator::Negate => format!("-{}", latex_to_str(*left)),
             UnaryOperator::Factorial => format!("{}!", latex_to_str(*left),),
         },
         Latex::List(items) => format!("\\left[{}\\right]", multi_latex_to_str(items).join(",")),

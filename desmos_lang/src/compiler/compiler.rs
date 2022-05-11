@@ -57,6 +57,7 @@ pub fn binop_to_latex(op: BinaryOperator) -> LatexBinaryOperator {
 
 pub fn unop_to_latex(op: UnaryOperator) -> LatexUnaryOperator {
     match op {
+        UnaryOperator::Negate => LatexUnaryOperator::Negate,
         UnaryOperator::Factorial => LatexUnaryOperator::Factorial,
     }
 }
@@ -274,7 +275,7 @@ mod tests {
 
     #[inline]
     fn spn<'a>() -> types::Span {
-        0..0
+        types::Span::new(1234, 0..0)
     }
 
     #[test]

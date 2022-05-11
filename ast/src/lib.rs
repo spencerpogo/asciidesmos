@@ -95,4 +95,4 @@ pub enum Statement {
     Expression(Expression),
 }
 
-pub struct LocatedStatement {}
+pub type LocatedStatement = (Span, Statement);
