@@ -134,10 +134,10 @@ mod tests {
                 s(0..15),
                 ast::Expression::BinaryExpr {
                     left: Box::new((
-                        s(0..10),
+                        s(0..9),
                         ast::Expression::BinaryExpr {
                             left: Box::new((
-                                s(0..4),
+                                s(0..3),
                                 ast::Expression::BinaryExpr {
                                     left: Box::new((s(0..1), num("1"))),
                                     operator: ast::BinaryOperator::Multiply,
@@ -146,7 +146,7 @@ mod tests {
                             )),
                             operator: ast::BinaryOperator::Subtract,
                             right: Box::new((
-                                s(6..10),
+                                s(6..9),
                                 ast::Expression::BinaryExpr {
                                     left: Box::new((s(6..7), num("3"))),
                                     operator: ast::BinaryOperator::Divide,
