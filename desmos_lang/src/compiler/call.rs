@@ -48,7 +48,7 @@ pub fn resolve_function<'a>(ctx: &'a mut Context, func: ast::Function) -> Option
     }
 }
 
-pub fn compile_call<'a>(
+pub fn compile_call(
     ctx: &mut Context,
     span: types::Span,
     func: ast::Function,
