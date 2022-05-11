@@ -2,17 +2,20 @@ use std::{collections::HashMap, rc::Rc};
 use types::ValType;
 
 // heap version of core::runtime::Args
+#[derive(Clone, Debug, PartialEq)]
 pub enum FunctionArgs {
     Static(Vec<ValType>),
     Variadic,
 }
 
 // heap version of core::runtime::Function
+#[derive(Clone, Debug, PartialEq)]
 pub struct FunctionSignature {
     pub args: FunctionArgs,
     pub ret: ValType,
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct Context<'a> {
     pub variables: HashMap<&'a str, ValType>,
     pub locals: HashMap<String, ValType>,
@@ -35,6 +38,7 @@ impl Default for Context<'_> {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct ResolvedFunction {
     pub func: Rc<FunctionSignature>,
     pub is_builtin: bool,
