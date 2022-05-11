@@ -85,7 +85,7 @@ fn parser() -> impl Parser<char, ast::LocatedExpression, Error = Err> {
                         s,
                         ast::Expression::Call {
                             modifier,
-                            func: types::Function::Normal { name },
+                            func: ast::Function::Normal { name },
                             args,
                         },
                     )

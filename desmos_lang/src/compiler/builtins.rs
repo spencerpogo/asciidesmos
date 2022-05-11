@@ -1,25 +1,13 @@
 use phf::{phf_map, Map};
 use types::{
-    Args,
+    Args, Function,
     ValType::{List, Number as Num},
 };
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum ArgsStatic<'a> {
-    Static(&'a [types::ValType]),
-    Variadic,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct FunctionStatic<'a> {
-    pub args: ArgsStatic<'a>,
-    pub ret: types::ValType,
-}
-
 macro_rules! f {
     ($args:expr, $ret:expr) => {
-        FunctionStatic {
-            args: ArgsStatic::Static($args),
+        Function {
+            args: Args::Static($args),
             ret: $ret,
         }
     };
@@ -51,7 +39,7 @@ macro_rules! ll {
 
 // Map of desmos builtin functions.
 // Source: https://support.desmos.com/hc/en-us/articles/212235786-Supported-Functions
-pub static BUILTIN_FUNCTIONS: Map<&'static str, FunctionStatic> = phf_map! {
+pub static BUILTIN_FUNCTIONS: Map<&'static str, Function> = phf_map! {
     // Trigonometry
     "sin" => n!(),
     "cos" => n!(),
@@ -101,12 +89,12 @@ pub static BUILTIN_FUNCTIONS: Map<&'static str, FunctionStatic> = phf_map! {
     "shuffle" => l!(),
 
     // TODO: Support variadic functions
-    "lcm" => FunctionStatic {
-        args: ArgsStatic::Variadic,
+    "lcm" => Function {
+        args: Args::Variadic,
         ret: Num,
     },
-    "gcd" => FunctionStatic {
-        args: ArgsStatic::Variadic,
+    "gcd" => Function {
+        args: Args::Variadic,
         ret: Num,
     },
 

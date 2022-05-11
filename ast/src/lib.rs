@@ -1,3 +1,4 @@
+use latex;
 use types::{Span, ValType};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -18,7 +19,7 @@ pub enum UnaryOperator {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Branch {
     pub cond_left: LocatedExpression,
-    pub cond: types::CompareOperator,
+    pub cond: latex::CompareOperator,
     pub cond_right: LocatedExpression,
     pub val: LocatedExpression,
 }
@@ -27,6 +28,25 @@ pub struct Branch {
 pub enum CallModifier {
     MapCall,
     NormalCall,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Function {
+    Normal { name: String },
+    Log { base: String },
+}
+
+impl Function {
+    pub fn to_latex(self) -> latex::Function {
+        match self {
+            Function::Normal { name } => latex::Function::Normal {
+                name: name.to_string(),
+            },
+            Function::Log { base } => latex::Function::Log {
+                base: base.to_string(),
+            },
+        }
+    }
 }
 
 // Expression is a component of a statement
@@ -47,7 +67,7 @@ pub enum Expression {
     },
     Call {
         modifier: CallModifier,
-        func: types::Function,
+        func: Function,
         args: Vec<LocatedExpression>,
     },
     List(Vec<LocatedExpression>),
