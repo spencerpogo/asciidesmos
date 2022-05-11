@@ -48,6 +48,135 @@ pub fn resolve_function<'a>(ctx: &'a mut Context, func: ast::Function) -> Option
     }
 }
 
+pub fn compile_static_call(
+    span: types::Span,
+    func: ast::Function,
+    modifier: ast::CallModifier,
+    args: Vec<(types::Span, latex::Latex, types::ValType)>,
+    rfunc: ResolvedFunction,
+    rargs: &Vec<types::ValType>,
+) -> Result<(latex::Latex, types::ValType), CompileError> {
+    // Validate arg count
+    let got = args.len();
+    let expect = rargs.len();
+
+    if got != expect {
+        Err(CompileError {
+            kind: CompileErrorKind::WrongArgCount {
+                got,
+                expected: expect,
+            },
+            span,
+        })
+    } else {
+        let args_latex = args
+            .into_iter()
+            .zip(rargs.iter())
+            .map(|(got_type, expect_type)| -> Result<latex::Latex, _> {
+                // Already checked that they are the same length, so unwrap is safe
+                let (aspan, arg_latex, got_type) = got_type;
+                let is_valid_map = modifier == ast::CallModifier::MapCall
+                    && got_type == types::ValType::List
+                    && *expect_type == types::ValType::Number;
+                if !is_valid_map && got_type != *expect_type {
+                    return Err(CompileError {
+                        kind: CompileErrorKind::TypeMismatch {
+                            got: got_type,
+                            expected: *expect_type,
+                        },
+                        span: aspan,
+                    });
+                }
+                Ok(arg_latex)
+            })
+            .collect::<Result<Vec<latex::Latex>, _>>()?;
+
+        Ok((
+            latex::Latex::Call {
+                func: func_to_latex(func),
+                is_builtin: rfunc.is_builtin,
+                args: args_latex,
+            },
+            rfunc.func.ret,
+        ))
+    }
+}
+
+pub fn compile_variadic_call(
+    span: types::Span,
+    func: ast::Function,
+    modifier: ast::CallModifier,
+    args: Vec<(types::Span, latex::Latex, types::ValType)>,
+    rfunc: ResolvedFunction,
+) -> Result<(latex::Latex, types::ValType), CompileError> {
+    if modifier == ast::CallModifier::MapCall {
+        if args.len() == 1 {
+            let first = args.first().unwrap();
+            if first.2 == types::ValType::List {
+                Ok((
+                    latex::Latex::Call {
+                        func: func_to_latex(func),
+                        is_builtin: rfunc.is_builtin,
+                        args: vec![first.1.clone()],
+                    },
+                    rfunc.func.ret,
+                ))
+            } else {
+                Err(CompileError {
+                    kind: CompileErrorKind::TypeMismatch {
+                        got: first.2,
+                        expected: types::ValType::List,
+                    },
+                    span: span,
+                })
+            }
+        } else {
+            Err(CompileError {
+                kind: CompileErrorKind::WrongArgCount {
+                    got: args.len(),
+                    expected: 1,
+                },
+                span: span,
+            })
+        }
+    } else {
+        if args.is_empty() {
+            Err(CompileError {
+                kind: CompileErrorKind::WrongArgCount {
+                    got: 0,
+                    expected: 1,
+                },
+                span: span,
+            })
+        } else {
+            let args_latex = args
+                .into_iter()
+                .map(|a| -> Result<latex::Latex, _> {
+                    if a.2 == types::ValType::Number {
+                        Ok(a.1)
+                    } else {
+                        Err(CompileError {
+                            kind: CompileErrorKind::TypeMismatch {
+                                got: a.2,
+                                expected: types::ValType::Number,
+                            },
+                            span: a.0,
+                        })
+                    }
+                })
+                .collect::<Result<Vec<latex::Latex>, _>>()?;
+            Ok((
+                latex::Latex::Call {
+                    func: func_to_latex(func),
+                    is_builtin: rfunc.is_builtin,
+                    args: args_latex,
+                },
+                rfunc.func.ret,
+            ))
+        }
+    }
+}
+
 pub fn compile_call(
     ctx: &mut Context,
     span: types::Span,
@@ -61,118 +190,8 @@ pub fn compile_call(
     })?;
     match &rfunc.func.args {
         FunctionArgs::Static(rargs) => {
-            // Validate arg count
-            let got = args.len();
-            let expect = rargs.len();
-
-            if got != expect {
-                Err(CompileError {
-                    kind: CompileErrorKind::WrongArgCount {
-                        got,
-                        expected: expect,
-                    },
-                    span,
-                })
-            } else {
-                let args_latex = args
-                    .into_iter()
-                    .zip(rargs.iter())
-                    .map(|(got_type, expect_type)| -> Result<latex::Latex, _> {
-                        // Already checked that they are the same length, so unwrap is safe
-                        let (aspan, arg_latex, got_type) = got_type;
-                        let is_valid_map = modifier == ast::CallModifier::MapCall
-                            && got_type == types::ValType::List
-                            && *expect_type == types::ValType::Number;
-                        if !is_valid_map && got_type != *expect_type {
-                            return Err(CompileError {
-                                kind: CompileErrorKind::TypeMismatch {
-                                    got: got_type,
-                                    expected: *expect_type,
-                                },
-                                span: aspan,
-                            });
-                        }
-                        Ok(arg_latex)
-                    })
-                    .collect::<Result<Vec<latex::Latex>, _>>()?;
-
-                Ok((
-                    latex::Latex::Call {
-                        func: func_to_latex(func),
-                        is_builtin: rfunc.is_builtin,
-                        args: args_latex,
-                    },
-                    rfunc.func.ret,
-                ))
-            }
+            compile_static_call(span, func, modifier, args, rfunc.clone(), rargs)
         }
-        FunctionArgs::Variadic => {
-            if modifier == ast::CallModifier::MapCall {
-                if args.len() == 1 {
-                    let first = args.first().unwrap();
-                    if first.2 == types::ValType::List {
-                        Ok((
-                            latex::Latex::Call {
-                                func: func_to_latex(func),
-                                is_builtin: rfunc.is_builtin,
-                                args: vec![first.1.clone()],
-                            },
-                            rfunc.func.ret,
-                        ))
-                    } else {
-                        Err(CompileError {
-                            kind: CompileErrorKind::TypeMismatch {
-                                got: first.2,
-                                expected: types::ValType::List,
-                            },
-                            span: span,
-                        })
-                    }
-                } else {
-                    Err(CompileError {
-                        kind: CompileErrorKind::WrongArgCount {
-                            got: args.len(),
-                            expected: 1,
-                        },
-                        span: span,
-                    })
-                }
-            } else {
-                if args.is_empty() {
-                    Err(CompileError {
-                        kind: CompileErrorKind::WrongArgCount {
-                            got: 0,
-                            expected: 1,
-                        },
-                        span: span,
-                    })
-                } else {
-                    let args_latex = args
-                        .into_iter()
-                        .map(|a| -> Result<latex::Latex, _> {
-                            if a.2 == types::ValType::Number {
-                                Ok(a.1)
-                            } else {
-                                Err(CompileError {
-                                    kind: CompileErrorKind::TypeMismatch {
-                                        got: a.2,
-                                        expected: types::ValType::Number,
-                                    },
-                                    span: a.0,
-                                })
-                            }
-                        })
-                        .collect::<Result<Vec<latex::Latex>, _>>()?;
-                    Ok((
-                        latex::Latex::Call {
-                            func: func_to_latex(func),
-                            is_builtin: rfunc.is_builtin,
-                            args: args_latex,
-                        },
-                        rfunc.func.ret,
-                    ))
-                }
-            }
-        }
+        FunctionArgs::Variadic => compile_variadic_call(span, func, modifier, args, rfunc),
     }
 }
