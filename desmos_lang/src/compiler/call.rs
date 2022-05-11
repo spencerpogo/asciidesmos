@@ -9,6 +9,13 @@ use super::{
     types::{Context, FunctionArgs, FunctionSignature, ResolvedFunction},
 };
 
+pub fn func_to_latex(func: ast::Function) -> latex::Function {
+    match func {
+        ast::Function::Normal { name } => latex::Function::Normal { name },
+        ast::Function::Log { base } => latex::Function::Log { base },
+    }
+}
+
 // Returns function and whether it is builtin
 pub fn resolve_function<'a>(ctx: &'a mut Context, func: ast::Function) -> Option<ResolvedFunction> {
     match func {
@@ -91,7 +98,7 @@ pub fn compile_call<'a>(
 
                 Ok((
                     latex::Latex::Call {
-                        func: func.to_latex(),
+                        func: func_to_latex(func),
                         is_builtin: rfunc.is_builtin,
                         args: args_latex,
                     },
@@ -106,7 +113,7 @@ pub fn compile_call<'a>(
                     if first.2 == types::ValType::List {
                         Ok((
                             latex::Latex::Call {
-                                func: func.to_latex(),
+                                func: func_to_latex(func),
                                 is_builtin: rfunc.is_builtin,
                                 args: vec![first.1.clone()],
                             },
@@ -158,7 +165,7 @@ pub fn compile_call<'a>(
                         .collect::<Result<Vec<latex::Latex>, _>>()?;
                     Ok((
                         latex::Latex::Call {
-                            func: func.to_latex(),
+                            func: func_to_latex(func),
                             is_builtin: rfunc.is_builtin,
                             args: args_latex,
                         },

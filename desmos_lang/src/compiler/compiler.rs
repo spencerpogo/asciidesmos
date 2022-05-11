@@ -230,7 +230,7 @@ mod tests {
     use super::*;
     use crate::compiler::builtins::BUILTIN_FUNCTIONS;
     use ast::{self, FunctionDefinition};
-    use latex::CompareOperator;
+    use types::CompareOperator;
 
     fn new_ctx<'a>() -> Context<'a> {
         Context::new()

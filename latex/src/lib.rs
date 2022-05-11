@@ -1,3 +1,5 @@
+use types::CompareOperator;
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum BinaryOperator {
     Add,
@@ -10,15 +12,6 @@ pub enum BinaryOperator {
 pub enum UnaryOperator {
     Negate,
     Factorial,
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum CompareOperator {
-    Equal,
-    GreaterThan,
-    LessThan,
-    GreaterThanEqual,
-    LessThanEqual,
 }
 
 #[derive(Clone, Debug, PartialEq)]

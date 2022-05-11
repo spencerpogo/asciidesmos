@@ -18,6 +18,15 @@ pub struct Function<'a> {
     pub ret: ValType,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum CompareOperator {
+    Equal,
+    GreaterThan,
+    LessThan,
+    GreaterThanEqual,
+    LessThanEqual,
+}
+
 pub type FileID = usize;
 
 #[derive(Clone, Debug, PartialEq)]
