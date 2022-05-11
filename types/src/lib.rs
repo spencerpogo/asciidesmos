@@ -7,15 +7,31 @@ pub enum ValType {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum Args<'a> {
-    Static(&'a [ValType]),
+pub enum Args {
+    Static(Vec<ValType>),
     Variadic,
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Function<'a> {
-    pub args: Args<'a>,
+pub enum FunctionType {
+    Normal { name: String },
+    Log { base: String },
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Function {
+    pub typ: FunctionType,
+    pub args: Args,
     pub ret: ValType,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum CompareOperator {
+    Equal,
+    GreaterThan,
+    LessThan,
+    GreaterThanEqual,
+    LessThanEqual,
 }
 
 pub type FileID = usize;
