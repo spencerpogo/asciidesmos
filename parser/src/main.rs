@@ -78,7 +78,7 @@ fn parser() -> impl Parser<char, ast::LocatedExpression, Error = Err> {
                     .to(ast::CallModifier::MapCall)
                     .or(empty().to(ast::CallModifier::NormalCall)),
             )
-            .then(call_inner.delimited_by(just('('), just(')')))
+            .then(call_inner.delimited_by(op('('), op(')')))
             .map_with_span(
                 |((name, modifier), args): ((String, ast::CallModifier), _), s| {
                     (
@@ -99,7 +99,7 @@ fn parser() -> impl Parser<char, ast::LocatedExpression, Error = Err> {
             .or(empty().map(|_| vec![]));
 
         let list = list_inner
-            .delimited_by(just('['), just(']'))
+            .delimited_by(op('['), op(']'))
             .map_with_span(|inner, span| (span, ast::Expression::List(inner)));
 
         call.or(add_sub).or(list).or(unary)
@@ -258,15 +258,27 @@ mod tests {
     #[test]
     fn mapcall() {
         check(
-            "a@( 1,2 )",
+            "a@( b(1),2 )",
             (
-                s(0..9),
+                s(0..12),
                 ast::Expression::Call {
                     modifier: ast::CallModifier::MapCall,
                     func: ast::Function::Normal {
                         name: "a".to_string(),
                     },
-                    args: vec![(s(4..5), num("1")), (s(6..7), num("2"))],
+                    args: vec![
+                        (
+                            s(4..8),
+                            ast::Expression::Call {
+                                modifier: ast::CallModifier::NormalCall,
+                                func: ast::Function::Normal {
+                                    name: "b".to_string(),
+                                },
+                                args: vec![(s(6..7), num("1"))],
+                            },
+                        ),
+                        (s(9..10), num("2")),
+                    ],
                 },
             ),
         );
@@ -281,6 +293,21 @@ mod tests {
                 ast::Expression::List(vec![(s(2..3), num("1")), (s(6..7), num("2"))]),
             ),
         );
-        check("[ a( 1 ) ]", (s(0..0), ast::Expression::List(vec![])))
+        check(
+            "[ a( 1 ) ]",
+            (
+                s(0..10),
+                ast::Expression::List(vec![(
+                    s(2..9),
+                    ast::Expression::Call {
+                        modifier: ast::CallModifier::NormalCall,
+                        func: ast::Function::Normal {
+                            name: "a".to_string(),
+                        },
+                        args: vec![(s(5..6), num("1"))],
+                    },
+                )]),
+            ),
+        )
     }
 }
