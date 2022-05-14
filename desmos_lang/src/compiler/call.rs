@@ -110,70 +110,67 @@ pub fn compile_variadic_call(
     rfunc: ResolvedFunction,
 ) -> Result<(latex::Latex, types::ValType), CompileError> {
     if modifier == ast::CallModifier::MapCall {
-        if args.len() == 1 {
-            let first = args.first().unwrap();
-            if first.2 == types::ValType::List {
-                Ok((
-                    latex::Latex::Call {
-                        func: func_to_latex(func),
-                        is_builtin: rfunc.is_builtin,
-                        args: vec![first.1.clone()],
-                    },
-                    rfunc.func.ret,
-                ))
-            } else {
-                Err(CompileError {
-                    kind: CompileErrorKind::TypeMismatch {
-                        got: first.2,
-                        expected: types::ValType::List,
-                    },
-                    span: span,
-                })
-            }
-        } else {
-            Err(CompileError {
+        if args.len() != 1 {
+            return Err(CompileError {
                 kind: CompileErrorKind::WrongArgCount {
                     got: args.len(),
                     expected: 1,
                 },
                 span: span,
-            })
+            });
         }
+        let first = args.first().unwrap();
+        if first.2 != types::ValType::List {
+            return Err(CompileError {
+                kind: CompileErrorKind::TypeMismatch {
+                    got: first.2,
+                    expected: types::ValType::List,
+                },
+                span: span,
+            });
+        }
+        Ok((
+            latex::Latex::Call {
+                func: func_to_latex(func),
+                is_builtin: rfunc.is_builtin,
+                args: vec![first.1.clone()],
+            },
+            rfunc.func.ret,
+        ))
     } else {
         if args.is_empty() {
-            Err(CompileError {
+            return Err(CompileError {
                 kind: CompileErrorKind::WrongArgCount {
                     got: 0,
                     expected: 1,
                 },
                 span: span,
-            })
-        } else {
-            let args_latex = args
-                .into_iter()
-                .map(|a| -> Result<latex::Latex, _> {
-                    if a.2 == types::ValType::Number {
-                        Ok(a.1)
-                    } else {
-                        Err(CompileError {
-                            kind: CompileErrorKind::TypeMismatch {
-                                got: a.2,
-                                expected: types::ValType::Number,
-                            },
-                            span: a.0,
-                        })
-                    }
-                })
-                .collect::<Result<Vec<latex::Latex>, _>>()?;
-            Ok((
-                latex::Latex::Call {
-                    func: func_to_latex(func),
-                    is_builtin: rfunc.is_builtin,
-                    args: args_latex,
-                },
-                rfunc.func.ret,
-            ))
+            });
         }
+        let args_latex = args
+            .into_iter()
+            .map(|a| -> Result<latex::Latex, _> {
+                if a.2 == types::ValType::Number {
+                    Ok(a.1)
+                } else {
+                    Err(CompileError {
+                        kind: CompileErrorKind::TypeMismatch {
+                            got: a.2,
+                            expected: types::ValType::Number,
+                        },
+                        span: a.0,
+                    })
+                }
+            })
+            .collect::<Result<Vec<latex::Latex>, _>>()?;
+        Ok((
+            latex::Latex::Call {
+                func: func_to_latex(func),
+                is_builtin: rfunc.is_builtin,
+                args: args_latex,
+            },
+            rfunc.func.ret,
+        ))
     }
 }
 
