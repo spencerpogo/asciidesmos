@@ -7,8 +7,6 @@ pub enum CompileErrorKind {
     WrongArgCount { got: ArgCount, expected: ArgCount },
     TypeMismatch { got: ValType, expected: ValType },
     UndefinedVariable(String),
-    UndefinedMacro(String),
-    BadMapMacro,
     ExpectedFunction,
     NoNestedList,
 }
@@ -40,12 +38,6 @@ impl CompileError {
             }
             CompileErrorKind::UndefinedVariable(var) => {
                 format!("Undefined variable '{}'", var)
-            }
-            CompileErrorKind::UndefinedMacro(name) => format!("Undefined macro '{}'", name),
-            CompileErrorKind::BadMapMacro => {
-                "The map! macro takes a function and then at least one list to pass\
-                as an argument"
-                    .to_string()
             }
             CompileErrorKind::ExpectedFunction => "Expected a function".to_string(),
             CompileErrorKind::NoNestedList => {
