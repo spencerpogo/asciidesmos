@@ -62,7 +62,10 @@ pub fn unop_to_latex(op: UnaryOperator) -> LatexUnaryOperator {
     }
 }
 
-pub fn branch_to_cond<'a>(ctx: &mut Context, branch: Branch) -> Result<Cond, CompileError> {
+pub fn branch_to_cond<'a>(
+    ctx: &mut Context,
+    (spn, branch): ast::Spanned<ast::Branch>,
+) -> Result<Cond, CompileError> {
     let leftcondspan = branch.cond_left.0.clone();
     Ok(Cond {
         left: compile_expect(ctx, leftcondspan, branch.cond_left, ValType::Number)?,

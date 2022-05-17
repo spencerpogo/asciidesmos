@@ -58,13 +58,15 @@ pub enum Expression {
     },
     List(Vec<LocatedExpression>),
     Piecewise {
-        first: Box<Branch>,
-        rest: Vec<Branch>,
+        first: Box<Spanned<Branch>>,
+        rest: Vec<Spanned<Branch>>,
         default: Box<LocatedExpression>,
     },
 }
 
-pub type LocatedExpression = (Span, Expression);
+pub type Spanned<T> = (Span, T);
+
+pub type LocatedExpression = Spanned<Expression>;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct FunctionDefinition {
@@ -80,4 +82,4 @@ pub enum Statement {
     Expression(Expression),
 }
 
-pub type LocatedStatement = (Span, Statement);
+pub type LocatedStatement = Spanned<Statement>;
