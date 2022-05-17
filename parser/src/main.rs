@@ -102,7 +102,32 @@ fn parser() -> impl Parser<char, ast::LocatedExpression, Error = Err> {
             .delimited_by(op('['), op(']'))
             .map_with_span(|inner, span| (span, ast::Expression::List(inner)));
 
-        call.or(add_sub).or(list).or(unary)
+        let keyword = |s: &str| text::keyword(s).padded();
+
+        let cond = todo!();
+
+        let piecewise_term = expr
+            .then_ignore(keyword("->"))
+            .then(expr)
+            .map(|(cond, res): (ast::LocatedExpression, ast::LocatedExpression)| ast::Branch {});
+
+        let piecewise = keyword("where")
+            .ignore_then(piecewise_term.clone())
+            .then(piecewise_term.then_ignore(op(',')).repeated())
+            .then(keyword("default"))
+            .ignore_then(expr)
+            .map(
+                |(term, (terms, default)): (
+                    ast::Branch,
+                    (Vec<ast::Branch>, ast::LocatedExpression),
+                )| ast::Expression::Piecewise {
+                    first: Box::new(term),
+                    rest: terms,
+                    default: Box::new(default),
+                },
+            );
+
+        call.or(list).or(piecewise).or(add_sub).or(unary)
     })
     .then_ignore(end())
 }
