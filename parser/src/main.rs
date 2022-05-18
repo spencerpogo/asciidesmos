@@ -94,7 +94,7 @@ fn parser() -> impl Parser<char, ast::LocatedExpression, Error = Err> {
 
         let list_inner = expr
             .clone()
-            .then(just(',').padded().ignore_then(expr).repeated())
+            .then(just(',').padded().ignore_then(expr.clone()).repeated())
             .map(|(lhs, rhs)| std::iter::once(lhs).chain(rhs).collect())
             .or(empty().map(|_| vec![]));
 
@@ -102,28 +102,66 @@ fn parser() -> impl Parser<char, ast::LocatedExpression, Error = Err> {
             .delimited_by(op('['), op(']'))
             .map_with_span(|inner, span| (span, ast::Expression::List(inner)));
 
-        let keyword = |s: &str| text::keyword(s).padded();
+        let keyword = |s| text::keyword(s).padded();
 
-        let cond = todo!();
+        let cond_op = op('=')
+            .to(types::CompareOperator::Equal)
+            .or(keyword("<=").to(types::CompareOperator::LessThanEqual))
+            .or(keyword(">=").to(types::CompareOperator::GreaterThanEqual))
+            .or(op('<').to(types::CompareOperator::LessThan))
+            .or(op('>').to(types::CompareOperator::GreaterThan));
 
-        let piecewise_term = expr
+        let cond = expr.clone().then(cond_op).then(expr.clone()).map(
+            |((l, op), r): (
+                (ast::LocatedExpression, types::CompareOperator),
+                ast::LocatedExpression,
+            )| (l, op, r),
+        );
+
+        let piecewise_term = cond
             .then_ignore(keyword("->"))
-            .then(expr)
-            .map(|(cond, res): (ast::LocatedExpression, ast::LocatedExpression)| ast::Branch {});
+            .then(expr.clone())
+            .map_with_span(
+                |((cond_left, cond, cond_right), val): (
+                    (
+                        ast::LocatedExpression,
+                        types::CompareOperator,
+                        ast::LocatedExpression,
+                    ),
+                    ast::LocatedExpression,
+                ),
+                 span: types::Span| {
+                    (
+                        span,
+                        ast::Branch {
+                            cond_left,
+                            cond,
+                            cond_right,
+                            val,
+                        },
+                    )
+                },
+            );
 
         let piecewise = keyword("where")
             .ignore_then(piecewise_term.clone())
-            .then(piecewise_term.then_ignore(op(',')).repeated())
-            .then(keyword("default"))
-            .ignore_then(expr)
-            .map(
-                |(term, (terms, default)): (
-                    ast::Branch,
-                    (Vec<ast::Branch>, ast::LocatedExpression),
-                )| ast::Expression::Piecewise {
-                    first: Box::new(term),
-                    rest: terms,
-                    default: Box::new(default),
+            .then(op(',').ignore_then(piecewise_term).repeated())
+            .then_ignore(keyword("default"))
+            .then(expr)
+            .map_with_span(
+                |((term, terms), default): (
+                    (ast::Spanned<ast::Branch>, Vec<ast::Spanned<ast::Branch>>),
+                    ast::LocatedExpression,
+                ),
+                 span: types::Span| {
+                    (
+                        span,
+                        ast::Expression::Piecewise {
+                            first: Box::new(term),
+                            rest: terms,
+                            default: Box::new(default),
+                        },
+                    )
                 },
             );
 
