@@ -18,7 +18,7 @@ pub enum Token {
 }
 
 fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
-    let int = text::int(10).map(Token::Num).padded();
+    let int = text::int(10).map(Token::Num);
 
     let mkop = |c, t| just(c).to(t);
     let op = mkop('-', Token::OpMinus)
@@ -34,8 +34,7 @@ fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
 
     let ident = text::ident()
         // TODO: match for keywords here
-        .map(Token::Ident)
-        .padded();
+        .map(Token::Ident);
 
     // parenthesis have highest precedence
     let token = int.or(op).or(ctrl).or(ident);
@@ -102,7 +101,10 @@ fn main() {
     let input = std::env::args().nth(1).unwrap();
     // TODO: Use slab crate to keep track of filenames
     let tokens = lex(0, input).unwrap();
-    println!("{:#?}", tokens.iter().map(|(_, t)| t).collect::<Vec<_>>());
+    println!(
+        "{:#?}",
+        tokens.iter().map(|(s, t)| (s, t)).collect::<Vec<_>>()
+    );
     let ast = parse(0, tokens);
     println!("{:#?}", ast);
 }
@@ -140,7 +142,7 @@ mod tests {
                 s(0..6),
                 ast::Expression::BinaryExpr {
                     left: Box::new((
-                        s(0..3),
+                        s(0..2),
                         ast::Expression::UnaryExpr {
                             val: Box::new((s(1..2), num("1"))),
                             operator: ast::UnaryOperator::Negate,
