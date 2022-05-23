@@ -31,7 +31,7 @@ fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
 pub type ParseErr = Simple<Token, types::Span>;
 
 fn parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr> {
-    recursive(|expr| {
+    recursive(|expr: Recursive<Token, ast::LocatedExpression, _>| {
         let val = select! {
             Token::Num(n) => ast::Expression::Num(n),
             Token::Ident(i) => ast::Expression::Variable(i)
@@ -40,7 +40,26 @@ fn parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr> {
 
         let atom = val.or(expr.delimited_by(just(Token::Ctrl('(')), just(Token::Ctrl(')'))));
 
-        atom
+        let t_op = |o| just(Token::Op(o));
+
+        let op = t_op('*')
+            .to(ast::BinaryOperator::Multiply)
+            .or(t_op('/').to(ast::BinaryOperator::Divide));
+        let product = atom
+            .clone()
+            .then(op.then(atom).repeated())
+            .foldl(|l, (op, r)| {
+                (
+                    l.0.with_end_of(&r.0).expect("Parsing the same file"),
+                    ast::Expression::BinaryExpr {
+                        left: Box::new(l),
+                        operator: op,
+                        right: Box::new(r),
+                    },
+                )
+            });
+
+        product
     })
     .then_ignore(end())
 }
@@ -80,7 +99,7 @@ mod tests {
     const FILENO: usize = 1234;
 
     fn check_result(l: &str, r: ParseResult) {
-        assert_eq!(parse(FILENO, l.to_string()), r);
+        assert_eq!(parse(FILENO, lex(FILENO, l.to_string()).unwrap()), r);
     }
 
     fn check(l: &str, r: ast::LocatedExpression) {
