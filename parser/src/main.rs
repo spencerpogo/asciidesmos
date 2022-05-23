@@ -6,14 +6,23 @@ pub type LexErr = Simple<char, types::Span>;
 pub enum Token {
     Num(String),
     Ident(String),
-    Op(char),
+    OpMinus,
+    OpPlus,
+    OpMult,
+    OpDiv,
+    OpMod,
     Ctrl(char),
 }
 
 fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
     let int = text::int(10).map(Token::Num).padded();
 
-    let op = one_of("-+*/%").map(Token::Op);
+    let mkop = |c, t| just(c).to(t);
+    let op = mkop('-', Token::OpMinus)
+        .or(mkop('+', Token::OpPlus))
+        .or(mkop('*', Token::OpMult))
+        .or(mkop('/', Token::OpDiv))
+        .or(mkop('%', Token::OpMod));
 
     let ctrl = one_of("()[]").map(Token::Ctrl);
 
@@ -40,11 +49,10 @@ fn parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr> {
 
         let atom = val.or(expr.delimited_by(just(Token::Ctrl('(')), just(Token::Ctrl(')'))));
 
-        let t_op = |o| just(Token::Op(o));
-
-        let op = t_op('*')
+        let op = just(Token::OpMult)
             .to(ast::BinaryOperator::Multiply)
-            .or(t_op('/').to(ast::BinaryOperator::Divide));
+            .or(just(Token::OpDiv).to(ast::BinaryOperator::Divide))
+            .or(just(Token::OpMod).to(ast::BinaryOperator::Mod));
         let product = atom
             .clone()
             .then(op.then(atom).repeated())
