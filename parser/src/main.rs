@@ -2,193 +2,52 @@ use chumsky::prelude::*;
 
 pub type LexErr = Simple<char, types::Span>;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Token {
     Num(String),
+    Ident(String),
+    Op(char),
+    Ctrl(char),
 }
 
-fn lexer() -> impl Parser<char, ast::Spanned<Token>, Error = LexErr> {
-    let int = text::int(10)
-        .map_with_span(|s: String, span| (span, Token::Num(s)))
+fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
+    let int = text::int(10).map(Token::Num).padded();
+
+    let op = one_of("-+*/%").map(Token::Op);
+
+    let ctrl = one_of("()[]").map(Token::Ctrl);
+
+    let ident = text::ident()
+        // TODO: match for keywords here
+        .map(Token::Ident)
         .padded();
-    int
+
+    // parenthesis have highest precedence
+    let token = int.or(op).or(ctrl).or(ident);
+
+    token.map_with_span(|t, span| (span, t)).padded().repeated()
 }
 
-#[cfg(test)]
-macro_rules! to_binary_exprs {
-    ($e:expr) => {
-        ($e).foldl(|lhs: ast::LocatedExpression, (op, rhs)| {
-            (
-                lhs.0.with_end_of(&rhs.0).expect("Parsing the same file"),
-                ast::Expression::BinaryExpr {
-                    left: Box::new(lhs),
-                    operator: op,
-                    right: Box::new(rhs),
-                },
-            )
-        })
-    };
-}
+pub type ParseErr = Simple<Token, types::Span>;
 
-pub type ParseErr = Simple<char, types::Span>;
-
-#[cfg(test)]
-fn parser() -> impl Parser<char, ast::LocatedExpression, Error = ParseErr> {
+fn parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr> {
     recursive(|expr| {
-        let int = text::int(10)
-            .map_with_span(|s: String, span| -> ast::LocatedExpression {
-                (span, ast::Expression::Num(s))
-            })
-            .padded();
+        let val = select! {
+            Token::Num(n) => ast::Expression::Num(n),
+            Token::Ident(i) => ast::Expression::Variable(i)
+        }
+        .map_with_span(|v, s| (s, v));
 
-        let ident = text::ident()
-            .map_with_span(|s: String, span| (span, ast::Expression::Variable(s)))
-            .padded();
+        let atom = val.or(expr.delimited_by(just(Token::Ctrl('(')), just(Token::Ctrl(')'))));
 
-        // parenthesis have highest precedence
-        let atom = int
-            .or(ident)
-            .or(expr.clone().delimited_by(just('('), just(')')));
-
-        let op = |c| just(c).padded();
-
-        let unary = op('-')
-            .then(atom.clone())
-            .map_with_span(|(_, v), s| {
-                (
-                    s,
-                    ast::Expression::UnaryExpr {
-                        val: Box::new(v),
-                        operator: ast::UnaryOperator::Negate,
-                    },
-                )
-            })
-            .or(atom);
-
-        let mult_divide = to_binary_exprs!(unary.clone().then(
-            op('*')
-                .to(ast::BinaryOperator::Multiply)
-                .or(op('/').to(ast::BinaryOperator::Divide))
-                .or(op('%').to(ast::BinaryOperator::Mod))
-                .then(unary.clone())
-                .repeated(),
-        ));
-
-        let add_sub = to_binary_exprs!(mult_divide.clone().then(
-            op('+')
-                .to(ast::BinaryOperator::Add)
-                .or(op('-').to(ast::BinaryOperator::Subtract))
-                .then(mult_divide)
-                .repeated(),
-        ));
-
-        let call_inner = expr
-            .clone()
-            .then(just(',').padded().ignore_then(expr.clone()).repeated())
-            .map(|(lhs, rhs)| std::iter::once(lhs).chain(rhs).collect())
-            .or(empty().map(|_| vec![]));
-
-        let call = text::ident::<char, _>()
-            .then(
-                just('@')
-                    .to(ast::CallModifier::MapCall)
-                    .or(empty().to(ast::CallModifier::NormalCall)),
-            )
-            .then(call_inner.delimited_by(op('('), op(')')))
-            .map_with_span(
-                |((name, modifier), args): ((String, ast::CallModifier), _), s| {
-                    (
-                        s,
-                        ast::Expression::Call {
-                            modifier,
-                            func: ast::Function::Normal { name },
-                            args,
-                        },
-                    )
-                },
-            );
-
-        let list_inner = expr
-            .clone()
-            .then(just(',').padded().ignore_then(expr.clone()).repeated())
-            .map(|(lhs, rhs)| std::iter::once(lhs).chain(rhs).collect())
-            .or(empty().map(|_| vec![]));
-
-        let list = list_inner
-            .delimited_by(op('['), op(']'))
-            .map_with_span(|inner, span| (span, ast::Expression::List(inner)));
-
-        let keyword = |s| text::keyword(s).padded();
-
-        let cond_op = op('=')
-            .to(types::CompareOperator::Equal)
-            .or(keyword("<=").to(types::CompareOperator::LessThanEqual))
-            .or(keyword(">=").to(types::CompareOperator::GreaterThanEqual))
-            .or(op('<').to(types::CompareOperator::LessThan))
-            .or(op('>').to(types::CompareOperator::GreaterThan));
-
-        let cond = expr.clone().then(cond_op).then(expr.clone()).map(
-            |((l, op), r): (
-                (ast::LocatedExpression, types::CompareOperator),
-                ast::LocatedExpression,
-            )| (l, op, r),
-        );
-
-        let piecewise_term = cond
-            .then_ignore(keyword("->"))
-            .then(expr.clone())
-            .map_with_span(
-                |((cond_left, cond, cond_right), val): (
-                    (
-                        ast::LocatedExpression,
-                        types::CompareOperator,
-                        ast::LocatedExpression,
-                    ),
-                    ast::LocatedExpression,
-                ),
-                 span: types::Span| {
-                    (
-                        span,
-                        ast::Branch {
-                            cond_left,
-                            cond,
-                            cond_right,
-                            val,
-                        },
-                    )
-                },
-            );
-
-        let piecewise = keyword("where")
-            .ignore_then(piecewise_term.clone())
-            .then(op(',').ignore_then(piecewise_term).repeated())
-            .then_ignore(keyword("default"))
-            .then(expr)
-            .map_with_span(
-                |((term, terms), default): (
-                    (ast::Spanned<ast::Branch>, Vec<ast::Spanned<ast::Branch>>),
-                    ast::LocatedExpression,
-                ),
-                 span: types::Span| {
-                    (
-                        span,
-                        ast::Expression::Piecewise {
-                            first: Box::new(term),
-                            rest: terms,
-                            default: Box::new(default),
-                        },
-                    )
-                },
-            );
-
-        call.or(list).or(piecewise).or(add_sub).or(unary)
+        atom
     })
     .then_ignore(end())
 }
 
 pub type ParseResult = Result<ast::LocatedExpression, Vec<ParseErr>>;
 
-fn lex(source: types::FileID, input: String) -> Result<ast::Spanned<Token>, Vec<LexErr>> {
+fn lex(source: types::FileID, input: String) -> Result<Vec<ast::Spanned<Token>>, Vec<LexErr>> {
     let s: chumsky::Stream<'_, char, types::Span, _> = chumsky::Stream::from_iter(
         types::Span::new(source, input.len()..input.len()),
         input
@@ -199,22 +58,20 @@ fn lex(source: types::FileID, input: String) -> Result<ast::Spanned<Token>, Vec<
     lexer().parse(s)
 }
 
-#[cfg(test)]
-fn parse(source: types::FileID, input: String) -> ParseResult {
-    let s: chumsky::Stream<'_, char, types::Span, _> = chumsky::Stream::from_iter(
-        types::Span::new(source, input.len()..input.len()),
-        input
-            .chars()
-            .enumerate()
-            .map(|(i, x)| (x, types::Span::new(source, i..i + 1))),
-    );
-    parser().parse(s)
+fn parse(source: types::FileID, tokens: Vec<ast::Spanned<Token>>) -> ParseResult {
+    parser().parse(chumsky::Stream::from_iter(
+        types::Span::new(source, tokens.len()..tokens.len() + 1),
+        tokens.into_iter().map(|(s, t)| (t, s)),
+    ))
 }
 
 fn main() {
     let input = std::env::args().nth(1).unwrap();
     // TODO: Use slab crate to keep track of filenames
-    println!("{:#?}", lex(0, input));
+    let tokens = lex(0, input).unwrap();
+    println!("{:#?}", tokens.iter().map(|(_, t)| t).collect::<Vec<_>>());
+    let ast = parse(0, tokens);
+    println!("{:#?}", ast);
 }
 
 #[cfg(test)]
