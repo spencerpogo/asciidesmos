@@ -54,25 +54,53 @@ fn parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr> {
 
         let atom = val.or(expr.delimited_by(just(Token::CtrlLParen), just(Token::CtrlRParen)));
 
-        let op = just(Token::OpMult)
-            .to(ast::BinaryOperator::Multiply)
-            .or(just(Token::OpDiv).to(ast::BinaryOperator::Divide))
-            .or(just(Token::OpMod).to(ast::BinaryOperator::Mod));
-        let product = atom
-            .clone()
-            .then(op.then(atom).repeated())
-            .foldl(|l, (op, r)| {
+        let negate = just(Token::OpMinus)
+            .ignore_then(atom.clone())
+            .map_with_span(|v, s| {
                 (
-                    l.0.with_end_of(&r.0).expect("Parsing the same file"),
-                    ast::Expression::BinaryExpr {
-                        left: Box::new(l),
-                        operator: op,
-                        right: Box::new(r),
+                    s,
+                    ast::Expression::UnaryExpr {
+                        val: Box::new(v),
+                        operator: ast::UnaryOperator::Negate,
                     },
                 )
-            });
+            })
+            .or(atom);
 
-        product
+        macro_rules! binop {
+            ($prev:expr, $op:expr) => {
+                $prev
+                    .clone()
+                    .then($op.then($prev).repeated())
+                    .foldl(|l, (op, r)| {
+                        (
+                            l.0.with_end_of(&r.0).expect("Parsing the same file"),
+                            ast::Expression::BinaryExpr {
+                                left: Box::new(l),
+                                operator: op,
+                                right: Box::new(r),
+                            },
+                        )
+                    })
+            };
+        }
+
+        let product = binop!(
+            negate,
+            just(Token::OpMult)
+                .to(ast::BinaryOperator::Multiply)
+                .or(just(Token::OpDiv).to(ast::BinaryOperator::Divide))
+                .or(just(Token::OpMod).to(ast::BinaryOperator::Mod))
+        );
+
+        let sum = binop!(
+            product,
+            just(Token::OpPlus)
+                .to(ast::BinaryOperator::Add)
+                .or(just(Token::OpMinus).to(ast::BinaryOperator::Subtract))
+        );
+
+        sum
     })
     .then_ignore(end())
 }
