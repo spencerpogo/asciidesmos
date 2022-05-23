@@ -11,7 +11,10 @@ pub enum Token {
     OpMult,
     OpDiv,
     OpMod,
-    Ctrl(char),
+    CtrlLParen,
+    CtrlRParen,
+    CtrlLBrac,
+    CtrlRBrac,
 }
 
 fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
@@ -24,7 +27,10 @@ fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
         .or(mkop('/', Token::OpDiv))
         .or(mkop('%', Token::OpMod));
 
-    let ctrl = one_of("()[]").map(Token::Ctrl);
+    let ctrl = mkop('(', Token::CtrlLParen)
+        .or(mkop(')', Token::CtrlRParen))
+        .or(mkop('[', Token::CtrlLBrac))
+        .or(mkop(']', Token::CtrlRBrac));
 
     let ident = text::ident()
         // TODO: match for keywords here
@@ -47,7 +53,7 @@ fn parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr> {
         }
         .map_with_span(|v, s| (s, v));
 
-        let atom = val.or(expr.delimited_by(just(Token::Ctrl('(')), just(Token::Ctrl(')'))));
+        let atom = val.or(expr.delimited_by(just(Token::CtrlLParen), just(Token::CtrlRParen)));
 
         let op = just(Token::OpMult)
             .to(ast::BinaryOperator::Multiply)
