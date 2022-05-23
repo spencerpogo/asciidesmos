@@ -1,7 +1,20 @@
 use chumsky::prelude::*;
 
-pub type Err = Simple<char, types::Span>;
+pub type LexErr = Simple<char, types::Span>;
 
+#[derive(Clone, Debug, PartialEq)]
+pub enum Token {
+    Num(String),
+}
+
+fn lexer() -> impl Parser<char, ast::Spanned<Token>, Error = LexErr> {
+    let int = text::int(10)
+        .map_with_span(|s: String, span| (span, Token::Num(s)))
+        .padded();
+    int
+}
+
+#[cfg(test)]
 macro_rules! to_binary_exprs {
     ($e:expr) => {
         ($e).foldl(|lhs: ast::LocatedExpression, (op, rhs)| {
@@ -17,7 +30,10 @@ macro_rules! to_binary_exprs {
     };
 }
 
-fn parser() -> impl Parser<char, ast::LocatedExpression, Error = Err> {
+pub type ParseErr = Simple<char, types::Span>;
+
+#[cfg(test)]
+fn parser() -> impl Parser<char, ast::LocatedExpression, Error = ParseErr> {
     recursive(|expr| {
         let int = text::int(10)
             .map_with_span(|s: String, span| -> ast::LocatedExpression {
@@ -72,7 +88,7 @@ fn parser() -> impl Parser<char, ast::LocatedExpression, Error = Err> {
             .map(|(lhs, rhs)| std::iter::once(lhs).chain(rhs).collect())
             .or(empty().map(|_| vec![]));
 
-        let call = text::ident::<char, Err>()
+        let call = text::ident::<char, _>()
             .then(
                 just('@')
                     .to(ast::CallModifier::MapCall)
@@ -170,8 +186,20 @@ fn parser() -> impl Parser<char, ast::LocatedExpression, Error = Err> {
     .then_ignore(end())
 }
 
-pub type ParseResult = Result<ast::LocatedExpression, Vec<Err>>;
+pub type ParseResult = Result<ast::LocatedExpression, Vec<ParseErr>>;
 
+fn lex(source: types::FileID, input: String) -> Result<ast::Spanned<Token>, Vec<LexErr>> {
+    let s: chumsky::Stream<'_, char, types::Span, _> = chumsky::Stream::from_iter(
+        types::Span::new(source, input.len()..input.len()),
+        input
+            .chars()
+            .enumerate()
+            .map(|(i, x)| (x, types::Span::new(source, i..i + 1))),
+    );
+    lexer().parse(s)
+}
+
+#[cfg(test)]
 fn parse(source: types::FileID, input: String) -> ParseResult {
     let s: chumsky::Stream<'_, char, types::Span, _> = chumsky::Stream::from_iter(
         types::Span::new(source, input.len()..input.len()),
@@ -186,7 +214,7 @@ fn parse(source: types::FileID, input: String) -> ParseResult {
 fn main() {
     let input = std::env::args().nth(1).unwrap();
     // TODO: Use slab crate to keep track of filenames
-    println!("{:#?}", parse(0, input));
+    println!("{:#?}", lex(0, input));
 }
 
 #[cfg(test)]
