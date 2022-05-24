@@ -79,13 +79,18 @@ fn parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr> {
             )
         });
 
+        let list = comma_joined_exprs
+            .delimited_by(just(Token::CtrlListStart), just(Token::CtrlListEnd))
+            .map_with_span(|v, s| (s, ast::Expression::List(v)));
+
         let val = select! {
             Token::Num(n) => ast::Expression::Num(n),
             Token::Ident(i) => ast::Expression::Variable(i)
         }
         .map_with_span(|v, s| (s, v));
 
-        let atom = call
+        let atom = list
+            .or(call)
             .or(val)
             .or(expr.delimited_by(just(Token::CtrlLParen), just(Token::CtrlRParen)));
 
