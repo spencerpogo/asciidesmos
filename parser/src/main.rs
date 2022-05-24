@@ -15,6 +15,7 @@ pub enum Token {
     CtrlRParen,
     CtrlLBrac,
     CtrlRBrac,
+    CtrlComma,
 }
 
 fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
@@ -30,7 +31,8 @@ fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
     let ctrl = mkop('(', Token::CtrlLParen)
         .or(mkop(')', Token::CtrlRParen))
         .or(mkop('[', Token::CtrlLBrac))
-        .or(mkop(']', Token::CtrlRBrac));
+        .or(mkop(']', Token::CtrlRBrac))
+        .or(mkop(',', Token::CtrlComma));
 
     let ident = text::ident()
         // TODO: match for keywords here
@@ -46,13 +48,38 @@ pub type ParseErr = Simple<Token, types::Span>;
 
 fn parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr> {
     recursive(|expr: Recursive<Token, ast::LocatedExpression, _>| {
+        let call_args = expr
+            .clone()
+            .then(just(Token::CtrlComma).ignore_then(expr.clone()).repeated())
+            .map(|(first, rest)| std::iter::once(first).chain(rest).collect());
+        let call = select! {
+            Token::Ident(name) => name,
+        }
+        .then(
+            call_args
+                .or(empty().map(|_| vec![]))
+                .delimited_by(just(Token::CtrlLParen), just(Token::CtrlRParen)),
+        )
+        .map_with_span(|(func, args), s| {
+            (
+                s,
+                ast::Expression::Call {
+                    modifier: ast::CallModifier::NormalCall,
+                    func: ast::Function::Normal { name: func },
+                    args,
+                },
+            )
+        });
+
         let val = select! {
             Token::Num(n) => ast::Expression::Num(n),
             Token::Ident(i) => ast::Expression::Variable(i)
         }
         .map_with_span(|v, s| (s, v));
 
-        let atom = val.or(expr.delimited_by(just(Token::CtrlLParen), just(Token::CtrlRParen)));
+        let atom = call
+            .or(val)
+            .or(expr.delimited_by(just(Token::CtrlLParen), just(Token::CtrlRParen)));
 
         let negate = just(Token::OpMinus)
             .ignore_then(atom.clone())
