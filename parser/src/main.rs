@@ -16,6 +16,7 @@ pub enum Token {
     CtrlLBrac,
     CtrlRBrac,
     CtrlComma,
+    CtrlMap,
 }
 
 fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
@@ -32,7 +33,8 @@ fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
         .or(mkop(')', Token::CtrlRParen))
         .or(mkop('[', Token::CtrlLBrac))
         .or(mkop(']', Token::CtrlRBrac))
-        .or(mkop(',', Token::CtrlComma));
+        .or(mkop(',', Token::CtrlComma))
+        .or(mkop('@', Token::CtrlMap));
 
     let ident = text::ident()
         // TODO: match for keywords here
@@ -56,15 +58,20 @@ fn parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr> {
             Token::Ident(name) => name,
         }
         .then(
+            just(Token::CtrlMap)
+                .to(ast::CallModifier::MapCall)
+                .or(empty().to(ast::CallModifier::NormalCall)),
+        )
+        .then(
             call_args
                 .or(empty().map(|_| vec![]))
                 .delimited_by(just(Token::CtrlLParen), just(Token::CtrlRParen)),
         )
-        .map_with_span(|(func, args), s| {
+        .map_with_span(|((func, modifier), args), s| {
             (
                 s,
                 ast::Expression::Call {
-                    modifier: ast::CallModifier::NormalCall,
+                    modifier,
                     func: ast::Function::Normal { name: func },
                     args,
                 },
