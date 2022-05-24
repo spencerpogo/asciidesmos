@@ -343,7 +343,7 @@ mod tests {
             (
                 s(0..10),
                 ast::Expression::List(vec![(
-                    s(2..9),
+                    s(2..8),
                     ast::Expression::Call {
                         modifier: ast::CallModifier::NormalCall,
                         func: ast::Function::Normal {
