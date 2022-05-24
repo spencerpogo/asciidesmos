@@ -50,10 +50,11 @@ pub type ParseErr = Simple<Token, types::Span>;
 
 fn parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr> {
     recursive(|expr: Recursive<Token, ast::LocatedExpression, _>| {
-        let call_args = expr
+        let comma_joined_exprs = expr
             .clone()
             .then(just(Token::CtrlComma).ignore_then(expr.clone()).repeated())
-            .map(|(first, rest)| std::iter::once(first).chain(rest).collect());
+            .map(|(first, rest)| std::iter::once(first).chain(rest).collect())
+            .or(empty().map(|_| vec![]));
         let call = select! {
             Token::Ident(name) => name,
         }
@@ -63,8 +64,8 @@ fn parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr> {
                 .or(empty().to(ast::CallModifier::NormalCall)),
         )
         .then(
-            call_args
-                .or(empty().map(|_| vec![]))
+            comma_joined_exprs
+                .clone()
                 .delimited_by(just(Token::CtrlLParen), just(Token::CtrlRParen)),
         )
         .map_with_span(|((func, modifier), args), s| {
