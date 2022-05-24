@@ -13,8 +13,8 @@ pub enum Token {
     OpMod,
     CtrlLParen,
     CtrlRParen,
-    CtrlLBrac,
-    CtrlRBrac,
+    CtrlListStart,
+    CtrlListEnd,
     CtrlComma,
     CtrlMap,
 }
@@ -31,8 +31,8 @@ fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
 
     let ctrl = mkop('(', Token::CtrlLParen)
         .or(mkop(')', Token::CtrlRParen))
-        .or(mkop('[', Token::CtrlLBrac))
-        .or(mkop(']', Token::CtrlRBrac))
+        .or(mkop('[', Token::CtrlListStart))
+        .or(mkop(']', Token::CtrlListEnd))
         .or(mkop(',', Token::CtrlComma))
         .or(mkop('@', Token::CtrlMap));
 
