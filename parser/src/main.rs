@@ -11,37 +11,54 @@ pub enum Token {
     OpMult,
     OpDiv,
     OpMod,
+    OpCmpLt,
+    OpCmpLe,
+    OpCmpGt,
+    OpCmpGe,
+    OpCmpEq,
     CtrlLParen,
     CtrlRParen,
     CtrlListStart,
     CtrlListEnd,
     CtrlComma,
     CtrlMap,
+    CtrlThen,
+    KeywordWhere,
+    KeywordOtherwise,
 }
 
 fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
     let int = text::int(10).map(Token::Num);
 
     let mkop = |c, t| just(c).to(t);
-    let op = mkop('-', Token::OpMinus)
+    let op = just("<=")
+        .to(Token::OpCmpLe)
+        .or(mkop('>', Token::OpCmpGt))
+        .or(just(">=").to(Token::OpCmpGe))
+        .or(just("==").to(Token::OpCmpEq))
+        .or(mkop('-', Token::OpMinus))
         .or(mkop('+', Token::OpPlus))
         .or(mkop('*', Token::OpMult))
         .or(mkop('/', Token::OpDiv))
-        .or(mkop('%', Token::OpMod));
+        .or(mkop('%', Token::OpMod))
+        .or(mkop('<', Token::OpCmpLt));
 
-    let ctrl = mkop('(', Token::CtrlLParen)
+    let ctrl = just("->")
+        .to(Token::CtrlThen)
+        .or(mkop('(', Token::CtrlLParen))
         .or(mkop(')', Token::CtrlRParen))
         .or(mkop('[', Token::CtrlListStart))
         .or(mkop(']', Token::CtrlListEnd))
         .or(mkop(',', Token::CtrlComma))
         .or(mkop('@', Token::CtrlMap));
 
-    let ident = text::ident()
-        // TODO: match for keywords here
-        .map(Token::Ident);
+    let ident = text::ident().map(|i: String| match i.as_str() {
+        "where" => Token::KeywordWhere,
+        "otherwise" => Token::KeywordOtherwise,
+        _ => Token::Ident(i),
+    });
 
-    // parenthesis have highest precedence
-    let token = int.or(op).or(ctrl).or(ident);
+    let token = int.or(ctrl).or(op).or(ident);
 
     token.map_with_span(|t, span| (span, t)).padded().repeated()
 }
@@ -89,10 +106,9 @@ fn parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr> {
         }
         .map_with_span(|v, s| (s, v));
 
-        let atom = list
-            .or(call)
-            .or(val)
-            .or(expr.delimited_by(just(Token::CtrlLParen), just(Token::CtrlRParen)));
+        let atom = list.or(call).or(val).or(expr
+            .clone()
+            .delimited_by(just(Token::CtrlLParen), just(Token::CtrlRParen)));
 
         let negate = just(Token::OpMinus)
             .ignore_then(atom.clone())
@@ -105,7 +121,7 @@ fn parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr> {
                     },
                 )
             })
-            .or(atom);
+            .or(atom.clone());
 
         macro_rules! binop {
             ($prev:expr, $op:expr) => {
@@ -140,7 +156,48 @@ fn parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr> {
                 .or(just(Token::OpMinus).to(ast::BinaryOperator::Subtract))
         );
 
-        sum
+        let cond_op = just(Token::OpCmpLt)
+            .to(types::CompareOperator::LessThan)
+            .or(just(Token::OpCmpLe).to(types::CompareOperator::LessThanEqual))
+            .or(just(Token::OpCmpGt).to(types::CompareOperator::GreaterThan))
+            .or(just(Token::OpCmpGt).to(types::CompareOperator::GreaterThanEqual))
+            .or(just(Token::OpCmpEq).to(types::CompareOperator::Equal));
+        let cond = atom
+            .clone()
+            .then(cond_op)
+            .then(atom.clone())
+            .map(|((l, op), r)| (l, op, r));
+        let branch = cond
+            .then_ignore(just(Token::CtrlThen))
+            .then(atom.clone())
+            .map_with_span(|((cond_left, cond, cond_right), val), s| {
+                (
+                    s,
+                    ast::Branch {
+                        cond_left,
+                        cond,
+                        cond_right,
+                        val,
+                    },
+                )
+            });
+        let otherwise_branch = just(Token::KeywordOtherwise).ignore_then(atom);
+        let where_block = just(Token::KeywordWhere)
+            .ignore_then(branch.clone())
+            .then(just(Token::CtrlComma).ignore_then(branch).repeated())
+            .then(just(Token::CtrlComma).ignore_then(otherwise_branch))
+            .map_with_span(|((first, rest), default), s| {
+                (
+                    s,
+                    ast::Expression::Piecewise {
+                        first: Box::new(first),
+                        rest,
+                        default: Box::new(default),
+                    },
+                )
+            });
+
+        where_block.or(sum)
     })
     .then_ignore(end())
 }
@@ -360,5 +417,36 @@ mod tests {
                 )]),
             ),
         )
+    }
+
+    #[test]
+    fn piecewise() {
+        check(
+            "where a > 1 -> b , c < 2 -> d , otherwise e",
+            (
+                s(0..43),
+                ast::Expression::Piecewise {
+                    first: Box::new((
+                        s(6..16),
+                        ast::Branch {
+                            cond_left: (s(6..7), var("a")),
+                            cond: types::CompareOperator::GreaterThan,
+                            cond_right: (s(10..11), num("1")),
+                            val: (s(15..16), var("b")),
+                        },
+                    )),
+                    rest: vec![(
+                        s(19..29),
+                        ast::Branch {
+                            cond_left: (s(19..20), var("c")),
+                            cond: types::CompareOperator::LessThan,
+                            cond_right: (s(23..24), num("2")),
+                            val: (s(28..29), var("d")),
+                        },
+                    )],
+                    default: Box::new((s(42..43), var("e"))),
+                },
+            ),
+        );
     }
 }
