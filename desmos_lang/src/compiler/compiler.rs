@@ -44,14 +44,28 @@ pub fn compile_expect<'a>(
     Ok(s)
 }
 
-pub fn binop_to_latex(op: BinaryOperator) -> LatexBinaryOperator {
-    match op {
-        BinaryOperator::Add => LatexBinaryOperator::Add,
-        BinaryOperator::Subtract => LatexBinaryOperator::Subtract,
-        BinaryOperator::Multiply => LatexBinaryOperator::Multiply,
-        BinaryOperator::Divide => LatexBinaryOperator::Divide,
-        BinaryOperator::Exponent => LatexBinaryOperator::Exponent,
-        BinaryOperator::Mod => todo!(),
+pub fn binop_to_latex(lv: Latex, operator: BinaryOperator, rv: Latex) -> Latex {
+    match operator {
+        BinaryOperator::Mod => Latex::Call {
+            func: latex::Function::Normal {
+                name: "mod".to_string(),
+            },
+            is_builtin: true,
+            args: vec![lv, rv],
+        },
+        _ => Latex::BinaryExpression {
+            left: Box::new(lv),
+            operator: match operator {
+                BinaryOperator::Add => LatexBinaryOperator::Add,
+                BinaryOperator::Subtract => LatexBinaryOperator::Subtract,
+                BinaryOperator::Multiply => LatexBinaryOperator::Multiply,
+                BinaryOperator::Divide => LatexBinaryOperator::Divide,
+                BinaryOperator::Exponent => LatexBinaryOperator::Exponent,
+                // implemented at call site
+                BinaryOperator::Mod => unreachable!(),
+            },
+            right: Box::new(rv),
+        },
     }
 }
 
@@ -100,23 +114,7 @@ pub fn compile_expr<'a>(
             let span2 = span.clone();
             let lv = compile_expect(ctx, span, *left, ValType::Number)?;
             let rv = compile_expect(ctx, span2, *right, ValType::Number)?;
-            Ok((
-                match operator {
-                    BinaryOperator::Mod => Latex::Call {
-                        func: latex::Function::Normal {
-                            name: "mod".to_string(),
-                        },
-                        is_builtin: true,
-                        args: vec![lv, rv],
-                    },
-                    _ => Latex::BinaryExpression {
-                        left: Box::new(lv),
-                        operator: binop_to_latex(operator),
-                        right: Box::new(rv),
-                    },
-                },
-                ValType::Number,
-            ))
+            Ok((binop_to_latex(lv, operator, rv), ValType::Number))
         }
         Expression::UnaryExpr {
             val: v,
