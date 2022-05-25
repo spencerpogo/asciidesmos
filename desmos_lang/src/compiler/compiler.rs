@@ -3,8 +3,7 @@ use super::{
     types::{Context, FunctionArgs, FunctionSignature},
 };
 use ast::{
-    BinaryOperator, Branch, Expression, LocatedExpression, LocatedStatement, Statement,
-    UnaryOperator,
+    BinaryOperator, Expression, LocatedExpression, LocatedStatement, Statement, UnaryOperator,
 };
 use latex::{
     self, BinaryOperator as LatexBinaryOperator, Cond, Latex, UnaryOperator as LatexUnaryOperator,
@@ -64,7 +63,7 @@ pub fn unop_to_latex(op: UnaryOperator) -> LatexUnaryOperator {
 
 pub fn branch_to_cond<'a>(
     ctx: &mut Context,
-    (spn, branch): ast::Spanned<ast::Branch>,
+    (_spn, branch): ast::Spanned<ast::Branch>,
 ) -> Result<Cond, CompileError> {
     let leftcondspan = branch.cond_left.0.clone();
     Ok(Cond {
@@ -230,7 +229,7 @@ pub fn compile_stmt<'a>(
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use ast::{self, FunctionDefinition};
+    use ast::{self, Branch, FunctionDefinition};
     use types::CompareOperator;
 
     pub fn new_ctx<'a>() -> Context<'a> {
@@ -687,12 +686,15 @@ pub mod tests {
             compile_with_ctx(
                 &mut ctx,
                 Expression::Piecewise {
-                    first: Box::new(Branch {
-                        cond_left: (spn(), Expression::Variable("a".to_string())),
-                        cond: CompareOperator::Equal,
-                        cond_right: (spn(), Expression::Num("1".to_string())),
-                        val: (spn(), Expression::Num("2".to_string())),
-                    }),
+                    first: Box::new((
+                        spn(),
+                        Branch {
+                            cond_left: (spn(), Expression::Variable("a".to_string())),
+                            cond: CompareOperator::Equal,
+                            cond_right: (spn(), Expression::Num("1".to_string())),
+                            val: (spn(), Expression::Num("2".to_string())),
+                        }
+                    )),
                     rest: vec![],
                     default: Box::new((spn(), Expression::Num("3".to_string()))),
                 },
@@ -719,31 +721,43 @@ pub mod tests {
             compile_with_ctx(
                 &mut ctx,
                 Expression::Piecewise {
-                    first: Box::new(Branch {
-                        cond_left: (spn(), Expression::Variable("a".to_string())),
-                        cond: CompareOperator::GreaterThanEqual,
-                        cond_right: (spn(), Expression::Num("1".to_string())),
-                        val: (spn(), Expression::Num("2".to_string()))
-                    }),
-                    rest: vec![
+                    first: Box::new((
+                        spn(),
                         Branch {
                             cond_left: (spn(), Expression::Variable("a".to_string())),
-                            cond: CompareOperator::LessThanEqual,
-                            cond_right: (spn(), Expression::Num("3".to_string())),
-                            val: (spn(), Expression::Num("4".to_string()))
-                        },
-                        Branch {
-                            cond_left: (spn(), Expression::Variable("a".to_string())),
-                            cond: CompareOperator::LessThan,
-                            cond_right: (spn(), Expression::Num("5".to_string())),
-                            val: (spn(), Expression::Num("6".to_string()))
-                        },
-                        Branch {
-                            cond_left: (spn(), Expression::Variable("a".to_string())),
-                            cond: CompareOperator::GreaterThan,
-                            cond_right: (spn(), Expression::Num("7".to_string())),
-                            val: (spn(), Expression::Num("8".to_string()))
+                            cond: CompareOperator::GreaterThanEqual,
+                            cond_right: (spn(), Expression::Num("1".to_string())),
+                            val: (spn(), Expression::Num("2".to_string()))
                         }
+                    )),
+                    rest: vec![
+                        (
+                            spn(),
+                            Branch {
+                                cond_left: (spn(), Expression::Variable("a".to_string())),
+                                cond: CompareOperator::LessThanEqual,
+                                cond_right: (spn(), Expression::Num("3".to_string())),
+                                val: (spn(), Expression::Num("4".to_string()))
+                            }
+                        ),
+                        (
+                            spn(),
+                            Branch {
+                                cond_left: (spn(), Expression::Variable("a".to_string())),
+                                cond: CompareOperator::LessThan,
+                                cond_right: (spn(), Expression::Num("5".to_string())),
+                                val: (spn(), Expression::Num("6".to_string()))
+                            }
+                        ),
+                        (
+                            spn(),
+                            Branch {
+                                cond_left: (spn(), Expression::Variable("a".to_string())),
+                                cond: CompareOperator::GreaterThan,
+                                cond_right: (spn(), Expression::Num("7".to_string())),
+                                val: (spn(), Expression::Num("8".to_string()))
+                            }
+                        )
                     ],
                     default: Box::new((spn(), Expression::Num("9".to_string())))
                 }
