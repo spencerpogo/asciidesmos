@@ -31,9 +31,10 @@ fn try_eval(inp: &str, flags: Flags) -> Result<String, EvalError> {
     if flags.ast {
         eprintln!("{:#?}", ast);
     }
+    let mut ctx = Context::new();
     let ir = ast
         .into_iter()
-        .map(|s| compile_stmt(&mut Context::new(), s))
+        .map(|s| compile_stmt(&mut ctx, s))
         .collect::<Result<Vec<_>, _>>()?;
     if flags.ir {
         eprintln!("{:#?}", ir);
