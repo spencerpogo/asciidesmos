@@ -183,10 +183,7 @@ pub fn compile_expr<'a>(
     }
 }
 
-pub fn compile_stmt<'a>(
-    ctx: &mut Context<'a>,
-    expr: LocatedStatement,
-) -> Result<Latex, CompileError> {
+pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> Result<Latex, CompileError> {
     let s = expr.0;
 
     match expr.1 {
@@ -222,6 +219,20 @@ pub fn compile_stmt<'a>(
                 args: fdef.args.iter().map(|a| a.0.to_string()).collect(),
                 body: Box::new(body),
             })
+        }
+        Statement::VarDef(name, val) => {
+            if ctx.variables.contains_key(name.as_str()) {
+                return Err(CompileError {
+                    kind: CompileErrorKind::DuplicateVariable(name),
+                    span: s,
+                });
+            }
+            let (val_latex, t) = compile_expr(ctx, val)?;
+            ctx.variables.insert(name.as_str(), t);
+            Ok(Latex::Assignment(
+                Box::new(Latex::Variable(name)),
+                Box::new(val_latex),
+            ))
         }
     }
 }

@@ -16,13 +16,13 @@ pub struct FunctionSignature {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct Context<'a> {
-    pub variables: HashMap<&'a str, ValType>,
+pub struct Context {
+    pub variables: HashMap<String, ValType>,
     pub locals: HashMap<String, ValType>,
     pub defined_functions: HashMap<String, Rc<FunctionSignature>>,
 }
 
-impl Context<'_> {
+impl Context {
     pub fn new() -> Self {
         Self {
             variables: HashMap::new(),
@@ -32,7 +32,7 @@ impl Context<'_> {
     }
 }
 
-impl Default for Context<'_> {
+impl Default for Context {
     fn default() -> Self {
         Self::new()
     }

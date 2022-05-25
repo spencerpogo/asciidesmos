@@ -7,6 +7,7 @@ pub enum CompileErrorKind {
     WrongArgCount { got: ArgCount, expected: ArgCount },
     TypeMismatch { got: ValType, expected: ValType },
     UndefinedVariable(String),
+    DuplicateVariable(String),
     ExpectedFunction,
     NoNestedList,
 }
@@ -38,6 +39,10 @@ impl CompileError {
             }
             CompileErrorKind::UndefinedVariable(var) => {
                 format!("Undefined variable '{}'", var)
+            }
+            CompileErrorKind::DuplicateVariable(name) => {
+                // todo: span of prev definition
+                format!("Variable '{}' is already defined", name)
             }
             CompileErrorKind::ExpectedFunction => "Expected a function".to_string(),
             CompileErrorKind::NoNestedList => {
