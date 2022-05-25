@@ -7,6 +7,7 @@ pub enum BinaryOperator {
     Multiply,
     Divide,
     Mod,
+    Exponent,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]

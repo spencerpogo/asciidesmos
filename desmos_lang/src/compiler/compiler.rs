@@ -50,7 +50,8 @@ pub fn binop_to_latex(op: BinaryOperator) -> LatexBinaryOperator {
         BinaryOperator::Subtract => LatexBinaryOperator::Subtract,
         BinaryOperator::Multiply => LatexBinaryOperator::Multiply,
         BinaryOperator::Divide => LatexBinaryOperator::Divide,
-        BinaryOperator::Mod => unreachable!(),
+        BinaryOperator::Exponent => LatexBinaryOperator::Exponent,
+        BinaryOperator::Mod => todo!(),
     }
 }
 

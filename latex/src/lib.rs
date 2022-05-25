@@ -6,6 +6,7 @@ pub enum BinaryOperator {
     Subtract,
     Multiply,
     Divide,
+    Exponent,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -105,6 +106,7 @@ pub fn binaryoperator_to_str(left: Latex, operator: BinaryOperator, right: Latex
             _ => format!("{}{}", ls, rs),
         },
         BinaryOperator::Divide => format!("\\frac{{{}}}{{{}}}", ls, rs),
+        BinaryOperator::Exponent => format!("{}^{{{}}}", ls, rs),
     }
 }
 
