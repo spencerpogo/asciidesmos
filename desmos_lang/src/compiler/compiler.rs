@@ -45,27 +45,25 @@ pub fn compile_expect<'a>(
 }
 
 pub fn binop_to_latex(lv: Latex, operator: BinaryOperator, rv: Latex) -> Latex {
-    match operator {
-        BinaryOperator::Mod => Latex::Call {
-            func: latex::Function::Normal {
-                name: "mod".to_string(),
-            },
-            is_builtin: true,
-            args: vec![lv, rv],
+    Latex::BinaryExpression {
+        operator: match operator {
+            BinaryOperator::Add => LatexBinaryOperator::Add,
+            BinaryOperator::Subtract => LatexBinaryOperator::Subtract,
+            BinaryOperator::Multiply => LatexBinaryOperator::Multiply,
+            BinaryOperator::Divide => LatexBinaryOperator::Divide,
+            BinaryOperator::Exponent => LatexBinaryOperator::Exponent,
+            BinaryOperator::Mod => {
+                return Latex::Call {
+                    func: latex::Function::Normal {
+                        name: "mod".to_string(),
+                    },
+                    is_builtin: true,
+                    args: vec![lv, rv],
+                }
+            }
         },
-        _ => Latex::BinaryExpression {
-            left: Box::new(lv),
-            operator: match operator {
-                BinaryOperator::Add => LatexBinaryOperator::Add,
-                BinaryOperator::Subtract => LatexBinaryOperator::Subtract,
-                BinaryOperator::Multiply => LatexBinaryOperator::Multiply,
-                BinaryOperator::Divide => LatexBinaryOperator::Divide,
-                BinaryOperator::Exponent => LatexBinaryOperator::Exponent,
-                // implemented at call site
-                BinaryOperator::Mod => unreachable!(),
-            },
-            right: Box::new(rv),
-        },
+        left: Box::new(lv),
+        right: Box::new(rv),
     }
 }
 
