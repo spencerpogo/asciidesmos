@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 desmos_lang = { path = "../desmos_lang" }
+parser = { path = "../parser" }
 wasm-bindgen = "0.2.80"
 latex = { path = "../latex" }
 

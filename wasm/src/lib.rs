@@ -1,7 +1,4 @@
-use desmos_lang::{
-    compiler::{compile_stmt, error::CompileError, Context},
-    parser::parser::{parse, ParseError},
-};
+use desmos_lang::compiler::{compile_stmt, error::CompileError, Context};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -17,29 +14,39 @@ pub struct EvalResult {
 }
 
 #[derive(Debug)]
-pub enum EvalError<'a> {
-    ParseError(ParseError),
-    CompileError(CompileError<'a>),
+pub enum EvalError {
+    ParseErrors(parser::LexParseErrors),
+    CompileError(CompileError),
 }
 
-impl From<ParseError> for EvalError<'_> {
-    fn from(err: ParseError) -> Self {
-        Self::ParseError(err)
+impl From<parser::LexParseErrors> for EvalError {
+    fn from(errs: parser::LexParseErrors) -> Self {
+        Self::ParseErrors(errs)
     }
 }
 
-impl<'a> From<CompileError<'a>> for EvalError<'a> {
-    fn from(err: CompileError<'a>) -> Self {
+impl From<CompileError> for EvalError {
+    fn from(err: CompileError) -> Self {
         Self::CompileError(err)
     }
 }
 
-fn eval(inp: &str) -> Result<EvalResult, EvalError<'_>> {
-    let ast = parse(inp)?;
+fn eval(inp: &str) -> Result<EvalResult, EvalError> {
+    let ast = parser::lex_and_parse(0, inp.to_string())?;
+    let mut ctx = Context::new();
+    // saving in variable avoids a clone
     let ast_str = format!("{:#?}", ast);
-    let ir = compile_stmt(&mut Context::new(), ast)?;
+    let ir = ast
+        .clone()
+        .into_iter()
+        .map(|s| compile_stmt(&mut ctx, s))
+        .collect::<Result<Vec<_>, _>>()?;
     let ir_str = format!("{:#?}", ir);
-    let output = latex::latex_to_str(ir);
+    let output = ir
+        .into_iter()
+        .map(|l| latex::latex_to_str(l))
+        .collect::<Vec<String>>()
+        .join("\n");
     Ok(EvalResult {
         ast: ast_str,
         ir: ir_str,
@@ -56,7 +63,7 @@ pub fn try_eval(inp: &str) -> EvalResult {
             ast: "".to_string(),
             ir: "".to_string(),
             output: match e {
-                EvalError::ParseError(p) => format!("Parse error: {}", p),
+                EvalError::ParseErrors(p) => format!("Parse error: {:#?}", p),
                 EvalError::CompileError(c) => format!("Compile error: {}", c),
             },
         },
