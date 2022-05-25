@@ -277,6 +277,8 @@ pub mod tests {
         assert_eq!(comp_with_var(v, vtype, exp), Ok(r));
     }
 
+    // generates a fake span to satisfy the type-checker as proper spans aren't
+    //  important for most tests
     #[inline]
     pub fn spn<'a>() -> types::Span {
         types::Span::new(1234, 0..0)
