@@ -302,7 +302,7 @@ mod tests {
     #[test]
     fn basic_math() {
         check(
-            "-1 + 2",
+            "-1 + 2;",
             (
                 s(0..6),
                 ast::Expression::BinaryExpr {
@@ -323,7 +323,7 @@ mod tests {
     #[test]
     fn precedence() {
         check(
-            "1*2 - 3/4 + 5%6",
+            "1*2 - 3/4 + 5%6;",
             (
                 s(0..15),
                 ast::Expression::BinaryExpr {
@@ -365,14 +365,14 @@ mod tests {
 
     #[test]
     fn variable() {
-        check("a", (s(0..1), var("a")));
-        check("_1", (s(0..2), var("_1")));
+        check("a;", (s(0..1), var("a")));
+        check("_1;", (s(0..2), var("_1")));
     }
 
     #[test]
     fn call() {
         check(
-            "_a1(1+2, 3*4)",
+            "_a1(1+2, 3*4);",
             (
                 s(0..13),
                 ast::Expression::Call {
@@ -406,7 +406,7 @@ mod tests {
     #[test]
     fn mapcall() {
         check(
-            "a@( b(1),2 )",
+            "a@( b(1),2 );",
             (
                 s(0..12),
                 ast::Expression::Call {
@@ -435,14 +435,14 @@ mod tests {
     #[test]
     fn list() {
         check(
-            "[ 1 , 2 ]",
+            "[ 1 , 2 ];",
             (
                 s(0..9),
                 ast::Expression::List(vec![(s(2..3), num("1")), (s(6..7), num("2"))]),
             ),
         );
         check(
-            "[ a( 1 ) ]",
+            "[ a( 1 ) ];",
             (
                 s(0..10),
                 ast::Expression::List(vec![(
@@ -462,7 +462,7 @@ mod tests {
     #[test]
     fn piecewise() {
         check(
-            "where a > 1 -> b , c < 2 -> d , otherwise e",
+            "where a > 1 -> b , c < 2 -> d , otherwise e;",
             (
                 s(0..43),
                 ast::Expression::Piecewise {
