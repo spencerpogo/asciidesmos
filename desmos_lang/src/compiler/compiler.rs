@@ -806,4 +806,33 @@ pub mod tests {
             }),
         );
     }
+
+    #[test]
+    fn var_assign() {
+        let mut ctx = new_ctx();
+        assert_eq!(
+            compile_with_ctx(&mut ctx, ast::Expression::Variable("test".to_string())),
+            Err(CompileError {
+                kind: CompileErrorKind::UndefinedVariable("test".to_string()),
+                span: spn(),
+            })
+        );
+        assert_eq!(
+            compile_stmt_with_ctx(
+                &mut ctx,
+                ast::Statement::VarDef(
+                    "test".to_string(),
+                    (spn(), ast::Expression::Num("1".to_string()))
+                )
+            ),
+            Ok(Latex::Assignment(
+                Box::new(Latex::Variable("test".to_string())),
+                Box::new(Latex::Num("1".to_string()))
+            ))
+        );
+        assert_eq!(
+            compile_with_ctx(&mut ctx, ast::Expression::Variable("test".to_string())),
+            Ok(Latex::Variable("test".to_string()))
+        );
+    }
 }
