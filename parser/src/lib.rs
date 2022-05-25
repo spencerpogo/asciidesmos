@@ -16,6 +16,7 @@ pub enum Token {
     OpCmpGt,
     OpCmpGe,
     OpCmpEq,
+    OpEq,
     CtrlLParen,
     CtrlRParen,
     CtrlListStart,
@@ -42,7 +43,8 @@ fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
         .or(mkop('*', Token::OpMult))
         .or(mkop('/', Token::OpDiv))
         .or(mkop('%', Token::OpMod))
-        .or(mkop('<', Token::OpCmpLt));
+        .or(mkop('<', Token::OpCmpLt))
+        .or(mkop('=', Token::OpEq));
 
     let ctrl = just("->")
         .to(Token::CtrlThen)
@@ -67,7 +69,7 @@ fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
 
 pub type ParseErr = Simple<Token, types::Span>;
 
-fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr> {
+fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr> + Clone {
     recursive(|expr: Recursive<Token, ast::LocatedExpression, _>| {
         let comma_joined_exprs = expr
             .clone()
@@ -204,9 +206,19 @@ fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr>
 }
 
 fn statement_parser() -> impl Parser<Token, Vec<ast::Spanned<ast::Statement>>, Error = ParseErr> {
-    let expr = expr_parser().map(|(s, e)| (s, ast::Statement::Expression(e)));
+    let expr = expr_parser();
+    let expr_stmt = expr
+        .clone()
+        .map(|(s, e)| (s, ast::Statement::Expression(e)));
 
-    let line = expr.then_ignore(just(Token::CtrlSemi));
+    let declaration = select! {
+        Token::Ident(i) => i,
+    }
+    .then_ignore(just(Token::OpEq))
+    .then(expr)
+    .map_with_span(|(name, val), s| (s, ast::Statement::VarDef(name, val)));
+
+    let line = declaration.or(expr_stmt).then_ignore(just(Token::CtrlSemi));
 
     line.repeated().collect().then_ignore(end())
 }
