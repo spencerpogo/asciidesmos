@@ -31,11 +31,18 @@ fn try_eval(inp: &str, flags: Flags) -> Result<String, EvalError> {
     if flags.ast {
         eprintln!("{:#?}", ast);
     }
-    let ir = compile_stmt(&mut Context::new(), ast)?;
+    let ir = ast
+        .into_iter()
+        .map(|s| compile_stmt(&mut Context::new(), s))
+        .collect::<Result<Vec<_>, _>>()?;
     if flags.ir {
         eprintln!("{:#?}", ir);
     }
-    let r = latex::latex_to_str(ir);
+    let r = ir
+        .into_iter()
+        .map(|l| latex::latex_to_str(l))
+        .collect::<Vec<_>>()
+        .join("\n");
     Ok(r)
 }
 

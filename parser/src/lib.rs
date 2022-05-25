@@ -23,6 +23,7 @@ pub enum Token {
     CtrlComma,
     CtrlMap,
     CtrlThen,
+    CtrlSemi,
     KeywordWhere,
     KeywordOtherwise,
 }
@@ -50,7 +51,8 @@ fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
         .or(mkop('[', Token::CtrlListStart))
         .or(mkop(']', Token::CtrlListEnd))
         .or(mkop(',', Token::CtrlComma))
-        .or(mkop('@', Token::CtrlMap));
+        .or(mkop('@', Token::CtrlMap))
+        .or(mkop(';', Token::CtrlSemi));
 
     let ident = text::ident().map(|i: String| match i.as_str() {
         "where" => Token::KeywordWhere,
@@ -65,7 +67,7 @@ fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
 
 pub type ParseErr = Simple<Token, types::Span>;
 
-fn parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr> {
+fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr> {
     recursive(|expr: Recursive<Token, ast::LocatedExpression, _>| {
         let comma_joined_exprs = expr
             .clone()
@@ -199,13 +201,21 @@ fn parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr> {
 
         where_block.or(sum)
     })
-    .then_ignore(end())
+}
+
+fn statement_parser() -> impl Parser<Token, Vec<ast::Spanned<ast::Statement>>, Error = ParseErr> {
+    let expr = expr_parser().map(|(s, e)| (s, ast::Statement::Expression(e)));
+
+    let line = expr.then_ignore(just(Token::CtrlSemi));
+
+    line.repeated().collect().then_ignore(end())
 }
 
 pub type LexErrors = Vec<LexErr>;
 pub type LexResult = Result<Vec<ast::Spanned<Token>>, LexErrors>;
 pub type ParseErrors = Vec<ParseErr>;
-pub type ParseResult = Result<ast::Spanned<ast::Statement>, ParseErrors>;
+pub type ExprParseResult = Result<ast::Spanned<ast::Statement>, ParseErrors>;
+pub type ParseResult = Result<Vec<ast::Spanned<ast::Statement>>, ParseErrors>;
 
 pub fn lex(source: types::FileID, input: String) -> LexResult {
     let s: chumsky::Stream<'_, char, types::Span, _> = chumsky::Stream::from_iter(
@@ -219,11 +229,10 @@ pub fn lex(source: types::FileID, input: String) -> LexResult {
 }
 
 pub fn parse(source: types::FileID, tokens: Vec<ast::Spanned<Token>>) -> ParseResult {
-    let (spn, expr) = parser().parse(chumsky::Stream::from_iter(
+    statement_parser().parse(chumsky::Stream::from_iter(
         types::Span::new(source, tokens.len()..tokens.len() + 1),
         tokens.into_iter().map(|(s, t)| (t, s)),
-    ))?;
-    Ok((spn, ast::Statement::Expression(expr)))
+    ))
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -244,7 +253,7 @@ impl From<ParseErrors> for LexParseErrors {
     }
 }
 
-pub type LexParseResult = Result<ast::Spanned<ast::Statement>, LexParseErrors>;
+pub type LexParseResult = Result<Vec<ast::Spanned<ast::Statement>>, LexParseErrors>;
 
 pub fn lex_and_parse(source: types::FileID, input: String) -> LexParseResult {
     let tokens = lex(source, input)?;
@@ -263,7 +272,7 @@ mod tests {
 
     fn check(l: &str, expr: ast::LocatedExpression) {
         let (spn, expr) = expr;
-        check_result(l, Ok((spn, ast::Statement::Expression(expr))));
+        check_result(l, Ok(vec![(spn, ast::Statement::Expression(expr))]));
     }
 
     fn s(r: std::ops::Range<usize>) -> types::Span {
