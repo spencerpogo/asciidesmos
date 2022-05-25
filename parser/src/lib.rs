@@ -202,9 +202,12 @@ fn parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr> {
     .then_ignore(end())
 }
 
-pub type ParseResult = Result<ast::LocatedExpression, Vec<ParseErr>>;
+pub type LexErrors = Vec<LexErr>;
+pub type LexResult = Result<Vec<ast::Spanned<Token>>, LexErrors>;
+pub type ParseErrors = Vec<ParseErr>;
+pub type ParseResult = Result<ast::Spanned<ast::Statement>, ParseErrors>;
 
-fn lex(source: types::FileID, input: String) -> Result<Vec<ast::Spanned<Token>>, Vec<LexErr>> {
+pub fn lex(source: types::FileID, input: String) -> LexResult {
     let s: chumsky::Stream<'_, char, types::Span, _> = chumsky::Stream::from_iter(
         types::Span::new(source, input.len()..input.len()),
         input
@@ -215,23 +218,38 @@ fn lex(source: types::FileID, input: String) -> Result<Vec<ast::Spanned<Token>>,
     lexer().parse(s)
 }
 
-fn parse(source: types::FileID, tokens: Vec<ast::Spanned<Token>>) -> ParseResult {
-    parser().parse(chumsky::Stream::from_iter(
+pub fn parse(source: types::FileID, tokens: Vec<ast::Spanned<Token>>) -> ParseResult {
+    let (spn, expr) = parser().parse(chumsky::Stream::from_iter(
         types::Span::new(source, tokens.len()..tokens.len() + 1),
         tokens.into_iter().map(|(s, t)| (t, s)),
-    ))
+    ))?;
+    Ok((spn, ast::Statement::Expression(expr)))
 }
 
-fn main() {
-    let input = std::env::args().nth(1).unwrap();
-    // TODO: Use slab crate to keep track of filenames
-    let tokens = lex(0, input).unwrap();
-    println!(
-        "{:#?}",
-        tokens.iter().map(|(s, t)| (s, t)).collect::<Vec<_>>()
-    );
-    let ast = parse(0, tokens);
-    println!("{:#?}", ast);
+#[derive(Clone, Debug, PartialEq)]
+pub enum LexParseErrors {
+    LexErrors(LexErrors),
+    ParseErrors(ParseErrors),
+}
+
+impl From<LexErrors> for LexParseErrors {
+    fn from(err: LexErrors) -> Self {
+        Self::LexErrors(err)
+    }
+}
+
+impl From<ParseErrors> for LexParseErrors {
+    fn from(err: ParseErrors) -> Self {
+        Self::ParseErrors(err)
+    }
+}
+
+pub type LexParseResult = Result<ast::Spanned<ast::Statement>, LexParseErrors>;
+
+pub fn lex_and_parse(source: types::FileID, input: String) -> LexParseResult {
+    let tokens = lex(source, input)?;
+    let r = parse(source, tokens)?;
+    Ok(r)
 }
 
 #[cfg(test)]
@@ -239,12 +257,13 @@ mod tests {
     use super::*;
     const FILENO: usize = 1234;
 
-    fn check_result(l: &str, r: ParseResult) {
-        assert_eq!(parse(FILENO, lex(FILENO, l.to_string()).unwrap()), r);
+    fn check_result(l: &str, r: LexParseResult) {
+        assert_eq!(lex_and_parse(FILENO, l.to_string()), r);
     }
 
-    fn check(l: &str, r: ast::LocatedExpression) {
-        check_result(l, Ok(r));
+    fn check(l: &str, expr: ast::LocatedExpression) {
+        let (spn, expr) = expr;
+        check_result(l, Ok((spn, ast::Statement::Expression(expr))));
     }
 
     fn s(r: std::ops::Range<usize>) -> types::Span {
