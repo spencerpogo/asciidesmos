@@ -228,7 +228,7 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> Result<Latex, 
                 });
             }
             let (val_latex, t) = compile_expr(ctx, val)?;
-            ctx.variables.insert(name.as_str(), t);
+            ctx.variables.insert(name.clone(), t);
             Ok(Latex::Assignment(
                 Box::new(Latex::Variable(name)),
                 Box::new(val_latex),
@@ -243,7 +243,7 @@ pub mod tests {
     use ast::{self, Branch, FunctionDefinition};
     use types::CompareOperator;
 
-    pub fn new_ctx<'a>() -> Context<'a> {
+    pub fn new_ctx() -> Context {
         Context::new()
     }
 
@@ -251,7 +251,7 @@ pub mod tests {
         compile_with_ctx(&mut new_ctx(), exp)
     }
 
-    pub fn compile_with_ctx<'a>(ctx: &mut Context, exp: Expression) -> Result<Latex, CompileError> {
+    pub fn compile_with_ctx(ctx: &mut Context, exp: Expression) -> Result<Latex, CompileError> {
         Ok(compile_expr(ctx, (spn(), exp))?.0)
     }
 
@@ -259,8 +259,8 @@ pub mod tests {
         compile_stmt_with_ctx(&mut new_ctx(), stmt)
     }
 
-    pub fn compile_stmt_with_ctx<'a>(
-        ctx: &mut Context<'a>,
+    pub fn compile_stmt_with_ctx(
+        ctx: &mut Context,
         stmt: Statement,
     ) -> Result<Latex, CompileError> {
         super::compile_stmt(ctx, (spn(), stmt))
@@ -280,7 +280,7 @@ pub mod tests {
         exp: Expression,
     ) -> Result<Latex, CompileError> {
         let mut ctx = new_ctx();
-        ctx.variables.insert(v, vtype);
+        ctx.variables.insert(v.to_string(), vtype);
         compile_with_ctx(&mut ctx, exp)
     }
 
@@ -693,7 +693,7 @@ pub mod tests {
     #[test]
     fn piecewise_single() {
         let mut ctx = new_ctx();
-        ctx.variables.insert("a", ValType::Number);
+        ctx.variables.insert("a".to_string(), ValType::Number);
         // input taken from parser test output
         assert_eq!(
             compile_with_ctx(
@@ -728,7 +728,7 @@ pub mod tests {
     #[test]
     fn piecewise_multi() {
         let mut ctx = new_ctx();
-        ctx.variables.insert("a", ValType::Number);
+        ctx.variables.insert("a".to_string(), ValType::Number);
         // input taken from parser test output
         assert_eq!(
             compile_with_ctx(
