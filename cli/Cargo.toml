@@ -8,6 +8,7 @@ edition = "2018"
 clap = "2.33.3"
 desmos_lang = { path = "../desmos_lang" }
 latex = { path = "../latex" }
+parser = { path = "../parser" }
 
 [[bin]]
 name = "desmosc"

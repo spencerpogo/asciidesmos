@@ -126,6 +126,7 @@ dependencies = [
  "clap",
  "desmos_lang",
  "latex",
+ "parser",
 ]
 
 [[package]]

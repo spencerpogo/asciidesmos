@@ -1,25 +1,22 @@
 use clap::{App, Arg};
-use desmos_lang::{
-    compiler::{compile_stmt, error::CompileError, Context},
-    parser::parser::{parse, ParseError},
-};
+use desmos_lang::compiler::{compile_stmt, error::CompileError, Context};
 use std::fs::File;
 use std::io::prelude::*;
 
 #[derive(Debug)]
-pub enum EvalError<'a> {
-    ParseError(ParseError),
-    CompileError(CompileError<'a>),
+pub enum EvalError {
+    ParseErrors(parser::LexParseErrors),
+    CompileError(CompileError),
 }
 
-impl From<ParseError> for EvalError<'_> {
-    fn from(err: ParseError) -> Self {
-        Self::ParseError(err)
+impl From<parser::LexParseErrors> for EvalError {
+    fn from(errs: parser::LexParseErrors) -> Self {
+        Self::ParseErrors(errs)
     }
 }
 
-impl<'a> From<CompileError<'a>> for EvalError<'a> {
-    fn from(err: CompileError<'a>) -> Self {
+impl From<CompileError> for EvalError {
+    fn from(err: CompileError) -> Self {
         Self::CompileError(err)
     }
 }
@@ -29,8 +26,8 @@ struct Flags {
     ir: bool,
 }
 
-fn try_eval(inp: &str, flags: Flags) -> Result<String, EvalError<'_>> {
-    let ast = parse(inp)?;
+fn try_eval(inp: &str, flags: Flags) -> Result<String, EvalError> {
+    let ast = parser::lex_and_parse(0, inp.to_string())?;
     if flags.ast {
         eprintln!("{:#?}", ast);
     }
@@ -50,7 +47,10 @@ fn process(inp: &str, flags: Flags) -> i32 {
         }
         Err(e) => {
             match e {
-                EvalError::ParseError(p) => eprintln!("{}", p),
+                EvalError::ParseErrors(p) => match p {
+                    parser::LexParseErrors::LexErrors(errs) => eprintln!("{:#?}", errs),
+                    parser::LexParseErrors::ParseErrors(errs) => eprintln!("{:#?}", errs),
+                },
                 EvalError::CompileError(c) => eprintln!("{}", c),
             };
             1
