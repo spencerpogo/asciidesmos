@@ -8,7 +8,6 @@ use ast::{
 use latex::{
     self, BinaryOperator as LatexBinaryOperator, Cond, Latex, UnaryOperator as LatexUnaryOperator,
 };
-use std::rc::Rc;
 use types::ValType;
 
 pub fn resolve_variable<'a>(ctx: &'a mut Context, var: String) -> Option<&'a ValType> {
@@ -205,7 +204,7 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> Result<Latex, 
             // Add function to context
             ctx.defined_functions.insert(
                 fdef.name.clone(),
-                Rc::new(FunctionSignature {
+                std::rc::Rc::new(FunctionSignature {
                     args: FunctionArgs::Static(fdef.args.iter().map(|a| a.1).collect()),
                     ret,
                 }),
@@ -232,6 +231,32 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> Result<Latex, 
             ))
         }
     }
+}
+
+pub fn stmts_to_graph(
+    ctx: &mut Context,
+    stmts: Vec<ast::Spanned<ast::Statement>>,
+) -> Result<graph::CalcState, CompileError> {
+    let latex_exprs = stmts
+        .into_iter()
+        .map(|s| compile_stmt(ctx, s))
+        .collect::<Result<Vec<_>, CompileError>>()?;
+    Ok(graph::CalcState {
+        expressions: graph::Expressions {
+            list: latex_exprs
+                .into_iter()
+                .enumerate()
+                .map(|(i, l)| graph::Expression {
+                    id: i.to_string(),
+                    value: graph::ExpressionValue::Expression {
+                        color: None,
+                        latex: Some(latex::latex_to_str(l)),
+                    },
+                })
+                .collect(),
+        },
+        ..Default::default()
+    })
 }
 
 #[cfg(test)]
