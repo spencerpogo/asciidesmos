@@ -88,3 +88,21 @@ impl std::default::Default for CalcState {
         }
     }
 }
+
+impl Expressions {
+    pub fn from_latex_strings(latex_strings: Vec<String>) -> Self {
+        Self {
+            list: latex_strings
+                .into_iter()
+                .enumerate()
+                .map(|(i, l)| Expression {
+                    id: i.to_string(),
+                    value: ExpressionValue::Expression {
+                        color: None,
+                        latex: Some(l),
+                    },
+                })
+                .collect(),
+        }
+    }
+}

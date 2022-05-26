@@ -242,19 +242,12 @@ pub fn stmts_to_graph(
         .map(|s| compile_stmt(ctx, s))
         .collect::<Result<Vec<_>, CompileError>>()?;
     Ok(graph::CalcState {
-        expressions: graph::Expressions {
-            list: latex_exprs
+        expressions: graph::Expressions::from_latex_strings(
+            latex_exprs
                 .into_iter()
-                .enumerate()
-                .map(|(i, l)| graph::Expression {
-                    id: i.to_string(),
-                    value: graph::ExpressionValue::Expression {
-                        color: None,
-                        latex: Some(latex::latex_to_str(l)),
-                    },
-                })
+                .map(|l| latex::latex_to_str(l))
                 .collect(),
-        },
+        ),
         ..Default::default()
     })
 }
