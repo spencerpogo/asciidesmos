@@ -179,11 +179,14 @@ pub fn compile_expr<'a>(
     }
 }
 
-pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> Result<Latex, CompileError> {
+pub fn compile_stmt(
+    ctx: &mut Context,
+    expr: LocatedStatement,
+) -> Result<Option<Latex>, CompileError> {
     let s = expr.0;
 
     match expr.1 {
-        Statement::Expression(e) => Ok(compile_expr(ctx, (s, e))?.0),
+        Statement::Expression(e) => Ok(Some(compile_expr(ctx, (s, e))?.0)),
         Statement::FuncDef(fdef, e) => {
             // Clone a copy we can restore later
             let old_locals = ctx.locals.clone();
@@ -210,28 +213,35 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> Result<Latex, 
                 }),
             );
 
-            Ok(Latex::FuncDef {
+            Ok(Some(Latex::FuncDef {
                 name: fdef.name,
                 args: fdef.args.iter().map(|a| a.0.to_string()).collect(),
                 body: Box::new(body),
-            })
+            }))
         }
         Statement::VarDef { name, val, inline } => {
-            if inline {
-                todo!()
-            }
-            if ctx.variables.contains_key(name.as_str()) {
+            if ctx.variables.contains_key(name.as_str())
+                || ctx.inline_vals.contains_key(name.as_str())
+            {
                 return Err(CompileError {
                     kind: CompileErrorKind::DuplicateVariable(name),
                     span: s,
                 });
-            }
+            };
             let (val_latex, t) = compile_expr(ctx, val)?;
-            ctx.variables.insert(name.clone(), t);
-            Ok(Latex::Assignment(
-                Box::new(Latex::Variable(name)),
-                Box::new(val_latex),
-            ))
+            match inline {
+                true => {
+                    ctx.inline_vals.insert(name.clone(), (t, val_latex));
+                    Ok(None)
+                }
+                false => {
+                    ctx.variables.insert(name.clone(), t);
+                    Ok(Some(Latex::Assignment(
+                        Box::new(Latex::Variable(name)),
+                        Box::new(val_latex),
+                    )))
+                }
+            }
         }
     }
 }
@@ -248,7 +258,8 @@ pub fn stmts_to_graph(
         expressions: graph::Expressions::from_latex_strings(
             latex_exprs
                 .into_iter()
-                .map(|l| latex::latex_to_str(l))
+                .filter(Option::is_some)
+                .map(|l| latex::latex_to_str(l.unwrap()))
                 .collect(),
         ),
         ..Default::default()
@@ -273,19 +284,19 @@ pub mod tests {
         Ok(compile_expr(ctx, (spn(), exp))?.0)
     }
 
-    pub fn compile_stmt(stmt: Statement) -> Result<Latex, CompileError> {
+    pub fn compile_stmt(stmt: Statement) -> Result<Option<Latex>, CompileError> {
         compile_stmt_with_ctx(&mut new_ctx(), stmt)
     }
 
     pub fn compile_stmt_with_ctx(
         ctx: &mut Context,
         stmt: Statement,
-    ) -> Result<Latex, CompileError> {
+    ) -> Result<Option<Latex>, CompileError> {
         super::compile_stmt(ctx, (spn(), stmt))
     }
 
     pub fn check_stmt(stmt: Statement, r: Latex) {
-        assert_eq!(compile_stmt(stmt).unwrap(), r);
+        assert_eq!(compile_stmt(stmt).unwrap(), Some(r));
     }
 
     pub fn check(exp: Expression, r: Latex) {
@@ -540,11 +551,11 @@ pub mod tests {
                     (spn(), Expression::Variable("a".to_string())),
                 )
             ),
-            Ok(Latex::FuncDef {
+            Ok(Some(Latex::FuncDef {
                 name: "f".to_string(),
                 args: vec!["a".to_string()],
                 body: Box::new(Latex::Variable("a".to_string())),
-            },)
+            }),)
         );
         // Check that the variable is no longer in scope
         assert_eq!(
@@ -844,10 +855,10 @@ pub mod tests {
                     inline: false,
                 }
             ),
-            Ok(Latex::Assignment(
+            Ok(Some(Latex::Assignment(
                 Box::new(Latex::Variable("test".to_string())),
                 Box::new(Latex::Num("1".to_string()))
-            ))
+            )))
         );
         assert_eq!(
             compile_with_ctx(&mut ctx, ast::Expression::Variable("test".to_string())),

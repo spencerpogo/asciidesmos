@@ -20,6 +20,7 @@ pub struct Context {
     pub variables: HashMap<String, ValType>,
     pub locals: HashMap<String, ValType>,
     pub defined_functions: HashMap<String, Rc<FunctionSignature>>,
+    pub inline_vals: HashMap<String, (ValType, latex::Latex)>,
 }
 
 impl Context {
@@ -28,6 +29,7 @@ impl Context {
             variables: HashMap::new(),
             locals: HashMap::new(),
             defined_functions: HashMap::new(),
+            inline_vals: HashMap::new(),
         }
     }
 }
