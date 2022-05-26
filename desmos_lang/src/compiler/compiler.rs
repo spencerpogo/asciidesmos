@@ -96,12 +96,15 @@ pub fn compile_expr<'a>(
 
     match expr.1 {
         Expression::Num(val) => Ok((Latex::Num(val.to_string()), ValType::Number)),
-        Expression::Variable(val) => match resolve_variable(ctx, val.clone()) {
-            Some(var_type) => Ok((Latex::Variable(val), *var_type)),
-            None => Err(CompileError {
-                kind: CompileErrorKind::UndefinedVariable(val),
-                span,
-            }),
+        Expression::Variable(name) => match ctx.inline_vals.get(&name) {
+            Some((t, v)) => Ok((v.clone(), *t)),
+            None => match resolve_variable(ctx, name.clone()) {
+                Some(var_type) => Ok((Latex::Variable(name), *var_type)),
+                None => Err(CompileError {
+                    kind: CompileErrorKind::UndefinedVariable(name),
+                    span,
+                }),
+            },
         },
         Expression::BinaryExpr {
             left,

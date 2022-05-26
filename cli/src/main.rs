@@ -51,7 +51,8 @@ fn try_eval(
     }
     let r = ir
         .into_iter()
-        .map(|l| latex::latex_to_str(l))
+        .filter(Option::is_some)
+        .map(|l| latex::latex_to_str(l.unwrap()))
         .collect::<Vec<_>>();
     Ok(match flags.output {
         Output::Latex => write!(&mut out, "{}", r.join("\n")).unwrap(),
