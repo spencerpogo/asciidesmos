@@ -79,7 +79,10 @@ pub struct FunctionDefinition {
 // A statement is a part of a program
 #[derive(Clone, Debug, PartialEq)]
 pub enum Statement {
-    VarDef(String, LocatedExpression),
+    VarDef {
+        name: String, 
+        val: LocatedExpression,
+    },
     FuncDef(FunctionDefinition, LocatedExpression),
     Expression(Expression),
 }

@@ -216,7 +216,7 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> Result<Latex, 
                 body: Box::new(body),
             })
         }
-        Statement::VarDef(name, val) => {
+        Statement::VarDef { name, val } => {
             if ctx.variables.contains_key(name.as_str()) {
                 return Err(CompileError {
                     kind: CompileErrorKind::DuplicateVariable(name),
@@ -835,10 +835,10 @@ pub mod tests {
         assert_eq!(
             compile_stmt_with_ctx(
                 &mut ctx,
-                ast::Statement::VarDef(
-                    "test".to_string(),
-                    (spn(), ast::Expression::Num("1".to_string()))
-                )
+                ast::Statement::VarDef {
+                    name: "test".to_string(),
+                    val: (spn(), ast::Expression::Num("1".to_string()))
+                }
             ),
             Ok(Latex::Assignment(
                 Box::new(Latex::Variable("test".to_string())),
