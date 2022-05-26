@@ -166,14 +166,14 @@ fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr>
             .or(just(Token::OpCmpGt).to(types::CompareOperator::GreaterThan))
             .or(just(Token::OpCmpGt).to(types::CompareOperator::GreaterThanEqual))
             .or(just(Token::OpCmpEq).to(types::CompareOperator::Equal));
-        let cond = atom
+        let cond = expr
             .clone()
             .then(cond_op)
-            .then(atom.clone())
+            .then(expr.clone())
             .map(|((l, op), r)| (l, op, r));
         let branch = cond
             .then_ignore(just(Token::CtrlThen))
-            .then(atom.clone())
+            .then(expr.clone())
             .map_with_span(|((cond_left, cond, cond_right), val), s| {
                 (
                     s,
@@ -185,11 +185,11 @@ fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr>
                     },
                 )
             });
-        let otherwise_branch = just(Token::KeywordElse).ignore_then(atom);
+        let else_branch = just(Token::KeywordElse).ignore_then(expr);
         let where_block = just(Token::KeywordWhere)
             .ignore_then(branch.clone())
             .then(just(Token::CtrlComma).ignore_then(branch).repeated())
-            .then(just(Token::CtrlComma).ignore_then(otherwise_branch))
+            .then(just(Token::CtrlComma).ignore_then(else_branch))
             .map_with_span(|((first, rest), default), s| {
                 (
                     s,
