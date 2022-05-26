@@ -1,10 +1,12 @@
 use serde::{Deserialize, Serialize};
 
+const LATEST_STATE_VERSION: i8 = 9;
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CalcState {
-    // For our purposes this should always be 8.
-    version: i8, // may need to increase size later
+    // For our purposes this should always be LATEST_STATE_VERSION
+    pub version: i8,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(default)]
@@ -72,7 +74,7 @@ pub struct Column {}
 impl std::default::Default for CalcState {
     fn default() -> Self {
         Self {
-            version: 8,
+            version: LATEST_STATE_VERSION,
             graph: Some(Graph {
                 viewport: Viewport {
                     xmin: -10.0,
