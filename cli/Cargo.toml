@@ -7,8 +7,10 @@ edition = "2018"
 [dependencies]
 clap = "2.33.3"
 desmos_lang = { path = "../desmos_lang" }
+graph = { path = "../graph" }
 latex = { path = "../latex" }
 parser = { path = "../parser" }
+serde_json = "1.0.81"
 
 [[bin]]
 name = "desmosc"

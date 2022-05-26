@@ -21,12 +21,22 @@ impl From<CompileError> for EvalError {
     }
 }
 
+enum Output {
+    Latex,
+    State,
+}
+
 struct Flags {
     ast: bool,
     ir: bool,
+    output: Output,
 }
 
-fn try_eval(inp: &str, flags: Flags) -> Result<String, EvalError> {
+fn try_eval(
+    inp: &str,
+    flags: Flags,
+    mut out: impl std::io::Write + Sized,
+) -> Result<(), EvalError> {
     let ast = parser::lex_and_parse(0, inp.to_string())?;
     if flags.ast {
         eprintln!("{:#?}", ast);
@@ -42,17 +52,23 @@ fn try_eval(inp: &str, flags: Flags) -> Result<String, EvalError> {
     let r = ir
         .into_iter()
         .map(|l| latex::latex_to_str(l))
-        .collect::<Vec<_>>()
-        .join("\n");
-    Ok(r)
+        .collect::<Vec<_>>();
+    Ok(match flags.output {
+        Output::Latex => write!(&mut out, "{}", r.join("\n")).unwrap(),
+        Output::State => serde_json::to_writer(
+            out,
+            &graph::CalcState {
+                expressions: graph::Expressions::from_latex_strings(r),
+                ..Default::default()
+            },
+        )
+        .unwrap(),
+    })
 }
 
 fn process(inp: &str, flags: Flags) -> i32 {
-    match try_eval(inp, flags) {
-        Ok(s) => {
-            println!("{}", s);
-            0
-        }
+    match try_eval(inp, flags, std::io::stdout()) {
+        Ok(()) => 0,
         Err(e) => {
             match e {
                 EvalError::ParseErrors(p) => match p {
@@ -92,6 +108,13 @@ fn main() {
             Arg::with_name("ir")
                 .long("ir")
                 .help("Dumps IR (latex syntax tree)"),
+        )
+        .arg(
+            Arg::with_name("output")
+                .long("output")
+                .takes_value(true)
+                .possible_values(&["latex", "state"])
+                .help("Output latex lines or calculator state"),
         );
 
     let matches = app.get_matches();
@@ -99,6 +122,11 @@ fn main() {
     let flags = Flags {
         ast: matches.is_present("ast"),
         ir: matches.is_present("ir"),
+        output: match matches.value_of("output").unwrap_or("state") {
+            "latex" => Output::Latex,
+            "state" => Output::State,
+            _ => unreachable!(),
+        },
     };
 
     let exit_code = if let Some(input) = matches.value_of("eval") {

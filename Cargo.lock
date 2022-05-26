@@ -126,8 +126,10 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "desmos_lang",
+ "graph",
  "latex",
  "parser",
+ "serde_json",
 ]
 
 [[package]]
