@@ -216,7 +216,10 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> Result<Latex, 
                 body: Box::new(body),
             })
         }
-        Statement::VarDef { name, val } => {
+        Statement::VarDef { name, val, inline } => {
+            if inline {
+                todo!()
+            }
             if ctx.variables.contains_key(name.as_str()) {
                 return Err(CompileError {
                     kind: CompileErrorKind::DuplicateVariable(name),
@@ -837,7 +840,8 @@ pub mod tests {
                 &mut ctx,
                 ast::Statement::VarDef {
                     name: "test".to_string(),
-                    val: (spn(), ast::Expression::Num("1".to_string()))
+                    val: (spn(), ast::Expression::Num("1".to_string())),
+                    inline: false,
                 }
             ),
             Ok(Latex::Assignment(

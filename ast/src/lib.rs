@@ -80,8 +80,9 @@ pub struct FunctionDefinition {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Statement {
     VarDef {
-        name: String, 
+        name: String,
         val: LocatedExpression,
+        inline: bool,
     },
     FuncDef(FunctionDefinition, LocatedExpression),
     Expression(Expression),

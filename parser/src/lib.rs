@@ -220,7 +220,16 @@ fn statement_parser() -> impl Parser<Token, Vec<ast::Spanned<ast::Statement>>, E
     }
     .then_ignore(just(Token::OpEq))
     .then(expr)
-    .map_with_span(|(name, val), s| (s, ast::Statement::VarDef { name, val }));
+    .map_with_span(|(name, val), s| {
+        (
+            s,
+            ast::Statement::VarDef {
+                name,
+                val,
+                inline: false,
+            },
+        )
+    });
 
     let line = declaration.or(expr_stmt).then_ignore(just(Token::CtrlSemi));
 
