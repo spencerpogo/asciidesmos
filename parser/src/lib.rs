@@ -26,7 +26,7 @@ pub enum Token {
     CtrlThen,
     CtrlSemi,
     KeywordWhere,
-    KeywordOtherwise,
+    KeywordElse,
 }
 
 fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
@@ -58,7 +58,7 @@ fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
 
     let ident = text::ident().map(|i: String| match i.as_str() {
         "where" => Token::KeywordWhere,
-        "otherwise" => Token::KeywordOtherwise,
+        "else" => Token::KeywordElse,
         _ => Token::Ident(i),
     });
 
@@ -185,7 +185,7 @@ fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr>
                     },
                 )
             });
-        let otherwise_branch = just(Token::KeywordOtherwise).ignore_then(atom);
+        let otherwise_branch = just(Token::KeywordElse).ignore_then(atom);
         let where_block = just(Token::KeywordWhere)
             .ignore_then(branch.clone())
             .then(just(Token::CtrlComma).ignore_then(branch).repeated())
