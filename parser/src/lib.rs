@@ -16,6 +16,7 @@ pub enum Token {
     OpCmpGt,
     OpCmpGe,
     OpCmpEq,
+    OpExp,
     OpEq,
     CtrlLParen,
     CtrlRParen,
@@ -38,6 +39,7 @@ fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
         .or(mkop('>', Token::OpCmpGt))
         .or(just(">=").to(Token::OpCmpGe))
         .or(just("==").to(Token::OpCmpEq))
+        .or(just("**").to(Token::OpExp))
         .or(mkop('-', Token::OpMinus))
         .or(mkop('+', Token::OpPlus))
         .or(mkop('*', Token::OpMult))
@@ -145,8 +147,10 @@ fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr>
             };
         }
 
+        let exponent = binop!(negate, just(Token::OpExp).to(ast::BinaryOperator::Exponent));
+
         let product = binop!(
-            negate,
+            exponent,
             just(Token::OpMult)
                 .to(ast::BinaryOperator::Multiply)
                 .or(just(Token::OpDiv).to(ast::BinaryOperator::Divide))
