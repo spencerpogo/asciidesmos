@@ -47,9 +47,7 @@ sin@([1,2,3]);
       import init, { try_eval } from "./pkg/desmosc_wasm.js";
       await init();
 
-      input.disabled = false;
-      form.addEventListener("submit", (evt) => {
-        evt.preventDefault();
+      const update = () => {
         const r = try_eval(input.value);
         ast.value = r.ast;
         ir.value = r.ir;
@@ -67,6 +65,13 @@ sin@([1,2,3]);
           Calc.setBlank();
           throw err;
         }
+      };
+      update();
+
+      input.disabled = false;
+      form.addEventListener("submit", (evt) => {
+        evt.preventDefault();
+        update();
       });
     </script>
   </body>
