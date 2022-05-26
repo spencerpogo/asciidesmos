@@ -42,11 +42,15 @@ fn eval(inp: &str) -> Result<EvalResult, EvalError> {
         .map(|s| compile_stmt(&mut ctx, s))
         .collect::<Result<Vec<_>, _>>()?;
     let ir_str = format!("{:#?}", ir);
-    let output = ir
+    let latex_strs = ir
         .into_iter()
         .map(|l| latex::latex_to_str(l))
-        .collect::<Vec<String>>()
-        .join("\n");
+        .collect::<Vec<String>>();
+    let output = serde_json::to_string(&graph::CalcState {
+        expressions: graph::Expressions::from_latex_strings(latex_strs),
+        ..Default::default()
+    })
+    .unwrap();
     Ok(EvalResult {
         ast: ast_str,
         ir: ir_str,
@@ -59,13 +63,16 @@ pub fn try_eval(inp: &str) -> EvalResult {
     let r = eval(inp);
     match r {
         Ok(result) => result,
-        Err(e) => EvalResult {
-            ast: "".to_string(),
-            ir: "".to_string(),
-            output: match e {
+        Err(e) => {
+            let err = match e {
                 EvalError::ParseErrors(p) => format!("Parse error: {:#?}", p),
                 EvalError::CompileError(c) => format!("Compile error: {}", c),
-            },
-        },
+            };
+            EvalResult {
+                ast: "".to_string(),
+                ir: "".to_string(),
+                output: serde_json::to_string(&serde_json::json!({ "error": err })).unwrap(),
+            }
+        }
     }
 }

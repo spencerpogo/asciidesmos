@@ -8,9 +8,11 @@ wasm-opt = false
 
 [dependencies]
 desmos_lang = { path = "../desmos_lang" }
+graph = { path = "../graph" }
 parser = { path = "../parser" }
 wasm-bindgen = "0.2.80"
 latex = { path = "../latex" }
+serde_json = "1.0.81"
 
 [lib]
 crate-type = ["cdylib"]

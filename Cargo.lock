@@ -137,8 +137,10 @@ name = "desmosc-wasm"
 version = "0.1.0"
 dependencies = [
  "desmos_lang",
+ "graph",
  "latex",
  "parser",
+ "serde_json",
  "wasm-bindgen",
 ]
 

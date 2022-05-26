@@ -5,7 +5,7 @@
     <title>wasm example</title>
   </head>
   <body>
-    <form action="#" method="GET" id="tryit">
+    <form id="tryit">
       <label>
         <h3>Enter code</h3>
         <textarea
@@ -18,10 +18,8 @@
       <br />
       <button type="submit">Run</button>
     </form>
-    <label>
-      <h3>Output</h3>
-      <textarea id="output" cols="100" rows="7" disabled="disabled"></textarea>
-    </label>
+    <div id="calc" style="width: 600px; height: 400px"></div>
+    <textarea id="log" rows="10" cols="100"></textarea>
     <div style="display: flex">
       <label style="margin-right: 5px">
         <h3>AST</h3>
@@ -32,25 +30,40 @@
         <textarea id="ir" cols="50" rows="30" disabled="disabled"></textarea>
       </label>
     </div>
+    <script src="https://www.desmos.com/api/v1.7/calculator.js?apiKey=dcb31709b452b1cf9dc26972add0fda6"></script>
     <script type="module">
       const i = document.getElementById.bind(document);
       const form = i("tryit");
       const input = i("code-input");
       const ast = i("ast");
       const ir = i("ir");
-      const output = i("output");
-      ast.value = ir.value = output.value = "";
+      const log = i("log");
+      ast.value = ir.value = log.value = "";
 
+      window.Calc = Desmos.GraphingCalculator(i("calc"));
       import init, { try_eval } from "./pkg/desmosc_wasm.js";
       await init();
 
       input.disabled = false;
-      form.addEventListener("submit", (e) => {
-        e.preventDefault();
+      form.addEventListener("submit", (evt) => {
+        evt.preventDefault();
         const r = try_eval(input.value);
         ast.value = r.ast;
         ir.value = r.ir;
-        output.value = r.output;
+        try {
+          const state = JSON.parse(r.output);
+          console.log({ state });
+          if (typeof state.error === "string" && state.error) {
+            log.value = state.error;
+            Calc.setBlank();
+          } else {
+            log.value = "";
+            Calc.setState(state);
+          }
+        } catch (err) {
+          Calc.setBlank();
+          throw err;
+        }
       });
     </script>
   </body>
