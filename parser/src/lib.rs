@@ -28,6 +28,7 @@ pub enum Token {
     CtrlSemi,
     KeywordWhere,
     KeywordElse,
+    KeywordInline,
 }
 
 fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
@@ -61,6 +62,7 @@ fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
     let ident = text::ident().map(|i: String| match i.as_str() {
         "where" => Token::KeywordWhere,
         "else" => Token::KeywordElse,
+        "inline" => Token::KeywordInline,
         _ => Token::Ident(i),
     });
 
@@ -215,21 +217,17 @@ fn statement_parser() -> impl Parser<Token, Vec<ast::Spanned<ast::Statement>>, E
         .clone()
         .map(|(s, e)| (s, ast::Statement::Expression(e)));
 
-    let declaration = select! {
-        Token::Ident(i) => i,
-    }
-    .then_ignore(just(Token::OpEq))
-    .then(expr)
-    .map_with_span(|(name, val), s| {
-        (
-            s,
-            ast::Statement::VarDef {
-                name,
-                val,
-                inline: false,
-            },
-        )
-    });
+    let declaration = just(Token::KeywordInline)
+        .to(true)
+        .or(empty().to(false))
+        .then(select! {
+            Token::Ident(i) => i,
+        })
+        .then_ignore(just(Token::OpEq))
+        .then(expr)
+        .map_with_span(|((inline, name), val), s| {
+            (s, ast::Statement::VarDef { name, val, inline })
+        });
 
     let line = declaration.or(expr_stmt).then_ignore(just(Token::CtrlSemi));
 
