@@ -73,12 +73,12 @@ pub fn compile_static_call(
         .into_iter()
         .zip(rargs.iter())
         .map(|(got_type, expect_type)| -> Result<latex::Latex, _> {
-            // Already checked that they are the same length, so unwrap is safe
             let (aspan, arg_latex, got_type) = got_type;
             let is_valid_map = modifier == ast::CallModifier::MapCall
                 && got_type == types::ValType::List
                 && *expect_type == types::ValType::Number;
             if !is_valid_map && got_type != *expect_type {
+                // TODO this error sucks and logic should be more strict for MapCalls
                 return Err(CompileError {
                     kind: CompileErrorKind::TypeMismatch {
                         got: got_type,
