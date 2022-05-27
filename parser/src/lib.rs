@@ -232,7 +232,7 @@ fn statement_parser() -> impl Parser<Token, Vec<ast::Spanned<ast::Statement>>, E
                 format!("Invalid type '{}', expected 'num' or 'list'", typ),
             )),
         });
-    let arg = ident.then(type_annotation);
+    let arg = ident.then(type_annotation.or(empty().to(types::ValType::Number)));
     let args = arg
         .clone()
         .then(just(Token::CtrlComma).ignore_then(arg.clone()).repeated())
