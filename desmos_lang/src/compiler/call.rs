@@ -61,45 +61,44 @@ pub fn compile_static_call(
     let expect = rargs.len();
 
     if got != expect {
-        Err(CompileError {
+        return Err(CompileError {
             kind: CompileErrorKind::WrongArgCount {
                 got,
                 expected: expect,
             },
             span,
-        })
-    } else {
-        let args_latex = args
-            .into_iter()
-            .zip(rargs.iter())
-            .map(|(got_type, expect_type)| -> Result<latex::Latex, _> {
-                // Already checked that they are the same length, so unwrap is safe
-                let (aspan, arg_latex, got_type) = got_type;
-                let is_valid_map = modifier == ast::CallModifier::MapCall
-                    && got_type == types::ValType::List
-                    && *expect_type == types::ValType::Number;
-                if !is_valid_map && got_type != *expect_type {
-                    return Err(CompileError {
-                        kind: CompileErrorKind::TypeMismatch {
-                            got: got_type,
-                            expected: *expect_type,
-                        },
-                        span: aspan,
-                    });
-                }
-                Ok(arg_latex)
-            })
-            .collect::<Result<Vec<latex::Latex>, _>>()?;
-
-        Ok((
-            latex::Latex::Call {
-                func: func_to_latex(func),
-                is_builtin: rfunc.is_builtin,
-                args: args_latex,
-            },
-            rfunc.func.ret,
-        ))
+        });
     }
+    let args_latex = args
+        .into_iter()
+        .zip(rargs.iter())
+        .map(|(got_type, expect_type)| -> Result<latex::Latex, _> {
+            // Already checked that they are the same length, so unwrap is safe
+            let (aspan, arg_latex, got_type) = got_type;
+            let is_valid_map = modifier == ast::CallModifier::MapCall
+                && got_type == types::ValType::List
+                && *expect_type == types::ValType::Number;
+            if !is_valid_map && got_type != *expect_type {
+                return Err(CompileError {
+                    kind: CompileErrorKind::TypeMismatch {
+                        got: got_type,
+                        expected: *expect_type,
+                    },
+                    span: aspan,
+                });
+            }
+            Ok(arg_latex)
+        })
+        .collect::<Result<Vec<latex::Latex>, _>>()?;
+
+    Ok((
+        latex::Latex::Call {
+            func: func_to_latex(func),
+            is_builtin: rfunc.is_builtin,
+            args: args_latex,
+        },
+        rfunc.func.ret,
+    ))
 }
 
 pub fn compile_variadic_call(
