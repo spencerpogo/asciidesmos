@@ -517,9 +517,9 @@ mod tests {
     #[test]
     fn piecewise() {
         check(
-            "where a > 1 -> b , c < 2 -> d , otherwise e;",
+            "where a > 1 -> b , c < 2 -> d , else e;",
             (
-                s(0..43),
+                s(0..38),
                 ast::Expression::Piecewise {
                     first: Box::new((
                         s(6..16),
@@ -539,7 +539,7 @@ mod tests {
                             val: (s(28..29), var("d")),
                         },
                     )],
-                    default: Box::new((s(42..43), var("e"))),
+                    default: Box::new((s(37..38), var("e"))),
                 },
             ),
         );
