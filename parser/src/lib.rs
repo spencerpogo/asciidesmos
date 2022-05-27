@@ -18,6 +18,7 @@ pub enum Token {
     OpCmpEq,
     OpExp,
     OpEq,
+    OpColon,
     CtrlLParen,
     CtrlRParen,
     CtrlListStart,
@@ -47,7 +48,8 @@ fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
         .or(mkop('/', Token::OpDiv))
         .or(mkop('%', Token::OpMod))
         .or(mkop('<', Token::OpCmpLt))
-        .or(mkop('=', Token::OpEq));
+        .or(mkop('=', Token::OpEq))
+        .or(mkop(':', Token::OpColon));
 
     let ctrl = just("->")
         .to(Token::CtrlThen)
@@ -217,19 +219,57 @@ fn statement_parser() -> impl Parser<Token, Vec<ast::Spanned<ast::Statement>>, E
         .clone()
         .map(|(s, e)| (s, ast::Statement::Expression(e)));
 
+    let ident = select! {
+        Token::Ident(i) => i,
+    };
+    let arg = ident
+        .then_ignore(just(Token::OpColon))
+        .then(ident.clone())
+        .try_map(|(name, typ), span| match typ.as_str() {
+            "num" => Ok((name, types::ValType::Number)),
+            "list" => Ok((name, types::ValType::List)),
+            _ => Err(Simple::custom(
+                span,
+                format!("Invalid type '{}', expected 'num' or 'list'", typ),
+            )),
+        });
+    let args = arg
+        .clone()
+        .then(just(Token::CtrlComma).ignore_then(arg.clone()).repeated())
+        .map(|(first, rest)| std::iter::once(first).chain(rest).collect())
+        .or(empty().map(|_| vec![]));
+    let func_dec = ident
+        .clone()
+        .then(args.delimited_by(just(Token::CtrlLParen), just(Token::CtrlRParen)))
+        .then_ignore(just(Token::OpEq))
+        .then(expr.clone())
+        .map_with_span(|((name, args), expr), s| {
+            (
+                s,
+                ast::Statement::FuncDef(
+                    ast::FunctionDefinition {
+                        name,
+                        args,
+                        ret_annotation: None,
+                    },
+                    expr,
+                ),
+            )
+        });
     let declaration = just(Token::KeywordInline)
         .to(true)
         .or(empty().to(false))
-        .then(select! {
-            Token::Ident(i) => i,
-        })
+        .then(ident)
         .then_ignore(just(Token::OpEq))
         .then(expr)
         .map_with_span(|((inline, name), val), s| {
             (s, ast::Statement::VarDef { name, val, inline })
         });
 
-    let line = declaration.or(expr_stmt).then_ignore(just(Token::CtrlSemi));
+    let line = func_dec
+        .or(declaration)
+        .or(expr_stmt)
+        .then_ignore(just(Token::CtrlSemi));
 
     line.repeated().collect().then_ignore(end())
 }
@@ -296,6 +336,10 @@ mod tests {
     fn check(l: &str, expr: ast::LocatedExpression) {
         let (spn, expr) = expr;
         check_result(l, Ok(vec![(spn, ast::Statement::Expression(expr))]));
+    }
+
+    fn check_stmt(l: &str, stmt: ast::Spanned<ast::Statement>) {
+        check_result(l, Ok(vec![stmt]));
     }
 
     fn s(r: std::ops::Range<usize>) -> types::Span {
@@ -497,6 +541,27 @@ mod tests {
                     )],
                     default: Box::new((s(42..43), var("e"))),
                 },
+            ),
+        );
+    }
+
+    #[test]
+    fn funcdef() {
+        check_stmt(
+            "func( xy : num , yz : list ) = 7;",
+            (
+                s(0..32),
+                ast::Statement::FuncDef(
+                    ast::FunctionDefinition {
+                        name: "func".to_string(),
+                        args: vec![
+                            ("xy".to_string(), types::ValType::Number),
+                            ("yz".to_string(), types::ValType::List),
+                        ],
+                        ret_annotation: None,
+                    },
+                    (s(31..32), num("7")),
+                ),
             ),
         );
     }
