@@ -61,19 +61,6 @@ pub enum Latex {
     },
 }
 
-pub fn function_to_str(function: Function) -> String {
-    match function {
-        Function::Normal { name } => format_latex_identifier(name),
-        Function::Log { base } => {
-            if base.is_empty() {
-                "log".to_string()
-            } else {
-                format!("log_{{{}}}", base)
-            }
-        }
-    }
-}
-
 pub fn format_latex_identifier(v: String) -> String {
     // Don't care about UTF-8 since identifiers are guaranteed to be ASCII
     let mut chars = v.chars();
@@ -130,27 +117,33 @@ pub fn cond_to_str(cond: Cond) -> String {
     )
 }
 
-fn _latex_call_to_str(func: Function, is_builtin: bool, args: Vec<Latex>) -> String {
+fn latex_call_to_str(func: Function, is_builtin: bool, args: Vec<Latex>) -> String {
+    if let Function::Normal { name } = &func {
+        if is_builtin && (name == "sqrt" || name == "nthroot") {
+            // there should only be one arg in case of sqrt, two in case of nthroot
+            return format!("\\sqrt{{{}}}", multi_latex_to_str(args).join("}{"));
+        }
+    }
     format!(
         "{}{}\\left({}\\right)",
         if is_builtin { "\\" } else { "" },
-        function_to_str(func),
+        match func {
+            Function::Normal { name } =>
+                if is_builtin {
+                    name
+                } else {
+                    format_latex_identifier(name)
+                },
+            Function::Log { base } => {
+                if base.is_empty() {
+                    "log".to_string()
+                } else {
+                    format!("log_{{{}}}", base)
+                }
+            }
+        },
         multi_latex_to_str(args).join(",")
     )
-}
-
-fn latex_call_to_str(func: Function, is_builtin: bool, args: Vec<Latex>) -> String {
-    match &func {
-        Function::Normal { name } => {
-            if is_builtin && (name == "sqrt" || name == "nthroot") {
-                // there should only be one arg in case of sqrt, two in case of nthroot
-                format!("\\sqrt{{{}}}", multi_latex_to_str(args).join("}{"))
-            } else {
-                _latex_call_to_str(func, is_builtin, args)
-            }
-        }
-        _ => _latex_call_to_str(func, is_builtin, args),
-    }
 }
 
 pub fn latex_to_str(l: Latex) -> String {
