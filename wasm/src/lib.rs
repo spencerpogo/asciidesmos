@@ -44,7 +44,8 @@ fn eval(inp: &str) -> Result<EvalResult, EvalError> {
     let ir_str = format!("{:#?}", ir);
     let latex_strs = ir
         .into_iter()
-        .map(|l| latex::latex_to_str(l))
+        .filter(Option::is_some)
+        .map(|l| latex::latex_to_str(l.unwrap()))
         .collect::<Vec<String>>();
     let output = serde_json::to_string(&graph::CalcState {
         expressions: graph::Expressions::from_latex_strings(latex_strs),
