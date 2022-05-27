@@ -63,7 +63,7 @@ pub enum Latex {
 
 pub fn function_to_str(function: Function) -> String {
     match function {
-        Function::Normal { name } => name,
+        Function::Normal { name } => format_latex_identifier(name),
         Function::Log { base } => {
             if base.is_empty() {
                 "log".to_string()
