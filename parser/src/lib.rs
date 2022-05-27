@@ -222,17 +222,17 @@ fn statement_parser() -> impl Parser<Token, Vec<ast::Spanned<ast::Statement>>, E
     let ident = select! {
         Token::Ident(i) => i,
     };
-    let arg = ident
-        .then_ignore(just(Token::OpColon))
-        .then(ident.clone())
-        .try_map(|(name, typ), span| match typ.as_str() {
-            "num" => Ok((name, types::ValType::Number)),
-            "list" => Ok((name, types::ValType::List)),
+    let type_annotation = just(Token::OpColon)
+        .ignore_then(ident.clone())
+        .try_map(|typ, span| match typ.as_str() {
+            "num" => Ok(types::ValType::Number),
+            "list" => Ok(types::ValType::List),
             _ => Err(Simple::custom(
                 span,
                 format!("Invalid type '{}', expected 'num' or 'list'", typ),
             )),
         });
+    let arg = ident.then(type_annotation);
     let args = arg
         .clone()
         .then(just(Token::CtrlComma).ignore_then(arg.clone()).repeated())
