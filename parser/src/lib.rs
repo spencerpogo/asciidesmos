@@ -396,7 +396,11 @@ pub fn print_err_report(source: types::FileID, input: String, errs: LexParseErro
                         ))
                         .with_color(Color::Red),
                 ),
-            _ => report.with_message(format!("{:#?}", e)),
+            chumsky::error::SimpleReason::Custom(msg) => report.with_message(msg).with_label(
+                Label::new(e.span())
+                    .with_message(format!("{}", msg.fg(Color::Red)))
+                    .with_color(Color::Red),
+            ),
         }
         .finish()
         .eprint(ariadne::sources(vec![(source, input.clone())].into_iter()))
