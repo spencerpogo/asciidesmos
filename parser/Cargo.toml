@@ -7,4 +7,5 @@ edition = "2018"
 [dependencies]
 chumsky = "0.8.0"
 ast = { path = "../ast" }
-types = { path = "../types", features = ["chumsky"] }
+types = { path = "../types", features = ["chumsky", "ariadne"] }
+ariadne = "0.1.5"

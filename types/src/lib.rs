@@ -77,3 +77,20 @@ impl chumsky::Span for Span {
         self.range.end
     }
 }
+
+#[cfg(feature = "ariadne")]
+impl ariadne::Span for Span {
+    type SourceId = FileID;
+
+    fn source(&self) -> &Self::SourceId {
+        &self.file_id
+    }
+
+    fn start(&self) -> usize {
+        self.range.start
+    }
+
+    fn end(&self) -> usize {
+        self.range.end
+    }
+}

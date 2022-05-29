@@ -72,10 +72,7 @@ fn process(inp: &str, flags: Flags) -> i32 {
         Ok(()) => 0,
         Err(e) => {
             match e {
-                EvalError::ParseErrors(p) => match p {
-                    parser::LexParseErrors::LexErrors(errs) => eprintln!("{:#?}", errs),
-                    parser::LexParseErrors::ParseErrors(errs) => eprintln!("{:#?}", errs),
-                },
+                EvalError::ParseErrors(errs) => parser::print_err_report(0, inp.to_string(), errs),
                 EvalError::CompileError(c) => eprintln!("{}", c),
             };
             1
