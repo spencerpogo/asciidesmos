@@ -119,11 +119,6 @@ pub type ParseErr = Simple<Token, types::Span>;
 
 fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr> + Clone {
     recursive(|expr: Recursive<Token, ast::LocatedExpression, _>| {
-        let comma_joined_exprs = expr
-            .clone()
-            .then(just(Token::CtrlComma).ignore_then(expr.clone()).repeated())
-            .map(|(first, rest)| std::iter::once(first).chain(rest).collect())
-            .or(empty().map(|_| vec![]));
         let call = select! {
             Token::Ident(name) => name,
         }
@@ -133,8 +128,8 @@ fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr>
                 .or(empty().to(ast::CallModifier::NormalCall)),
         )
         .then(
-            comma_joined_exprs
-                .clone()
+            expr.clone()
+                .separated_by(just(Token::CtrlComma))
                 .delimited_by(just(Token::CtrlLParen), just(Token::CtrlRParen)),
         )
         .map_with_span(|((func, modifier), args), s| {
@@ -148,7 +143,9 @@ fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr>
             )
         });
 
-        let list = comma_joined_exprs
+        let list = expr
+            .clone()
+            .separated_by(just(Token::CtrlComma))
             .delimited_by(just(Token::CtrlListStart), just(Token::CtrlListEnd))
             .map_with_span(|v, s| (s, ast::Expression::List(v)));
 
@@ -290,14 +287,12 @@ fn statement_parser() -> impl Parser<Token, Vec<ast::Spanned<ast::Statement>>, E
             )),
         });
     let arg = ident.then(type_annotation.or(empty().to(types::ValType::Number)));
-    let args = arg
-        .clone()
-        .then(just(Token::CtrlComma).ignore_then(arg.clone()).repeated())
-        .map(|(first, rest)| std::iter::once(first).chain(rest).collect())
-        .or(empty().map(|_| vec![]));
     let func_dec = ident
         .clone()
-        .then(args.delimited_by(just(Token::CtrlLParen), just(Token::CtrlRParen)))
+        .then(
+            arg.separated_by(just(Token::CtrlComma))
+                .delimited_by(just(Token::CtrlLParen), just(Token::CtrlRParen)),
+        )
         .then_ignore(just(Token::OpEq))
         .then(expr.clone())
         .map_with_span(|((name, args), expr), s| {
