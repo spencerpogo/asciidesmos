@@ -39,6 +39,7 @@ pub enum Function {
 // Expression is a component of a statement
 #[derive(Clone, Debug, PartialEq)]
 pub enum Expression {
+    Error,
     Num(String),
     Variable(String),
     BinaryExpr {

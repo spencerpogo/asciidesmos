@@ -102,7 +102,11 @@ fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
         _ => Token::Ident(i),
     });
 
-    let token = int.or(ctrl).or(op).or(ident);
+    let token = int
+        .or(ctrl)
+        .or(op)
+        .or(ident)
+        .recover_with(skip_then_retry_until([]));
 
     token
         .map_with_span(|t, span| (span, t))
@@ -154,9 +158,24 @@ fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr>
         }
         .map_with_span(|v, s| (s, v));
 
-        let atom = list.or(call).or(val).or(expr
-            .clone()
-            .delimited_by(just(Token::CtrlLParen), just(Token::CtrlRParen)));
+        let atom = list
+            .or(call)
+            .or(val)
+            .or(expr
+                .clone()
+                .delimited_by(just(Token::CtrlLParen), just(Token::CtrlRParen)))
+            .recover_with(nested_delimiters(
+                Token::CtrlLParen,
+                Token::CtrlRParen,
+                [(Token::CtrlListStart, Token::CtrlListEnd)],
+                |span| (span, ast::Expression::Error),
+            ))
+            .recover_with(nested_delimiters(
+                Token::CtrlListStart,
+                Token::CtrlListEnd,
+                [(Token::CtrlLParen, Token::CtrlRParen)],
+                |span| (span, ast::Expression::Error),
+            ));
 
         let negate = just(Token::OpMinus)
             .ignore_then(atom.clone())

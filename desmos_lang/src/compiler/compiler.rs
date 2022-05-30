@@ -95,6 +95,7 @@ pub fn compile_expr<'a>(
     let span = expr.0;
 
     match expr.1 {
+        Expression::Error => unimplemented!(),
         Expression::Num(val) => Ok((Latex::Num(val.to_string()), ValType::Number)),
         Expression::Variable(name) => match ctx.inline_vals.get(&name) {
             Some((t, v)) => Ok((v.clone(), *t)),
