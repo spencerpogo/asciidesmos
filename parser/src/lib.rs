@@ -32,6 +32,40 @@ pub enum Token {
     KeywordInline,
 }
 
+impl Token {
+    pub fn to_str(self) -> &'static str {
+        use Token::*;
+        match self {
+            Num(_) => "number",
+            Ident(_) => "string",
+            OpMinus => "`-`",
+            OpPlus => "`+`",
+            OpMult => "`*`",
+            OpDiv => "`/`",
+            OpMod => "`%`",
+            OpCmpLt => "`<`",
+            OpCmpLe => "`<=`",
+            OpCmpGt => "`>`",
+            OpCmpGe => "`>=`",
+            OpCmpEq => "`=`",
+            OpExp => "`**`",
+            OpEq => "`=`",
+            OpColon => "`:`",
+            CtrlLParen => "`(`",
+            CtrlRParen => "`(`",
+            CtrlListStart => "`[`",
+            CtrlListEnd => "`]`",
+            CtrlComma => "`,`",
+            CtrlMap => "`@`",
+            CtrlThen => "`->`",
+            CtrlSemi => "`;`",
+            KeywordWhere => "`where`",
+            KeywordElse => "`else`",
+            KeywordInline => "`inline`",
+        }
+    }
+}
+
 fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
     let int = text::int(10).map(Token::Num);
 

@@ -76,7 +76,7 @@ pub fn print_err_report(source: types::FileID, input: String, errs: parser::LexP
             .collect(),
         parser::LexParseErrors::ParseErrors(errs) => errs
             .into_iter()
-            .map(|e| e.map(|c| format!("{:#?}", c)))
+            .map(|e| e.map(|c| c.to_str().to_string()))
             .collect(),
     };
     a.into_iter().for_each(|e| {
