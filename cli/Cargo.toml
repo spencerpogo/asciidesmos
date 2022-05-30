@@ -5,11 +5,14 @@ authors = ["Scoder12"]
 edition = "2018"
 
 [dependencies]
+ariadne = "0.1.5"
+chumsky = "0.8.0"
 clap = "2.33.3"
 desmos_lang = { path = "../desmos_lang" }
 graph = { path = "../graph" }
 latex = { path = "../latex" }
 parser = { path = "../parser" }
+types = { path = "../types" }
 serde_json = "1.0.81"
 
 [[bin]]

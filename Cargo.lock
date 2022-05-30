@@ -133,12 +133,15 @@ dependencies = [
 name = "desmosc"
 version = "0.1.0"
 dependencies = [
+ "ariadne",
+ "chumsky",
  "clap",
  "desmos_lang",
  "graph",
  "latex",
  "parser",
  "serde_json",
+ "types",
 ]
 
 [[package]]
@@ -230,7 +233,6 @@ dependencies = [
 name = "parser"
 version = "0.1.0"
 dependencies = [
- "ariadne",
  "ast",
  "chumsky",
  "types",

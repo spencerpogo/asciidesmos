@@ -1,4 +1,3 @@
-use ariadne::{Color, Fmt, Label, Report, ReportKind};
 use chumsky::prelude::*;
 
 pub type LexErr = Simple<char, types::Span>;
@@ -327,85 +326,6 @@ pub fn lex_and_parse(source: types::FileID, input: String) -> LexParseResult {
     let tokens = lex(source, input)?;
     let r = parse(source, tokens)?;
     Ok(r)
-}
-
-pub fn print_err_report(source: types::FileID, input: String, errs: LexParseErrors) {
-    let a: Vec<Simple<String, types::Span>> = match errs {
-        LexParseErrors::LexErrors(errs) => {
-            errs.into_iter().map(|e| e.map(|c| c.to_string())).collect()
-        }
-        LexParseErrors::ParseErrors(errs) => errs
-            .into_iter()
-            .map(|e| e.map(|c| format!("{:#?}", c)))
-            .collect(),
-    };
-    a.into_iter().for_each(|e| {
-        let report =
-            Report::<types::Span>::build(ReportKind::Error, e.span().file_id, e.span().start());
-        match e.reason() {
-            chumsky::error::SimpleReason::Unclosed { span, delimiter } => report
-                .with_message(format!(
-                    "Unclosed delimiter {}",
-                    delimiter.fg(Color::Yellow)
-                ))
-                .with_label(
-                    Label::new(span.clone())
-                        .with_message(format!(
-                            "Unclosed delimiter {}",
-                            delimiter.fg(Color::Yellow)
-                        ))
-                        .with_color(Color::Yellow),
-                )
-                .with_label(
-                    Label::new(e.span())
-                        .with_message(format!(
-                            "Must be closed before this {}",
-                            e.found()
-                                .unwrap_or(&"end of file".to_string())
-                                .fg(Color::Red)
-                        ))
-                        .with_color(Color::Red),
-                ),
-            chumsky::error::SimpleReason::Unexpected => report
-                .with_message(format!(
-                    "Unexpected {}, expected {}",
-                    if e.found().is_some() {
-                        "token in input"
-                    } else {
-                        "end of input"
-                    },
-                    if e.expected().len() == 0 {
-                        "something else".to_string()
-                    } else {
-                        e.expected()
-                            .map(|expected| match expected {
-                                Some(v) => v,
-                                None => "end of input",
-                            })
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    }
-                ))
-                .with_label(
-                    Label::new(e.span())
-                        .with_message(format!(
-                            "Unexpected token {}",
-                            e.found()
-                                .unwrap_or(&"end of file".to_string())
-                                .fg(Color::Red)
-                        ))
-                        .with_color(Color::Red),
-                ),
-            chumsky::error::SimpleReason::Custom(msg) => report.with_message(msg).with_label(
-                Label::new(e.span())
-                    .with_message(format!("{}", msg.fg(Color::Red)))
-                    .with_color(Color::Red),
-            ),
-        }
-        .finish()
-        .eprint(ariadne::sources(vec![(source, input.clone())].into_iter()))
-        .unwrap();
-    });
 }
 
 #[cfg(test)]
