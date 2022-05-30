@@ -37,7 +37,7 @@ impl Token {
         use Token::*;
         match self {
             Num(_) => "number",
-            Ident(_) => "string",
+            Ident(_) => "identifier",
             OpMinus => "`-`",
             OpPlus => "`+`",
             OpMult => "`*`",
