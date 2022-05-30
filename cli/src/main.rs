@@ -70,9 +70,10 @@ fn try_eval(
 
 pub fn print_err_report(source: types::FileID, input: String, errs: parser::LexParseErrors) {
     let a: Vec<chumsky::error::Simple<String, types::Span>> = match errs {
-        parser::LexParseErrors::LexErrors(errs) => {
-            errs.into_iter().map(|e| e.map(|c| c.to_string())).collect()
-        }
+        parser::LexParseErrors::LexErrors(errs) => errs
+            .into_iter()
+            .map(|e| e.map(|c| format!("`{}`", c.to_string())))
+            .collect(),
         parser::LexParseErrors::ParseErrors(errs) => errs
             .into_iter()
             .map(|e| e.map(|c| format!("{:#?}", c)))
