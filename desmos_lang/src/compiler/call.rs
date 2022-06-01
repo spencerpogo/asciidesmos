@@ -187,7 +187,17 @@ pub fn compile_call(
         span: span.clone(),
     })?;
     if rfunc.func.inline {
-        todo!();
+        return match &rfunc.func.args {
+            FunctionArgs::Static(rargs) => {
+                todo!()
+            },
+            // TODO: when defining variadic functions is supported, check this 
+            //  at definition time
+            FunctionArgs::Variadic => Err(CompileError {
+                kind: CompileErrorKind::NoInlineVariadic,
+                span,
+            }),
+        }
     }
     match &rfunc.func.args {
         FunctionArgs::Static(rargs) => {

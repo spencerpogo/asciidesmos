@@ -10,6 +10,7 @@ pub enum CompileErrorKind {
     DuplicateVariable(String),
     ExpectedFunction,
     NoNestedList,
+    NoInlineVariadic
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -47,6 +48,9 @@ impl CompileError {
             CompileErrorKind::ExpectedFunction => "Expected a function".to_string(),
             CompileErrorKind::NoNestedList => {
                 "Storing lists inside of lists is not allowed.".to_string()
+            }
+            CompileErrorKind::NoInlineVariadic => {
+                "Inline functions cannot have variadic arguments".to_string()
             }
         }
     }
