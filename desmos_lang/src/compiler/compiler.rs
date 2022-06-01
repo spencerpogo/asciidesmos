@@ -1,6 +1,6 @@
 use super::{
     error::{CompileError, CompileErrorKind},
-    types::{Context, FunctionArgs, FunctionSignature},
+    types::{Context, FunctionArgs, FunctionSignature, InlineFunction},
 };
 use ast::{
     BinaryOperator, Expression, LocatedExpression, LocatedStatement, Statement, UnaryOperator,
@@ -225,7 +225,15 @@ pub fn compile_stmt(
             if fdef.inline {
                 ctx.inline_fns.insert(
                     fdef.name.clone(),
-                    std::rc::Rc::new((sig, body)),
+                    std::rc::Rc::new(InlineFunction {
+                        args: fdef
+                            .args
+                            .into_iter()
+                            .map(|(_span, name, typ)| (name, typ))
+                            .collect(),
+                        ret,
+                        body,
+                    }),
                 );
                 return Ok(None);
             }
@@ -236,8 +244,8 @@ pub fn compile_stmt(
                 name: fdef.name,
                 args: fdef
                     .args
-                    .iter()
-                    .map(|(_span, name, _typ)| name.clone())
+                    .into_iter()
+                    .map(|(_span, name, _typ)| name)
                     .collect(),
                 body: Box::new(body),
             }))

@@ -16,12 +16,19 @@ pub struct FunctionSignature {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct InlineFunction {
+    pub args: Vec<(String, ValType)>,
+    pub ret: ValType,
+    pub body: latex::Latex,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct Context {
     pub variables: HashMap<String, ValType>,
     pub locals: HashMap<String, ValType>,
     pub defined_functions: HashMap<String, Rc<FunctionSignature>>,
     pub inline_vals: HashMap<String, (ValType, latex::Latex)>,
-    pub inline_fns: HashMap<String, Rc<(FunctionSignature, latex::Latex)>>,
+    pub inline_fns: HashMap<String, Rc<InlineFunction>>,
 }
 
 impl Context {
@@ -46,7 +53,7 @@ impl Default for Context {
 pub enum ResolvedFunction {
     Normal {
         func: Rc<FunctionSignature>,
-        is_builtin: bool
+        is_builtin: bool,
     },
-    Inline(Rc<(FunctionSignature, latex::Latex)>)
+    Inline(Rc<InlineFunction>),
 }

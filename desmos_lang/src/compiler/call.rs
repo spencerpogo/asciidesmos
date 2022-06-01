@@ -1,6 +1,6 @@
 use ast;
-use latex;
-use std::rc::Rc;
+use latex::{self, Latex};
+use std::{collections::HashMap, rc::Rc};
 use types;
 
 use super::{
@@ -27,18 +27,21 @@ pub fn resolve_function<'a>(ctx: &'a mut Context, func: ast::Function) -> Option
             is_builtin: true,
         }),
         ast::Function::Normal { name } => match ctx.defined_functions.get(&*name) {
-            None => match builtins::BUILTIN_FUNCTIONS.get(&*name) {
-                None => None,
-                Some(f) => Some(ResolvedFunction::Normal {
-                    func: Rc::new(FunctionSignature {
-                        args: match f.args {
-                            types::Args::Static(args) => FunctionArgs::Static(args.to_vec()),
-                            types::Args::Variadic => FunctionArgs::Variadic,
-                        },
-                        ret: f.ret,
+            None => match ctx.inline_fns.get(&*name) {
+                Some(f) => Some(ResolvedFunction::Inline(f.clone())),
+                None => match builtins::BUILTIN_FUNCTIONS.get(&*name) {
+                    None => None,
+                    Some(f) => Some(ResolvedFunction::Normal {
+                        func: Rc::new(FunctionSignature {
+                            args: match f.args {
+                                types::Args::Static(args) => FunctionArgs::Static(args.to_vec()),
+                                types::Args::Variadic => FunctionArgs::Variadic,
+                            },
+                            ret: f.ret,
+                        }),
+                        is_builtin: true,
                     }),
-                    is_builtin: true,
-                }),
+                },
             },
             Some(f) => Some(ResolvedFunction::Normal {
                 func: f.clone(),
@@ -175,6 +178,49 @@ pub fn compile_variadic_call(
     }
 }
 
+pub fn replace_variables(
+    node: latex::Latex,
+    vars: &HashMap<String, latex::Latex>,
+    // only possible error is "expected expression"
+) -> Result<Latex, ()> {
+    let proc_vec = |v: Vec<Latex>| {
+        v.into_iter()
+            .map(|l| replace_variables(l, vars))
+            .collect::<Result<Vec<_>, _>>()
+    };
+    Ok(match node {
+        Latex::Variable(name) => match vars.get(&name) {
+            Some(replacement) => replacement.clone(),
+            None => Latex::Variable(name),
+        },
+        Latex::Num(n) => Latex::Num(n),
+        Latex::Call {
+            func,
+            is_builtin,
+            args,
+        } => Latex::Call {
+            func,
+            is_builtin,
+            args: proc_vec(args)?,
+        },
+        Latex::BinaryExpression {
+            left,
+            operator,
+            right,
+        } => Latex::BinaryExpression {
+            left: Box::new(replace_variables(*left, vars)?),
+            operator,
+            right: Box::new(replace_variables(*right, vars)?),
+        },
+        Latex::UnaryExpression { left, operator } => Latex::UnaryExpression {
+            left: Box::new(replace_variables(*left, vars)?),
+            operator,
+        },
+        Latex::List(inner) => Latex::List(proc_vec(inner)?),
+        _ => return Err(()),
+    })
+}
+
 pub fn compile_call(
     ctx: &mut Context,
     span: types::Span,
@@ -188,18 +234,37 @@ pub fn compile_call(
     })?;
     match rfunc {
         ResolvedFunction::Inline(f_rc) => {
-            let (rfunc, rbody) = &*f_rc;
-            match &rfunc.args {
-                FunctionArgs::Static(rargs) => {
-                    todo!()
-                }
-                // TODO: when defining variadic functions is supported, check this
-                //  at definition time
-                FunctionArgs::Variadic => Err(CompileError {
-                    kind: CompileErrorKind::NoInlineVariadic,
+            let rfunc = (*f_rc).clone();
+            let got = args.len();
+            let expected = rfunc.args.len();
+            if got != expected {
+                return Err(CompileError {
+                    kind: CompileErrorKind::WrongArgCount { got, expected },
                     span,
-                }),
+                });
             }
+
+            let mut vars = HashMap::new();
+            for ((name, typ), (arg_span, arg_lat, got_typ)) in
+                rfunc.args.into_iter().zip(args.into_iter())
+            {
+                if typ != got_typ {
+                    return Err(CompileError {
+                        kind: CompileErrorKind::TypeMismatch {
+                            got: got_typ,
+                            expected: typ,
+                        },
+                        span: arg_span,
+                    });
+                }
+                vars.insert(name, arg_lat);
+            }
+
+            Ok((
+                replace_variables(rfunc.body, &vars)
+                    .expect("Function body is always an expression"),
+                rfunc.ret,
+            ))
         }
         ResolvedFunction::Normal {
             func: rfunc,
