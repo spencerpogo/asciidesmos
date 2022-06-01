@@ -53,8 +53,9 @@ pub fn compile_static_call(
     func: ast::Function,
     modifier: ast::CallModifier,
     args: Vec<(types::Span, latex::Latex, types::ValType)>,
-    rfunc: ResolvedFunction,
+    rfunc: FunctionSignature,
     rargs: &Vec<types::ValType>,
+    is_builtin: bool,
 ) -> Result<(latex::Latex, types::ValType), CompileError> {
     // Validate arg count
     let got = args.len();
@@ -94,10 +95,10 @@ pub fn compile_static_call(
     Ok((
         latex::Latex::Call {
             func: func_to_latex(func),
-            is_builtin: rfunc.is_builtin,
+            is_builtin,
             args: args_latex,
         },
-        rfunc.func.ret,
+        rfunc.ret,
     ))
 }
 
@@ -106,7 +107,8 @@ pub fn compile_variadic_call(
     func: ast::Function,
     modifier: ast::CallModifier,
     args: Vec<(types::Span, latex::Latex, types::ValType)>,
-    rfunc: ResolvedFunction,
+    rfunc: FunctionSignature,
+    is_builtin: bool,
 ) -> Result<(latex::Latex, types::ValType), CompileError> {
     if modifier == ast::CallModifier::MapCall {
         if args.len() != 1 {
@@ -131,10 +133,10 @@ pub fn compile_variadic_call(
         Ok((
             latex::Latex::Call {
                 func: func_to_latex(func),
-                is_builtin: rfunc.is_builtin,
+                is_builtin,
                 args: vec![first.1.clone()],
             },
-            rfunc.func.ret,
+            rfunc.ret,
         ))
     } else {
         if args.is_empty() {
@@ -165,10 +167,10 @@ pub fn compile_variadic_call(
         Ok((
             latex::Latex::Call {
                 func: func_to_latex(func),
-                is_builtin: rfunc.is_builtin,
+                is_builtin,
                 args: args_latex,
             },
-            rfunc.func.ret,
+            rfunc.ret,
         ))
     }
 }
@@ -184,24 +186,38 @@ pub fn compile_call(
         kind: CompileErrorKind::UnknownFunction(func.clone()),
         span: span.clone(),
     })?;
-    if rfunc.func {
-        return match &rfunc.func.args {
-            FunctionArgs::Static(rargs) => {
-                todo!()
-            },
-            // TODO: when defining variadic functions is supported, check this 
-            //  at definition time
-            FunctionArgs::Variadic => Err(CompileError {
-                kind: CompileErrorKind::NoInlineVariadic,
+    match rfunc {
+        ResolvedFunction::Inline(f_rc) => {
+            let (rfunc, rbody) = &*f_rc;
+            match &rfunc.args {
+                FunctionArgs::Static(rargs) => {
+                    todo!()
+                }
+                // TODO: when defining variadic functions is supported, check this
+                //  at definition time
+                FunctionArgs::Variadic => Err(CompileError {
+                    kind: CompileErrorKind::NoInlineVariadic,
+                    span,
+                }),
+            }
+        }
+        ResolvedFunction::Normal {
+            func: rfunc,
+            is_builtin,
+        } => match &rfunc.args {
+            FunctionArgs::Static(rargs) => compile_static_call(
                 span,
-            }),
-        }
-    }
-    match &rfunc.func.args {
-        FunctionArgs::Static(rargs) => {
-            compile_static_call(span, func, modifier, args, rfunc.clone(), rargs)
-        }
-        FunctionArgs::Variadic => compile_variadic_call(span, func, modifier, args, rfunc),
+                func,
+                modifier,
+                args,
+                (*rfunc).clone(),
+                rargs,
+                is_builtin,
+            ),
+            FunctionArgs::Variadic => {
+                compile_variadic_call(span, func, modifier, args, (*rfunc).clone(), is_builtin)
+            }
+        },
     }
 }
 
