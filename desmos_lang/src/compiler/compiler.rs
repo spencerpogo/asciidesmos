@@ -199,7 +199,13 @@ pub fn compile_stmt(
             // Clone a copy we can restore later
             let old_locals = ctx.locals.clone();
             // Add args into locals
-            for (aname, atype) in fdef.args.iter() {
+            for (aspan, aname, atype) in fdef.args.iter() {
+                if ctx.variables.contains_key(aname) || ctx.locals.contains_key(aname) {
+                    return Err(CompileError {
+                        kind: CompileErrorKind::DuplicateVariable(aname.clone()),
+                        span: aspan.clone(),
+                    });
+                }
                 ctx.locals.insert(aname.clone(), *atype);
             }
             let span = e.0.clone();
@@ -216,14 +222,23 @@ pub fn compile_stmt(
             ctx.defined_functions.insert(
                 fdef.name.clone(),
                 std::rc::Rc::new(FunctionSignature {
-                    args: FunctionArgs::Static(fdef.args.iter().map(|a| a.1).collect()),
+                    args: FunctionArgs::Static(
+                        fdef.args
+                            .iter()
+                            .map(|(_span, _name, typ)| typ.clone())
+                            .collect(),
+                    ),
                     ret,
                 }),
             );
 
             Ok(Some(Latex::FuncDef {
                 name: fdef.name,
-                args: fdef.args.iter().map(|a| a.0.to_string()).collect(),
+                args: fdef
+                    .args
+                    .iter()
+                    .map(|(_span, name, _typ)| name.clone())
+                    .collect(),
                 body: Box::new(body),
             }))
         }
@@ -509,7 +524,7 @@ pub mod tests {
             Statement::FuncDef(
                 FunctionDefinition {
                     name: "abc".to_string(),
-                    args: vec![("def".to_string(), ValType::Number)],
+                    args: vec![(spn(), "def".to_string(), ValType::Number)],
                     ret_annotation: None,
                     inline: false,
                 },
@@ -530,8 +545,8 @@ pub mod tests {
                 FunctionDefinition {
                     name: "f".to_string(),
                     args: vec![
-                        ("abc".to_string(), ValType::List),
-                        ("def".to_string(), ValType::Number),
+                        (spn(), "abc".to_string(), ValType::List),
+                        (spn(), "def".to_string(), ValType::Number),
                     ],
                     ret_annotation: None,
                     inline: false,
@@ -555,7 +570,7 @@ pub mod tests {
                 Statement::FuncDef(
                     FunctionDefinition {
                         name: "f".to_string(),
-                        args: vec![("a".to_string(), ValType::Number)],
+                        args: vec![(spn(), "a".to_string(), ValType::Number)],
                         ret_annotation: None,
                         inline: false,
                     },
@@ -584,7 +599,7 @@ pub mod tests {
             compile_stmt(Statement::FuncDef(
                 FunctionDefinition {
                     name: "f".to_string(),
-                    args: vec![("a".to_string(), ValType::Number)],
+                    args: vec![(spn(), "a".to_string(), ValType::Number)],
                     ret_annotation: Some(ValType::List),
                     inline: false,
                 },
@@ -609,7 +624,7 @@ pub mod tests {
             Statement::FuncDef(
                 FunctionDefinition {
                     name: "f".to_string(),
-                    args: vec![("a".to_string(), ValType::Number)],
+                    args: vec![(spn(), "a".to_string(), ValType::Number)],
                     ret_annotation: None,
                     inline: false,
                 },
@@ -638,7 +653,7 @@ pub mod tests {
             Statement::FuncDef(
                 FunctionDefinition {
                     name: "f".to_string(),
-                    args: vec![("a".to_string(), ValType::Number)],
+                    args: vec![(spn(), "a".to_string(), ValType::Number)],
                     ret_annotation: None,
                     inline: false,
                 },
@@ -705,7 +720,7 @@ pub mod tests {
             Statement::FuncDef(
                 FunctionDefinition {
                     name: "f".to_string(),
-                    args: vec![("a".to_string(), ValType::Number)],
+                    args: vec![(spn(), "a".to_string(), ValType::Number)],
                     ret_annotation: None,
                     inline: false,
                 },
@@ -732,6 +747,30 @@ pub mod tests {
                     got: ValType::List
                 }
             }
+        );
+    }
+
+    #[test]
+    fn funcdef_catch_shadow() {
+        let mut ctx = new_ctx();
+        ctx.variables.insert("a".to_string(), ValType::Number);
+        assert_eq!(
+            compile_stmt_with_ctx(
+                &mut ctx,
+                Statement::FuncDef(
+                    FunctionDefinition {
+                        args: vec![(spn(), "a".to_string(), ValType::Number)],
+                        name: "f".to_string(),
+                        ret_annotation: None,
+                        inline: false,
+                    },
+                    (spn(), Expression::Num("1".to_string())),
+                )
+            ),
+            Err(CompileError {
+                span: spn(),
+                kind: CompileErrorKind::DuplicateVariable("a".to_string()),
+            }),
         );
     }
 
