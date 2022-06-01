@@ -213,7 +213,7 @@ pub fn compile_stmt(
                 ctx.locals.remove(aname);
             }
 
-            ctx.defined_functions.insert(fdef.name.clone(), std::rc::Rc::new(FunctionSignature {
+            let sig = FunctionSignature {
                 args: FunctionArgs::Static(
                     fdef.args
                         .iter()
@@ -221,8 +221,16 @@ pub fn compile_stmt(
                         .collect(),
                 ),
                 ret,
-                inline: fdef.inline
-            }));
+            };
+            if fdef.inline {
+                ctx.inline_fns.insert(
+                    fdef.name.clone(),
+                    std::rc::Rc::new((sig, body)),
+                );
+                return Ok(None);
+            }
+            ctx.defined_functions
+                .insert(fdef.name.clone(), std::rc::Rc::new(sig));
 
             Ok(Some(Latex::FuncDef {
                 name: fdef.name,

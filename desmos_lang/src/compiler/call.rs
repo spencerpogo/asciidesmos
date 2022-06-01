@@ -19,30 +19,28 @@ pub fn func_to_latex(func: ast::Function) -> latex::Function {
 // Returns function and whether it is builtin
 pub fn resolve_function<'a>(ctx: &'a mut Context, func: ast::Function) -> Option<ResolvedFunction> {
     match func {
-        ast::Function::Log { base: _ } => Some(ResolvedFunction {
+        ast::Function::Log { base: _ } => Some(ResolvedFunction::Normal {
             func: Rc::new(FunctionSignature {
                 args: FunctionArgs::Static(vec![types::ValType::Number]),
                 ret: types::ValType::Number,
-                inline: false
             }),
             is_builtin: true,
         }),
         ast::Function::Normal { name } => match ctx.defined_functions.get(&*name) {
             None => match builtins::BUILTIN_FUNCTIONS.get(&*name) {
                 None => None,
-                Some(f) => Some(ResolvedFunction {
+                Some(f) => Some(ResolvedFunction::Normal {
                     func: Rc::new(FunctionSignature {
                         args: match f.args {
                             types::Args::Static(args) => FunctionArgs::Static(args.to_vec()),
                             types::Args::Variadic => FunctionArgs::Variadic,
                         },
                         ret: f.ret,
-                        inline: false,
                     }),
                     is_builtin: true,
                 }),
             },
-            Some(f) => Some(ResolvedFunction {
+            Some(f) => Some(ResolvedFunction::Normal {
                 func: f.clone(),
                 is_builtin: false,
             }),
@@ -186,7 +184,7 @@ pub fn compile_call(
         kind: CompileErrorKind::UnknownFunction(func.clone()),
         span: span.clone(),
     })?;
-    if rfunc.func.inline {
+    if rfunc.func {
         return match &rfunc.func.args {
             FunctionArgs::Static(rargs) => {
                 todo!()
