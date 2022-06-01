@@ -381,8 +381,12 @@ mod tests {
     use super::*;
     const FILENO: usize = 1234;
 
+    fn eval(l: &str) -> LexParseResult {
+        lex_and_parse(FILENO, l.to_string())
+    }
+
     fn check_result(l: &str, r: LexParseResult) {
-        assert_eq!(lex_and_parse(FILENO, l.to_string()), r);
+        assert_eq!(eval(l), r);
     }
 
     fn check(l: &str, expr: ast::LocatedExpression) {
@@ -392,6 +396,14 @@ mod tests {
 
     fn check_stmt(l: &str, stmt: ast::Spanned<ast::Statement>) {
         check_result(l, Ok(vec![stmt]));
+    }
+
+    fn assert_parses(l: &str) {
+        assert!(eval(l).is_ok());
+    }
+
+    fn assert_does_not_parse(l: &str) {
+        assert!(eval(l).is_err());
     }
 
     fn s(r: std::ops::Range<usize>) -> types::Span {
@@ -478,6 +490,7 @@ mod tests {
 
     #[test]
     fn call() {
+        assert_parses("a() = 1;");
         check(
             "_a1(1+2, 3*4);",
             (
@@ -508,6 +521,12 @@ mod tests {
                 },
             ),
         );
+    }
+
+    #[test]
+    fn type_annotations() {
+        assert_parses("a ( x , y : num , z : list) = 1;");
+        assert_does_not_parse("a ( x : str ) = 0;");
     }
 
     #[test]
@@ -611,6 +630,7 @@ mod tests {
                             ("yz".to_string(), types::ValType::List),
                         ],
                         ret_annotation: None,
+                        inline: false,
                     },
                     (s(31..32), num("7")),
                 ),
