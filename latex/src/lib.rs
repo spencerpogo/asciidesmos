@@ -95,6 +95,7 @@ pub fn needs_parens(left: &Latex, operator: BinaryOperator) -> bool {
     match &left {
         Latex::Num(_) => false,
         Latex::Call { .. } => false,
+        Latex::Piecewise { .. } => false,
         Latex::BinaryExpression { operator, .. } => *operator != BinaryOperator::Divide,
         _ => true,
     }
