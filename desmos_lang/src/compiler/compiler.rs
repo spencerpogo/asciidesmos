@@ -192,10 +192,6 @@ pub fn compile_stmt(
     match expr.1 {
         Statement::Expression(e) => Ok(Some(compile_expr(ctx, (s, e))?.0)),
         Statement::FuncDef(fdef, e) => {
-            if fdef.inline {
-                todo!()
-            }
-
             // Add args into locals
             for (aspan, aname, atype) in fdef.args.iter() {
                 if ctx.variables.contains_key(aname) || ctx.locals.contains_key(aname) {
@@ -218,18 +214,21 @@ pub fn compile_stmt(
             }
 
             // Add function to context
-            ctx.defined_functions.insert(
-                fdef.name.clone(),
-                std::rc::Rc::new(FunctionSignature {
-                    args: FunctionArgs::Static(
-                        fdef.args
-                            .iter()
-                            .map(|(_span, _name, typ)| typ.clone())
-                            .collect(),
-                    ),
-                    ret,
-                }),
-            );
+            let name = fdef.name.clone();
+            let fsig = std::rc::Rc::new(FunctionSignature {
+                args: FunctionArgs::Static(
+                    fdef.args
+                        .iter()
+                        .map(|(_span, _name, typ)| typ.clone())
+                        .collect(),
+                ),
+                ret,
+            });
+            if fdef.inline {
+                ctx.inline_fns.insert(name, fsig);
+            } else {
+                ctx.defined_functions.insert(name, fsig);
+            }
 
             Ok(Some(Latex::FuncDef {
                 name: fdef.name,
