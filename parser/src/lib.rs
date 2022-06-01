@@ -638,7 +638,7 @@ mod tests {
         );
     }
 
-    #{test}
+    #[test]
     fn inline_funcdef() {
         check_stmt(
             "inline func( xy : num , yz : list ) = 7;",
