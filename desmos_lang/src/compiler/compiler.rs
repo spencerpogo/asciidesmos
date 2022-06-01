@@ -192,6 +192,10 @@ pub fn compile_stmt(
     match expr.1 {
         Statement::Expression(e) => Ok(Some(compile_expr(ctx, (s, e))?.0)),
         Statement::FuncDef(fdef, e) => {
+            if fdef.inline {
+                todo!()
+            }
+
             // Clone a copy we can restore later
             let old_locals = ctx.locals.clone();
             // Add args into locals
@@ -507,6 +511,7 @@ pub mod tests {
                     name: "abc".to_string(),
                     args: vec![("def".to_string(), ValType::Number)],
                     ret_annotation: None,
+                    inline: false,
                 },
                 (spn(), Expression::Num("1".to_string())),
             ),
@@ -529,6 +534,7 @@ pub mod tests {
                         ("def".to_string(), ValType::Number),
                     ],
                     ret_annotation: None,
+                    inline: false,
                 },
                 (spn(), Expression::Num("1".to_string())),
             ),
@@ -551,6 +557,7 @@ pub mod tests {
                         name: "f".to_string(),
                         args: vec![("a".to_string(), ValType::Number)],
                         ret_annotation: None,
+                        inline: false,
                     },
                     (spn(), Expression::Variable("a".to_string())),
                 )
@@ -579,6 +586,7 @@ pub mod tests {
                     name: "f".to_string(),
                     args: vec![("a".to_string(), ValType::Number)],
                     ret_annotation: Some(ValType::List),
+                    inline: false,
                 },
                 (spn(), Expression::Num("1".to_string())),
             ))
@@ -603,6 +611,7 @@ pub mod tests {
                     name: "f".to_string(),
                     args: vec![("a".to_string(), ValType::Number)],
                     ret_annotation: None,
+                    inline: false,
                 },
                 (spn(), Expression::Variable("a".to_string())),
             ),
@@ -631,6 +640,7 @@ pub mod tests {
                     name: "f".to_string(),
                     args: vec![("a".to_string(), ValType::Number)],
                     ret_annotation: None,
+                    inline: false,
                 },
                 (spn(), Expression::Variable("a".to_string())),
             ),
@@ -659,6 +669,7 @@ pub mod tests {
                     name: "f".to_string(),
                     args: vec![],
                     ret_annotation: None,
+                    inline: false,
                 },
                 (spn(), Expression::Num("1".to_string())),
             ),
@@ -696,6 +707,7 @@ pub mod tests {
                     name: "f".to_string(),
                     args: vec![("a".to_string(), ValType::Number)],
                     ret_annotation: None,
+                    inline: false,
                 },
                 (spn(), Expression::Num("1".to_string())),
             ),

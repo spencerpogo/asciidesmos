@@ -75,6 +75,7 @@ pub struct FunctionDefinition {
     pub name: String,
     pub args: Vec<(String, ValType)>,
     pub ret_annotation: Option<ValType>,
+    pub inline: bool,
 }
 
 // A statement is a part of a program

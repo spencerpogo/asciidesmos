@@ -287,15 +287,17 @@ fn statement_parser() -> impl Parser<Token, Vec<ast::Spanned<ast::Statement>>, E
             )),
         });
     let arg = ident.then(type_annotation.or(empty().to(types::ValType::Number)));
-    let func_dec = ident
+    let inline = just(Token::KeywordInline).to(true).or(empty().to(false));
+    let func_dec = inline
         .clone()
+        .then(ident.clone())
         .then(
             arg.separated_by(just(Token::CtrlComma))
                 .delimited_by(just(Token::CtrlLParen), just(Token::CtrlRParen)),
         )
         .then_ignore(just(Token::OpEq))
         .then(expr.clone())
-        .map_with_span(|((name, args), expr), s| {
+        .map_with_span(|(((inline, name), args), expr), s| {
             (
                 s,
                 ast::Statement::FuncDef(
@@ -303,14 +305,13 @@ fn statement_parser() -> impl Parser<Token, Vec<ast::Spanned<ast::Statement>>, E
                         name,
                         args,
                         ret_annotation: None,
+                        inline,
                     },
                     expr,
                 ),
             )
         });
-    let declaration = just(Token::KeywordInline)
-        .to(true)
-        .or(empty().to(false))
+    let declaration = inline
         .then(ident)
         .then_ignore(just(Token::OpEq))
         .then(expr)
@@ -631,6 +632,28 @@ mod tests {
                         ],
                         ret_annotation: None,
                         inline: false,
+                    },
+                    (s(31..32), num("7")),
+                ),
+            ),
+        );
+    }
+
+    #{test}
+    fn inline_funcdef() {
+        check_stmt(
+            "inline func( xy : num , yz : list ) = 7;",
+            (
+                s(0..32),
+                ast::Statement::FuncDef(
+                    ast::FunctionDefinition {
+                        name: "func".to_string(),
+                        args: vec![
+                            ("xy".to_string(), types::ValType::Number),
+                            ("yz".to_string(), types::ValType::List),
+                        ],
+                        ret_annotation: None,
+                        inline: true,
                     },
                     (s(31..32), num("7")),
                 ),
