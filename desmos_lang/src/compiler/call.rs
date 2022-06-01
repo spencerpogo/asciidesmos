@@ -178,26 +178,20 @@ pub fn compile_variadic_call(
     }
 }
 
-pub fn replace_variables(
-    node: latex::Latex,
-    vars: &HashMap<String, latex::Latex>,
-    // only possible error is "expected expression"
-) -> Result<Latex, ()> {
+pub fn replace_variables(node: latex::Latex, vars: &HashMap<String, latex::Latex>) -> Latex {
     let proc = |v| replace_variables(v, vars);
     let proc_vec = |v: Vec<Latex>| {
         v.into_iter()
             .map(|l| replace_variables(l, vars))
-            .collect::<Result<Vec<_>, _>>()
+            .collect::<Vec<_>>()
     };
-    let proc_cond = |c: latex::Cond| {
-        Ok(latex::Cond {
-            left: proc(c.left)?,
-            op: c.op,
-            right: proc(c.right)?,
-            result: proc(c.result)?,
-        })
+    let proc_cond = |c: latex::Cond| latex::Cond {
+        left: proc(c.left),
+        op: c.op,
+        right: proc(c.right),
+        result: proc(c.result),
     };
-    Ok(match node {
+    match node {
         Latex::Variable(name) => match vars.get(&name) {
             Some(replacement) => replacement.clone(),
             None => Latex::Variable(name),
@@ -210,35 +204,32 @@ pub fn replace_variables(
         } => Latex::Call {
             func,
             is_builtin,
-            args: proc_vec(args)?,
+            args: proc_vec(args),
         },
         Latex::BinaryExpression {
             left,
             operator,
             right,
         } => Latex::BinaryExpression {
-            left: Box::new(proc(*left)?),
+            left: Box::new(proc(*left)),
             operator,
-            right: Box::new(proc(*right)?),
+            right: Box::new(proc(*right)),
         },
         Latex::UnaryExpression { left, operator } => Latex::UnaryExpression {
-            left: Box::new(proc(*left)?),
+            left: Box::new(proc(*left)),
             operator,
         },
-        Latex::List(inner) => Latex::List(proc_vec(inner)?),
+        Latex::List(inner) => Latex::List(proc_vec(inner)),
         Latex::Piecewise {
             first,
             rest,
             default,
         } => Latex::Piecewise {
-            first: Box::new(proc_cond(*first)?),
-            rest: rest
-                .into_iter()
-                .map(proc_cond)
-                .collect::<Result<Vec<_>, _>>()?,
-            default: Box::new(proc(*default)?),
+            first: Box::new(proc_cond(*first)),
+            rest: rest.into_iter().map(proc_cond).collect::<Vec<_>>(),
+            default: Box::new(proc(*default)),
         },
-    })
+    }
 }
 
 pub fn compile_call(
@@ -280,11 +271,7 @@ pub fn compile_call(
                 vars.insert(name, arg_lat);
             }
 
-            Ok((
-                replace_variables(rfunc.body, &vars)
-                    .expect("Function body is always an expression"),
-                rfunc.ret,
-            ))
+            Ok((replace_variables(rfunc.body, &vars), rfunc.ret))
         }
         ResolvedFunction::Normal {
             func: rfunc,
