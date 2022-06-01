@@ -643,7 +643,7 @@ mod tests {
         check_stmt(
             "inline func( xy : num , yz : list ) = 7;",
             (
-                s(0..32),
+                s(0..39),
                 ast::Statement::FuncDef(
                     ast::FunctionDefinition {
                         name: "func".to_string(),
@@ -654,7 +654,7 @@ mod tests {
                         ret_annotation: None,
                         inline: true,
                     },
-                    (s(31..32), num("7")),
+                    (s(38..39), num("7")),
                 ),
             ),
         );
