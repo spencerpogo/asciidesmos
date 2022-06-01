@@ -196,8 +196,6 @@ pub fn compile_stmt(
                 todo!()
             }
 
-            // Clone a copy we can restore later
-            let old_locals = ctx.locals.clone();
             // Add args into locals
             for (aspan, aname, atype) in fdef.args.iter() {
                 if ctx.variables.contains_key(aname) || ctx.locals.contains_key(aname) {
@@ -208,15 +206,16 @@ pub fn compile_stmt(
                 }
                 ctx.locals.insert(aname.clone(), *atype);
             }
-            let span = e.0.clone();
             // Evaluate the body with the new ctx
             let (body, ret) = compile_expr(ctx, e)?;
             // Validate the return type annotation
             if let Some(retann) = fdef.ret_annotation {
-                check_type(span, ret, retann)?;
+                check_type(s, ret, retann)?;
             }
-            // restore old locals
-            ctx.locals = old_locals;
+            // remove args from scope
+            for (_span, aname, _atyp) in fdef.args.iter() {
+                ctx.locals.remove(aname);
+            }
 
             // Add function to context
             ctx.defined_functions.insert(
