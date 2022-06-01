@@ -13,6 +13,7 @@ pub enum FunctionArgs {
 pub struct FunctionSignature {
     pub args: FunctionArgs,
     pub ret: ValType,
+    pub inline: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -21,7 +22,6 @@ pub struct Context {
     pub locals: HashMap<String, ValType>,
     pub defined_functions: HashMap<String, Rc<FunctionSignature>>,
     pub inline_vals: HashMap<String, (ValType, latex::Latex)>,
-    pub inline_fns: HashMap<String, Rc<FunctionSignature>>,
 }
 
 impl Context {
@@ -31,7 +31,6 @@ impl Context {
             locals: HashMap::new(),
             defined_functions: HashMap::new(),
             inline_vals: HashMap::new(),
-            inline_fns: HashMap::new(),
         }
     }
 }

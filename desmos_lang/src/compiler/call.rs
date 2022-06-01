@@ -23,6 +23,7 @@ pub fn resolve_function<'a>(ctx: &'a mut Context, func: ast::Function) -> Option
             func: Rc::new(FunctionSignature {
                 args: FunctionArgs::Static(vec![types::ValType::Number]),
                 ret: types::ValType::Number,
+                inline: false
             }),
             is_builtin: true,
         }),
@@ -36,6 +37,7 @@ pub fn resolve_function<'a>(ctx: &'a mut Context, func: ast::Function) -> Option
                             types::Args::Variadic => FunctionArgs::Variadic,
                         },
                         ret: f.ret,
+                        inline: false,
                     }),
                     is_builtin: true,
                 }),
@@ -184,6 +186,9 @@ pub fn compile_call(
         kind: CompileErrorKind::UnknownFunction(func.clone()),
         span: span.clone(),
     })?;
+    if rfunc.func.inline {
+        todo!();
+    }
     match &rfunc.func.args {
         FunctionArgs::Static(rargs) => {
             compile_static_call(span, func, modifier, args, rfunc.clone(), rargs)
