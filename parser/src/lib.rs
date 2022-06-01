@@ -156,7 +156,6 @@ fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr>
         .map_with_span(|v, s| (s, v));
 
         let atom = list
-            .or(call)
             .or(val)
             .or(expr
                 .clone()
@@ -263,7 +262,7 @@ fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr>
                 )
             });
 
-        where_block.or(sum)
+        where_block.or(call).or(sum)
     })
 }
 
