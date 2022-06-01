@@ -183,10 +183,19 @@ pub fn replace_variables(
     vars: &HashMap<String, latex::Latex>,
     // only possible error is "expected expression"
 ) -> Result<Latex, ()> {
+    let proc = |v| replace_variables(v, vars);
     let proc_vec = |v: Vec<Latex>| {
         v.into_iter()
             .map(|l| replace_variables(l, vars))
             .collect::<Result<Vec<_>, _>>()
+    };
+    let proc_cond = |c: latex::Cond| {
+        Ok(latex::Cond {
+            left: proc(c.left)?,
+            op: c.op,
+            right: proc(c.right)?,
+            result: proc(c.result)?,
+        })
     };
     Ok(match node {
         Latex::Variable(name) => match vars.get(&name) {
@@ -208,15 +217,27 @@ pub fn replace_variables(
             operator,
             right,
         } => Latex::BinaryExpression {
-            left: Box::new(replace_variables(*left, vars)?),
+            left: Box::new(proc(*left)?),
             operator,
-            right: Box::new(replace_variables(*right, vars)?),
+            right: Box::new(proc(*right)?),
         },
         Latex::UnaryExpression { left, operator } => Latex::UnaryExpression {
-            left: Box::new(replace_variables(*left, vars)?),
+            left: Box::new(proc(*left)?),
             operator,
         },
         Latex::List(inner) => Latex::List(proc_vec(inner)?),
+        Latex::Piecewise {
+            first,
+            rest,
+            default,
+        } => Latex::Piecewise {
+            first: Box::new(proc_cond(*first)?),
+            rest: rest
+                .into_iter()
+                .map(proc_cond)
+                .collect::<Result<Vec<_>, _>>()?,
+            default: Box::new(proc(*default)?),
+        },
         _ => return Err(()),
     })
 }
