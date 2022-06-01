@@ -82,9 +82,28 @@ pub fn multi_latex_to_str(items: Vec<Latex>) -> Vec<String> {
     items.into_iter().map(latex_to_str).collect()
 }
 
+// attempt to save bytes by only parenthesizing when necessary
+pub fn needs_parens(left: &Latex, operator: BinaryOperator) -> bool {
+    if operator == BinaryOperator::Divide {
+        return false;
+    }
+    match &left {
+        Latex::Num(_) => false,
+        Latex::Call { .. } => false,
+        Latex::BinaryExpression { operator, .. } => *operator != BinaryOperator::Divide,
+        _ => true,
+    }
+}
+
 pub fn binaryoperator_to_str(left: Latex, operator: BinaryOperator, right: Latex) -> String {
-    let ls = latex_to_str(left.clone());
+    let l_raw = latex_to_str(left.clone());
     let rs = latex_to_str(right.clone());
+    let ls = if needs_parens(&left, operator) {
+        format!("({})", l_raw)
+    } else {
+        l_raw
+    };
+
     match operator {
         BinaryOperator::Add => format!("{}+{}", ls, rs),
         BinaryOperator::Subtract => format!("{}-{}", ls, rs),
