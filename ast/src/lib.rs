@@ -73,7 +73,7 @@ pub type LocatedExpression = Spanned<Expression>;
 #[derive(Clone, Debug, PartialEq)]
 pub struct FunctionDefinition {
     pub name: String,
-    pub args: Vec<(String, ValType)>,
+    pub args: Vec<(Span, String, ValType)>,
     pub ret_annotation: Option<ValType>,
     pub inline: bool,
 }

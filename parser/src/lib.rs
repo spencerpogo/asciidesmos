@@ -285,7 +285,9 @@ fn statement_parser() -> impl Parser<Token, Vec<ast::Spanned<ast::Statement>>, E
                 format!("Invalid type '{}', expected 'num' or 'list'", typ),
             )),
         });
-    let arg = ident.then(type_annotation.or(empty().to(types::ValType::Number)));
+    let arg = ident
+        .then(type_annotation.or(empty().to(types::ValType::Number)))
+        .map_with_span(|(name, ty), s| (s, name, ty));
     let inline = just(Token::KeywordInline).to(true).or(empty().to(false));
     let func_dec = inline
         .clone()
@@ -626,8 +628,8 @@ mod tests {
                     ast::FunctionDefinition {
                         name: "func".to_string(),
                         args: vec![
-                            ("xy".to_string(), types::ValType::Number),
-                            ("yz".to_string(), types::ValType::List),
+                            (s(6..14), "xy".to_string(), types::ValType::Number),
+                            (s(17..26), "yz".to_string(), types::ValType::List),
                         ],
                         ret_annotation: None,
                         inline: false,
@@ -648,8 +650,8 @@ mod tests {
                     ast::FunctionDefinition {
                         name: "func".to_string(),
                         args: vec![
-                            ("xy".to_string(), types::ValType::Number),
-                            ("yz".to_string(), types::ValType::List),
+                            (s(13..21), "xy".to_string(), types::ValType::Number),
+                            (s(24..33), "yz".to_string(), types::ValType::List),
                         ],
                         ret_annotation: None,
                         inline: true,
