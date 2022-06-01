@@ -48,16 +48,21 @@ pub enum Latex {
         operator: UnaryOperator,
     },
     List(Vec<Latex>),
+    Piecewise {
+        first: Box<Cond>,
+        rest: Vec<Cond>,
+        default: Box<Latex>,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum LatexStatement {
+    Expression(Latex),
     Assignment(Box<Latex>, Box<Latex>),
     FuncDef {
         name: String,
         args: Vec<String>,
         body: Box<Latex>,
-    },
-    Piecewise {
-        first: Box<Cond>,
-        rest: Vec<Cond>,
-        default: Box<Latex>,
     },
 }
 
@@ -184,18 +189,6 @@ pub fn latex_to_str(l: Latex) -> String {
             UnaryOperator::Factorial => format!("{}!", latex_to_str(*left),),
         },
         Latex::List(items) => format!("\\left[{}\\right]", multi_latex_to_str(items).join(",")),
-        Latex::Assignment(left, right) => {
-            format!("{}={}", latex_to_str(*left), latex_to_str(*right))
-        }
-        Latex::FuncDef { name, args, body } => format!(
-            "{}\\left({}\\right)={}",
-            name,
-            args.into_iter()
-                .map(format_latex_identifier)
-                .collect::<Vec<String>>()
-                .join(","),
-            latex_to_str(*body)
-        ),
         Latex::Piecewise {
             first,
             rest,
@@ -207,6 +200,24 @@ pub fn latex_to_str(l: Latex) -> String {
                 .map(|cond| cond_to_str(cond) + ",")
                 .collect::<String>(),
             latex_to_str(*default)
+        ),
+    }
+}
+
+pub fn latex_stmt_to_str(stmt: LatexStatement) -> String {
+    match stmt {
+        LatexStatement::Expression(e) => latex_to_str(e),
+        LatexStatement::Assignment(left, right) => {
+            format!("{}={}", latex_to_str(*left), latex_to_str(*right))
+        }
+        LatexStatement::FuncDef { name, args, body } => format!(
+            "{}\\left({}\\right)={}",
+            name,
+            args.into_iter()
+                .map(format_latex_identifier)
+                .collect::<Vec<String>>()
+                .join(","),
+            latex_to_str(*body)
         ),
     }
 }

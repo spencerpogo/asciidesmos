@@ -6,7 +6,8 @@ use ast::{
     BinaryOperator, Expression, LocatedExpression, LocatedStatement, Statement, UnaryOperator,
 };
 use latex::{
-    self, BinaryOperator as LatexBinaryOperator, Cond, Latex, UnaryOperator as LatexUnaryOperator,
+    self, BinaryOperator as LatexBinaryOperator, Cond, Latex, LatexStatement,
+    UnaryOperator as LatexUnaryOperator,
 };
 use types::ValType;
 
@@ -186,11 +187,13 @@ pub fn compile_expr<'a>(
 pub fn compile_stmt(
     ctx: &mut Context,
     expr: LocatedStatement,
-) -> Result<Option<Latex>, CompileError> {
+) -> Result<Option<LatexStatement>, CompileError> {
     let s = expr.0;
 
     match expr.1 {
-        Statement::Expression(e) => Ok(Some(compile_expr(ctx, (s, e))?.0)),
+        Statement::Expression(e) => Ok(Some(LatexStatement::Expression(
+            compile_expr(ctx, (s, e))?.0,
+        ))),
         Statement::FuncDef(fdef, e) => {
             // Add args into locals
             for (aspan, aname, atype) in fdef.args.iter() {
@@ -240,7 +243,7 @@ pub fn compile_stmt(
             ctx.defined_functions
                 .insert(fdef.name.clone(), std::rc::Rc::new(sig));
 
-            Ok(Some(Latex::FuncDef {
+            Ok(Some(LatexStatement::FuncDef {
                 name: fdef.name,
                 args: fdef
                     .args
@@ -267,7 +270,7 @@ pub fn compile_stmt(
                 }
                 false => {
                     ctx.variables.insert(name.clone(), t);
-                    Ok(Some(Latex::Assignment(
+                    Ok(Some(LatexStatement::Assignment(
                         Box::new(Latex::Variable(name)),
                         Box::new(val_latex),
                     )))
@@ -290,7 +293,7 @@ pub fn stmts_to_graph(
             latex_exprs
                 .into_iter()
                 .filter(Option::is_some)
-                .map(|l| latex::latex_to_str(l.unwrap()))
+                .map(|l| latex::latex_stmt_to_str(l.unwrap()))
                 .collect(),
         ),
         ..Default::default()
@@ -315,18 +318,18 @@ pub mod tests {
         Ok(compile_expr(ctx, (spn(), exp))?.0)
     }
 
-    pub fn compile_stmt(stmt: Statement) -> Result<Option<Latex>, CompileError> {
+    pub fn compile_stmt(stmt: Statement) -> Result<Option<LatexStatement>, CompileError> {
         compile_stmt_with_ctx(&mut new_ctx(), stmt)
     }
 
     pub fn compile_stmt_with_ctx(
         ctx: &mut Context,
         stmt: Statement,
-    ) -> Result<Option<Latex>, CompileError> {
+    ) -> Result<Option<LatexStatement>, CompileError> {
         super::compile_stmt(ctx, (spn(), stmt))
     }
 
-    pub fn check_stmt(stmt: Statement, r: Latex) {
+    pub fn check_stmt(stmt: Statement, r: LatexStatement) {
         assert_eq!(compile_stmt(stmt).unwrap(), Some(r));
     }
 
@@ -522,7 +525,7 @@ pub mod tests {
     fn expression_stmt() {
         check_stmt(
             Statement::Expression(Expression::Num("1".to_string())),
-            Latex::Num("1".to_string()),
+            LatexStatement::Expression(Latex::Num("1".to_string())),
         );
     }
 
@@ -538,7 +541,7 @@ pub mod tests {
                 },
                 (spn(), Expression::Num("1".to_string())),
             ),
-            Latex::FuncDef {
+            LatexStatement::FuncDef {
                 name: "abc".to_string(),
                 args: vec!["def".to_string()],
                 body: Box::new(Latex::Num("1".to_string())),
@@ -561,7 +564,7 @@ pub mod tests {
                 },
                 (spn(), Expression::Num("1".to_string())),
             ),
-            Latex::FuncDef {
+            LatexStatement::FuncDef {
                 name: "f".to_string(),
                 args: vec!["abc".to_string(), "def".to_string()],
                 body: Box::new(Latex::Num("1".to_string())),
@@ -585,7 +588,7 @@ pub mod tests {
                     (spn(), Expression::Variable("a".to_string())),
                 )
             ),
-            Ok(Some(Latex::FuncDef {
+            Ok(Some(LatexStatement::FuncDef {
                 name: "f".to_string(),
                 args: vec!["a".to_string()],
                 body: Box::new(Latex::Variable("a".to_string())),
@@ -918,7 +921,7 @@ pub mod tests {
                     inline: false,
                 }
             ),
-            Ok(Some(Latex::Assignment(
+            Ok(Some(LatexStatement::Assignment(
                 Box::new(Latex::Variable("test".to_string())),
                 Box::new(Latex::Num("1".to_string()))
             )))

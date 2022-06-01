@@ -238,7 +238,6 @@ pub fn replace_variables(
                 .collect::<Result<Vec<_>, _>>()?,
             default: Box::new(proc(*default)?),
         },
-        _ => return Err(()),
     })
 }
 
