@@ -105,8 +105,26 @@ pub enum LineStyle {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum PointStyle {
+    Point,
+    Open,
+    Cross,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum DragMode {
+    X,
+    Y,
+    Xy,
+    None,
+    Auto,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct BasicSetExpression {
+pub struct SetExpression {
     id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     latex: Option<String>,
@@ -119,38 +137,124 @@ pub struct BasicSetExpression {
     line_width: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     line_opacity: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    point_style: Option<PointStyle>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    point_size: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    point_opacity: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    fill_opacity: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    points: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    lines: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    hidden: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    should_graph: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    drag_mode: Option<DragMode>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Domain {
+    min: String,
+    max: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LabelSize {
+    Small,
+    Medium,
+    Large,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LabelOrientation {
+    Default,
+    Center,
+    CenterAuto,
+    AutoCenter,
+    Above,
+    AboveLeft,
+    AboveRight,
+    AboveAuto,
+    Below,
+    BelowLeft,
+    BelowRight,
+    BelowAuto,
+    Left,
+    AutoLeft,
+    Right,
+    AutoRight,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Clickable {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    enabled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    latex: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ExpressionValueExpression {
+    #[serde(flatten)]
+    item_model: ItemModel,
+    #[serde(flatten)]
+    set_expression: SetExpression,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    fill: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    secret: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    slider_bounds: Option<SliderBounds>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    parametric_domain: Option<Domain>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    polar_domain: Option<Domain>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    show_label: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    label_size: Option<LabelSize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    label_orientation: Option<LabelOrientation>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    clickable_info: Option<Clickable>,
+}
+
+impl ExpressionValueExpression {
+    fn new(item_model: ItemModel, set_expression: SetExpression) -> Self {
+        Self {
+            item_model,
+            set_expression,
+            fill: None,
+            secret: None,
+            slider_bounds: None,
+            parametric_domain: None,
+            polar_domain: None,
+            label: None,
+            show_label: None,
+            label_size: None,
+            label_orientation: None,
+            clickable_info: None,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
 pub enum ExpressionValue {
-    Expression {
-        #[serde(flatten)]
-        item_model: ItemModel,
-
-        #[serde(skip_serializing_if = "Option::is_none")]
-        fill: Option<bool>,
-
-        #[serde(skip_serializing_if = "Option::is_none")]
-        secret: Option<bool>,
-
-        #[serde(skip_serializing_if = "Option::is_none")]
-        slider_bounds: Option<SliderBounds>,
-
-        // Optional CSS color
-        #[serde(skip_serializing_if = "Option::is_none")]
-        #[serde(default)]
-        color: Option<String>,
-
-        // Optional content
-        #[serde(skip_serializing_if = "Option::is_none")]
-        #[serde(default)]
-        latex: Option<String>,
-    },
-    Table {
-        columns: Vec<Column>,
-    },
+    Expression(ExpressionValueExpression),
+    Table { columns: Vec<Column> },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -210,10 +314,10 @@ impl Expressions {
                 .enumerate()
                 .map(|(i, l)| Expression {
                     id: i.to_string(),
-                    value: ExpressionValue::Expression {
-                        color: None,
-                        latex: Some(l),
-                    },
+                    value: ExpressionValue::Expression(ExpressionValueExpression::new(
+                        ItemModel {},
+                        SetExpression { latex: Some(l) },
+                    )),
                 })
                 .collect(),
             ticker: None,
