@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 pub const LATEST_STATE_VERSION: i8 = 9;
@@ -53,14 +55,94 @@ pub struct Expression {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum FormulaExpressionType {
+    XOrY,
+    SinglePoint,
+    PointList,
+    Parametric,
+    Polar,
+    Implicit,
+    Polygon,
+    Histogram,
+    Dotplot,
+    Boxplot,
+    Ttest,
+    Stats,
+    Cube,
+    Sphere,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")] // wtf
+pub struct Formula {
+    expression_type: FormulaExpressionType,
+    is_graphable: bool,
+    is_inequality: bool,
+    action_value: HashMap<String, String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ItemModel {
+    id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    folder_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    secret: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    formula: Option<Formula>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum LineStyle {
+    Solid,
+    Dashed,
+    Dotted,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BasicSetExpression {
+    id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    latex: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    color: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    line_style: Option<LineStyle>,
+    // TODO: This can also be a number
+    #[serde(skip_serializing_if = "Option::is_none")]
+    line_width: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    line_opacity: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
 pub enum ExpressionValue {
     Expression {
+        #[serde(flatten)]
+        item_model: ItemModel,
+
+        #[serde(skip_serializing_if = "Option::is_none")]
+        fill: Option<bool>,
+
+        #[serde(skip_serializing_if = "Option::is_none")]
+        secret: Option<bool>,
+
+        #[serde(skip_serializing_if = "Option::is_none")]
+        slider_bounds: Option<SliderBounds>,
+
         // Optional CSS color
         #[serde(skip_serializing_if = "Option::is_none")]
         #[serde(default)]
         color: Option<String>,
+
         // Optional content
         #[serde(skip_serializing_if = "Option::is_none")]
         #[serde(default)]
@@ -69,6 +151,15 @@ pub enum ExpressionValue {
     Table {
         columns: Vec<Column>,
     },
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SliderBounds {
+    min: String,
+    max: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    step: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
