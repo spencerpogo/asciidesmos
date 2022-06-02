@@ -37,6 +37,9 @@ pub struct Viewport {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Expressions {
     pub list: Vec<Expression>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ticker: Option<Ticker>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -71,6 +74,22 @@ pub enum ExpressionValue {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Column {}
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Ticker {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    handler_latex: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    min_step_latex: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    open: Option<bool>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    playing: Option<bool>,
+}
+
 impl std::default::Default for CalcState {
     fn default() -> Self {
         Self {
@@ -84,7 +103,10 @@ impl std::default::Default for CalcState {
                 },
             }),
             random_seed: None,
-            expressions: Expressions { list: vec![] },
+            expressions: Expressions {
+                list: vec![],
+                ticker: None,
+            },
         }
     }
 }
@@ -103,6 +125,7 @@ impl Expressions {
                     },
                 })
                 .collect(),
+            ticker: None,
         }
     }
 }
