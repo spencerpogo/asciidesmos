@@ -228,7 +228,7 @@ pub struct Clickable {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct ExpressionValueExpression {
+pub struct ValueExpression {
     #[serde(flatten)]
     set_expression: SetExpression,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -253,7 +253,7 @@ pub struct ExpressionValueExpression {
     clickable_info: Option<Clickable>,
 }
 
-impl ExpressionValueExpression {
+impl ValueExpression {
     pub fn new(set_expression: SetExpression) -> Self {
         Self {
             set_expression,
@@ -272,11 +272,50 @@ impl ExpressionValueExpression {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImageClickable {
+    #[serde(flatten)]
+    base: Clickable,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    hovered_image: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    depressed_image: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ImageExpression {
+    image_url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    angle: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    center: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    height: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    width: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    opacity: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "clickableInfo")]
+    clickable_info: Option<Clickable>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
 pub enum ExpressionValue {
-    Expression(ExpressionValueExpression),
-    Table { columns: Vec<Column> },
+    Expression(ValueExpression),
+    Table {
+        columns: Vec<TableColumn>,
+    },
+    Text {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        text: Option<String>,
+    },
+    Image(ImageExpression),
+    // TODO: Folder
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -289,7 +328,10 @@ pub struct SliderBounds {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Column {}
+pub struct TableColumn {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    values: Option<Vec<String>>,
+}
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -337,12 +379,10 @@ impl Expressions {
                 .map(|(i, l)| {
                     Expression::new(
                         i.to_string(),
-                        ExpressionValue::Expression(ExpressionValueExpression::new(
-                            SetExpression {
-                                latex: Some(l),
-                                ..SetExpression::new()
-                            },
-                        )),
+                        ExpressionValue::Expression(ValueExpression::new(SetExpression {
+                            latex: Some(l),
+                            ..SetExpression::new()
+                        })),
                     )
                 })
                 .collect(),
