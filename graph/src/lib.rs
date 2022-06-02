@@ -46,12 +46,31 @@ pub struct Expressions {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Expression {
-    // Must be unique as it is used for a react-style key prop. Usually a number.
-    //  Should be a valid property name for a javascript object (letters, numbers, and _).
-    pub id: String,
+    id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    folder_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    secret: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    formula: Option<Formula>,
 
     #[serde(flatten)]
     pub value: ExpressionValue,
+}
+
+impl Expression {
+    pub fn new(id: String, value: ExpressionValue) -> Self {
+        Self {
+            id,
+            folder_id: None,
+            secret: None,
+            error: None,
+            formula: None,
+            value,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -83,20 +102,6 @@ pub struct Formula {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ItemModel {
-    id: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    folder_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    secret: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    error: Option<serde_json::Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    formula: Option<Formula>,
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum LineStyle {
     Solid,
@@ -125,7 +130,6 @@ pub enum DragMode {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SetExpression {
-    id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     latex: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -155,6 +159,27 @@ pub struct SetExpression {
     should_graph: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     drag_mode: Option<DragMode>,
+}
+
+impl SetExpression {
+    pub fn new() -> Self {
+        Self {
+            latex: None,
+            color: None,
+            line_style: None,
+            line_width: None,
+            line_opacity: None,
+            point_style: None,
+            point_size: None,
+            point_opacity: None,
+            fill_opacity: None,
+            points: None,
+            lines: None,
+            hidden: None,
+            should_graph: None,
+            drag_mode: None,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -205,8 +230,6 @@ pub struct Clickable {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ExpressionValueExpression {
     #[serde(flatten)]
-    item_model: ItemModel,
-    #[serde(flatten)]
     set_expression: SetExpression,
     #[serde(skip_serializing_if = "Option::is_none")]
     fill: Option<bool>,
@@ -231,9 +254,8 @@ pub struct ExpressionValueExpression {
 }
 
 impl ExpressionValueExpression {
-    fn new(item_model: ItemModel, set_expression: SetExpression) -> Self {
+    pub fn new(set_expression: SetExpression) -> Self {
         Self {
-            item_model,
             set_expression,
             fill: None,
             secret: None,
@@ -312,12 +334,16 @@ impl Expressions {
             list: latex_strings
                 .into_iter()
                 .enumerate()
-                .map(|(i, l)| Expression {
-                    id: i.to_string(),
-                    value: ExpressionValue::Expression(ExpressionValueExpression::new(
-                        ItemModel {},
-                        SetExpression { latex: Some(l) },
-                    )),
+                .map(|(i, l)| {
+                    Expression::new(
+                        i.to_string(),
+                        ExpressionValue::Expression(ExpressionValueExpression::new(
+                            SetExpression {
+                                latex: Some(l),
+                                ..SetExpression::new()
+                            },
+                        )),
+                    )
                 })
                 .collect(),
             ticker: None,
