@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-const LATEST_STATE_VERSION: i8 = 9;
+pub const LATEST_STATE_VERSION: i8 = 9;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
