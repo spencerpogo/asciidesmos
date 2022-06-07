@@ -194,9 +194,18 @@ fn main() {
                 .takes_value(true)
                 .possible_values(&["latex", "state"])
                 .help("Output latex lines or calculator state"),
+        )
+        .arg(
+            Arg::with_name("lsp")
+                .long("lsp")
+                .help("Start LSP server (hack)"),
         );
 
     let matches = app.get_matches();
+    if matches.is_present("lsp") {
+        lsp::main().unwrap();
+        return;
+    }
     // flags
     let flags = Flags {
         ast: matches.is_present("ast"),
