@@ -2,15 +2,27 @@ use std::fmt;
 use types::{ArgCount, ValType};
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum ExpectedArgCount {
+    NonZero,
+    Exact(ArgCount),
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum CompileErrorKind {
     UnknownFunction(ast::Function),
-    WrongArgCount { got: ArgCount, expected: ArgCount },
-    TypeMismatch { got: ValType, expected: ValType },
+    WrongArgCount {
+        got: ArgCount,
+        expected: ExpectedArgCount,
+    },
+    TypeMismatch {
+        got: ValType,
+        expected: ValType,
+    },
     UndefinedVariable(String),
     DuplicateVariable(String),
     ExpectedFunction,
     NoNestedList,
-    NoInlineVariadic
+    NoInlineVariadic,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -22,9 +34,9 @@ pub struct CompileError {
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Copy, PartialOrd, Ord)]
 struct DummyRuleType {}
 
-impl CompileError {
+impl CompileErrorKind {
     fn as_msg(&self) -> String {
-        match &self.kind {
+        match &self {
             CompileErrorKind::UnknownFunction(func) => format!(
                 "Unknown function '{}'",
                 match func {
@@ -33,7 +45,11 @@ impl CompileError {
                 }
             ),
             CompileErrorKind::WrongArgCount { got, expected } => {
-                format!("Expected {} arguments but got {}", expected, got)
+                let ex_fmt: Box<dyn std::fmt::Display> = match expected {
+                    ExpectedArgCount::NonZero => Box::new("1 or more"),
+                    ExpectedArgCount::Exact(n) => Box::new(n),
+                };
+                format!("Expected {} arguments but got {}", ex_fmt, got)
             }
             CompileErrorKind::TypeMismatch { got, expected } => {
                 format!("Expected type {:#?} but got {:#?}", expected, got)
@@ -56,9 +72,14 @@ impl CompileError {
     }
 }
 
+impl fmt::Display for CompileErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.as_msg())
+    }
+}
+
 impl fmt::Display for CompileError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // TODO: ariadne!
-        write!(f, "{:#?} {}", self.span, self.as_msg())
+        write!(f, "{:#?} {}", self.span, self.kind)
     }
 }

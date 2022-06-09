@@ -5,7 +5,7 @@ use types;
 
 use super::{
     builtins,
-    error::{CompileError, CompileErrorKind},
+    error::{CompileError, CompileErrorKind, ExpectedArgCount},
     types::{Context, FunctionArgs, FunctionSignature, ResolvedFunction},
 };
 
@@ -68,7 +68,7 @@ pub fn compile_static_call(
         return Err(CompileError {
             kind: CompileErrorKind::WrongArgCount {
                 got,
-                expected: expect,
+                expected: ExpectedArgCount::Exact(expect),
             },
             span,
         });
@@ -118,7 +118,7 @@ pub fn compile_variadic_call(
             return Err(CompileError {
                 kind: CompileErrorKind::WrongArgCount {
                     got: args.len(),
-                    expected: 1,
+                    expected: ExpectedArgCount::Exact(1),
                 },
                 span: span,
             });
@@ -146,7 +146,7 @@ pub fn compile_variadic_call(
             return Err(CompileError {
                 kind: CompileErrorKind::WrongArgCount {
                     got: 0,
-                    expected: 1,
+                    expected: ExpectedArgCount::NonZero,
                 },
                 span: span,
             });
@@ -250,7 +250,10 @@ pub fn compile_call(
             let expected = rfunc.args.len();
             if got != expected {
                 return Err(CompileError {
-                    kind: CompileErrorKind::WrongArgCount { got, expected },
+                    kind: CompileErrorKind::WrongArgCount {
+                        got,
+                        expected: ExpectedArgCount::Exact(expected),
+                    },
                     span,
                 });
             }
@@ -359,7 +362,7 @@ mod tests {
             Err(CompileError {
                 kind: CompileErrorKind::WrongArgCount {
                     got: 0,
-                    expected: 1
+                    expected: ExpectedArgCount::NonZero
                 },
                 span: spn()
             })
@@ -497,7 +500,7 @@ mod tests {
             .kind,
             CompileErrorKind::WrongArgCount {
                 got: 0,
-                expected: 1
+                expected: ExpectedArgCount::Exact(1)
             }
         );
         assert_eq!(
@@ -515,7 +518,7 @@ mod tests {
             .kind,
             CompileErrorKind::WrongArgCount {
                 got: 2,
-                expected: 1,
+                expected: ExpectedArgCount::Exact(1),
             }
         );
     }
