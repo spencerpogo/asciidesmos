@@ -7,6 +7,7 @@
     "type-check": "tsc"
   },
   "dependencies": {
+    "@open-rpc/client-js": "^1.7.1",
     "@uiw/react-codemirror": "^4.8.1",
     "codemirror": "^6.0.0",
     "desmosc-wasm": "./pkg",
