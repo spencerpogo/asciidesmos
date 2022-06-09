@@ -3,6 +3,8 @@ use clap::{App, Arg};
 use desmos_lang::compiler::{compile_stmt, error::CompileError, Context};
 use std::fs::File;
 use std::io::prelude::*;
+use std::rc::Rc;
+use types::FileID;
 
 #[derive(Debug)]
 pub enum EvalError {
@@ -19,6 +21,35 @@ impl From<parser::LexParseErrors> for EvalError {
 impl From<CompileError> for EvalError {
     fn from(err: CompileError) -> Self {
         Self::CompileError(err)
+    }
+}
+
+#[derive(Clone)]
+pub struct SrcFile {
+    pub name: String,
+    pub src: Rc<ariadne::Source>,
+}
+
+#[derive(Clone)]
+pub struct Sources {
+    pub files: slab::Slab<SrcFile>,
+}
+
+impl Sources {
+    fn new() -> Self {
+        Self {
+            files: slab::Slab::new(),
+        }
+    }
+}
+
+impl ariadne::Cache<FileID> for Sources {
+    fn fetch(&mut self, id: &FileID) -> Result<&ariadne::Source, Box<dyn std::fmt::Debug + '_>> {
+        let f = self.files.get(*id).ok_or(Box::new("No such file") as _)?;
+        Ok(&f.src)
+    }
+    fn display<'a>(&self, id: &'a FileID) -> Option<Box<dyn std::fmt::Display + 'a>> {
+        self.files.get(*id).map(|v| Box::new(v.name.clone()) as _)
     }
 }
 
@@ -68,7 +99,7 @@ fn try_eval(
     })
 }
 
-pub fn print_parse_err_report(source: types::FileID, input: String, errs: parser::LexParseErrors) {
+pub fn print_parse_err_report(sources: Sources, errs: parser::LexParseErrors) {
     let a: Vec<chumsky::error::Simple<String, types::Span>> = match errs {
         parser::LexParseErrors::LexErrors(errs) => errs
             .into_iter()
@@ -79,7 +110,7 @@ pub fn print_parse_err_report(source: types::FileID, input: String, errs: parser
             .map(|e| e.map(|c| c.to_str().to_string()))
             .collect(),
     };
-    a.into_iter().for_each(|e| {
+    for e in a.into_iter() {
         let report =
             Report::<types::Span>::build(ReportKind::Error, e.span().file_id, e.span().range.start);
         match e.reason() {
@@ -143,29 +174,35 @@ pub fn print_parse_err_report(source: types::FileID, input: String, errs: parser
             ),
         }
         .finish()
-        .eprint(ariadne::sources(vec![(source, input.clone())].into_iter()))
+        // might want to avoid this in the future
+        .eprint(sources.clone())
         .unwrap();
-    });
+    }
 }
 
-fn print_compile_error_report(source: types::FileID, input: String, err: CompileError) {
+fn print_compile_error_report(sources: Sources, err: CompileError) {
     let report =
         Report::<types::Span>::build(ReportKind::Error, err.span.file_id, err.span.range.start);
     report
         .with_message(format!("{}", err.kind))
         .with_label(Label::new(err.span).with_color(Color::Red))
         .finish()
-        .eprint(ariadne::sources(vec![(source, input.clone())].into_iter()))
+        .eprint(sources)
         .unwrap();
 }
 
-fn process(inp: &str, flags: Flags) -> i32 {
+fn process(name: String, inp: &str, flags: Flags) -> i32 {
     match try_eval(inp, flags, std::io::stdout()) {
         Ok(()) => 0,
         Err(e) => {
+            let mut sources = Sources::new();
+            sources.files.insert(SrcFile {
+                name,
+                src: Rc::new(inp.into()),
+            });
             match e {
-                EvalError::ParseErrors(errs) => print_parse_err_report(0, inp.to_string(), errs),
-                EvalError::CompileError(c) => print_compile_error_report(0, inp.to_string(), c),
+                EvalError::ParseErrors(errs) => print_parse_err_report(sources, errs),
+                EvalError::CompileError(c) => print_compile_error_report(sources, c),
             };
             1
         }
@@ -229,14 +266,14 @@ fn main() {
     };
 
     let exit_code = if let Some(input) = matches.value_of("eval") {
-        process(input, flags)
+        process("<string>".to_string(), input, flags)
     } else if let Some(filename) = matches.value_of("file") {
         // TODO: Better error handling here?
         let mut file = File::open(filename).expect("Unable to read input");
         let mut contents = String::new();
         file.read_to_string(&mut contents)
             .expect("Unable to decode file contents");
-        process(contents.as_str(), flags)
+        process(filename.to_string(), contents.as_str(), flags)
     } else {
         unimplemented!("REPL/pipe unimplemented")
     };
