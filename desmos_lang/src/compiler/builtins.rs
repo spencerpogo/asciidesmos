@@ -88,7 +88,6 @@ pub static BUILTIN_FUNCTIONS: Map<&'static str, Function> = phf_map! {
     "sort" => l!(),
     "shuffle" => l!(),
 
-    // TODO: Support variadic functions
     "lcm" => Function {
         args: Args::Variadic,
         ret: Num,
