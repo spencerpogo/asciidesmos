@@ -77,3 +77,9 @@ pub fn try_eval(inp: &str) -> EvalResult {
         }
     }
 }
+
+#[wasm_bindgen]
+pub fn js_closure_test(f: &js_sys::Function) {
+    f.call1(&JsValue::null(), &JsValue::from("Hello from rust"))
+        .unwrap();
+}

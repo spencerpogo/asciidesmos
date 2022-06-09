@@ -1,4 +1,4 @@
-import init, { try_eval } from "desmosc-wasm";
+import init, { js_closure_test } from "desmosc-wasm";
 import { useEffect, useState } from "react";
 import { basicSetup } from "codemirror";
 import CodeMirror from "@uiw/react-codemirror";
@@ -11,24 +11,22 @@ enum State {
 
 const Main = () => {
   const [state, setState] = useState(State.Loading);
+  const [value, setValue] = useState("test");
   useEffect(() => {
     init()
-      .then(() => setState(State.Ready))
+      .then(() => {
+        setState(State.Ready);
+        js_closure_test(setValue);
+      })
       .catch((e) => {
-        console.error(e);
+        alert(e);
         setState(State.Error);
       });
   }, []);
   if (state == State.Error)
     return <p>Error loading WASM. Check console for details.</p>;
   if (state == State.Loading) return <p>Loading...</p>;
-  return (
-    <CodeMirror
-      value="Hello, world!"
-      height="200px"
-      extensions={[basicSetup]}
-    />
-  );
+  return <CodeMirror value={value} height="200px" extensions={[basicSetup]} />;
 };
 
 const IndexPage = () => {
