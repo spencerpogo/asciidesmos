@@ -160,6 +160,7 @@ dependencies = [
  "graph",
  "latex",
  "lsp",
+ "lsp-server",
  "parser",
  "serde_json",
  "slab",

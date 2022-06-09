@@ -50,14 +50,7 @@ use lsp_types::{
 
 use lsp_server::{Connection, ExtractError, Message, Request, RequestId, Response};
 
-pub fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
-    // Note that  we must have our logging only write out to stderr.
-    eprintln!("starting generic LSP server");
-
-    // Create the transport. Includes the stdio (stdin and stdout) versions but this could
-    // also be implemented to use sockets or HTTP.
-    let (connection, io_threads) = Connection::stdio();
-
+pub fn start(connection: Connection) -> Result<(), Box<dyn Error + Sync + Send>> {
     // Run the server and wait for the two threads to end (typically by trigger LSP Exit event).
     let server_capabilities = serde_json::to_value(&ServerCapabilities {
         definition_provider: Some(OneOf::Left(true)),
@@ -66,14 +59,10 @@ pub fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
     .unwrap();
     let initialization_params = connection.initialize(server_capabilities)?;
     main_loop(connection, initialization_params)?;
-    io_threads.join()?;
-
-    // Shut down gracefully.
-    eprintln!("shutting down server");
     Ok(())
 }
 
-fn main_loop(
+pub fn main_loop(
     connection: Connection,
     params: serde_json::Value,
 ) -> Result<(), Box<dyn Error + Sync + Send>> {
