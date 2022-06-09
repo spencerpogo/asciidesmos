@@ -34,9 +34,9 @@ pub struct CompileError {
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Copy, PartialOrd, Ord)]
 struct DummyRuleType {}
 
-impl CompileError {
+impl CompileErrorKind {
     fn as_msg(&self) -> String {
-        match &self.kind {
+        match &self {
             CompileErrorKind::UnknownFunction(func) => format!(
                 "Unknown function '{}'",
                 match func {
@@ -72,9 +72,14 @@ impl CompileError {
     }
 }
 
+impl fmt::Display for CompileErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.as_msg())
+    }
+}
+
 impl fmt::Display for CompileError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // TODO: ariadne!
-        write!(f, "{:#?} {}", self.span, self.as_msg())
+        write!(f, "{:#?} {}", self.span, self.kind)
     }
 }

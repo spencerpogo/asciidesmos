@@ -68,7 +68,7 @@ fn try_eval(
     })
 }
 
-pub fn print_err_report(source: types::FileID, input: String, errs: parser::LexParseErrors) {
+pub fn print_parse_err_report(source: types::FileID, input: String, errs: parser::LexParseErrors) {
     let a: Vec<chumsky::error::Simple<String, types::Span>> = match errs {
         parser::LexParseErrors::LexErrors(errs) => errs
             .into_iter()
@@ -148,13 +148,24 @@ pub fn print_err_report(source: types::FileID, input: String, errs: parser::LexP
     });
 }
 
+fn print_compile_error_report(source: types::FileID, input: String, err: CompileError) {
+    let report =
+        Report::<types::Span>::build(ReportKind::Error, err.span.file_id, err.span.range.start);
+    report
+        .with_message(format!("{}", err.kind))
+        .with_label(Label::new(err.span).with_color(Color::Red))
+        .finish()
+        .eprint(ariadne::sources(vec![(source, input.clone())].into_iter()))
+        .unwrap();
+}
+
 fn process(inp: &str, flags: Flags) -> i32 {
     match try_eval(inp, flags, std::io::stdout()) {
         Ok(()) => 0,
         Err(e) => {
             match e {
-                EvalError::ParseErrors(errs) => print_err_report(0, inp.to_string(), errs),
-                EvalError::CompileError(c) => eprintln!("{}", c),
+                EvalError::ParseErrors(errs) => print_parse_err_report(0, inp.to_string(), errs),
+                EvalError::CompileError(c) => print_compile_error_report(0, inp.to_string(), c),
             };
             1
         }
