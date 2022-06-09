@@ -7,6 +7,8 @@
     "type-check": "tsc"
   },
   "dependencies": {
+    "@uiw/react-codemirror": "^4.8.1",
+    "codemirror": "^6.0.0",
     "desmosc-wasm": "./pkg",
     "next": "latest",
     "react": "^17.0.2",

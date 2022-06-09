@@ -1,5 +1,7 @@
-import init, { greet, try_eval } from "desmosc-wasm";
+import init, { try_eval } from "desmosc-wasm";
 import { useEffect, useState } from "react";
+import { basicSetup } from "codemirror";
+import CodeMirror from "@uiw/react-codemirror";
 
 enum State {
   Loading,
@@ -20,8 +22,13 @@ const Main = () => {
   if (state == State.Error)
     return <p>Error loading WASM. Check console for details.</p>;
   if (state == State.Loading) return <p>Loading...</p>;
-  const res = try_eval("1+1;");
-  return <pre>{res.output}</pre>;
+  return (
+    <CodeMirror
+      value="Hello, world!"
+      height="200px"
+      extensions={[basicSetup]}
+    />
+  );
 };
 
 const IndexPage = () => {
