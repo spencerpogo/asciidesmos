@@ -1,5 +1,5 @@
 [package]
-name = "editor"
+name = "desmosc-wasm"
 version = "0.1.0"
 authors = ["Scoder12"]
 edition = "2018"
