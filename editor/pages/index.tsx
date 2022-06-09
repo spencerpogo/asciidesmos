@@ -4,6 +4,7 @@ import { basicSetup } from "codemirror";
 import CodeMirror from "@uiw/react-codemirror";
 import { Transport } from "@open-rpc/client-js/build/transports/Transport";
 import { JSONRPCRequestData } from "@open-rpc/client-js/build/Request";
+import { languageServerWithTransport } from "../util/langServer";
 
 enum State {
   Loading,
@@ -34,8 +35,23 @@ export class MyTransport extends Transport {
 const Main = () => {
   const [state, setState] = useState(State.Loading);
   const [value, setValue] = useState("test");
+  const [ls, setLs] = useState(null);
   const [logs, setLogs] = useState([]);
-  
+
+  useEffect(() => {
+    if (state == State.Ready && ls === null) {
+      setLs(
+        languageServerWithTransport({
+          transport: new MyTransport((msg) => setLogs((v) => v.concat([msg]))),
+          rootUri: "file:///",
+          documentUri: "file:///a.desmos",
+          languageId: "desmos",
+          workspaceFolders: [],
+        })
+      );
+    }
+  }, [state, ls]);
+
   useEffect(() => {
     init()
       .then(() => {
@@ -47,12 +63,14 @@ const Main = () => {
         setState(State.Error);
       });
   }, []);
+
   if (state == State.Error)
     return <p>Error loading WASM. Check console for details.</p>;
   if (state == State.Loading) return <p>Loading...</p>;
+  if (ls === null) return <p>Starting LSP...</p>;
   return (
     <>
-      <CodeMirror value={value} height="200px" extensions={[basicSetup]} />
+      <CodeMirror value={value} height="200px" extensions={[basicSetup, ls]} />
       <pre>{logs.join("\n")}</pre>
     </>
   );
