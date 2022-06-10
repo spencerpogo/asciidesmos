@@ -1,4 +1,4 @@
-import init, { js_closure_test } from "desmosc-wasm";
+import init, { js_closure_test, lsp_request } from "desmosc-wasm";
 import { useEffect, useState } from "react";
 import { basicSetup } from "codemirror";
 import CodeMirror from "@uiw/react-codemirror";
@@ -20,6 +20,10 @@ export class MyTransport extends Transport {
   }
   public async connect(): Promise<void> {
     this.log("connect");
+    this.transportRequestManager.transportEventChannel.addListener(
+      "error",
+      (...args) => this.log("emit error " + JSON.stringify(args))
+    );
   }
   public close() {
     this.log("close");
@@ -29,6 +33,13 @@ export class MyTransport extends Transport {
     timeout?: number | null
   ): Promise<void> {
     this.log(JSON.stringify(data));
+    const r = lsp_request(JSON.stringify(this.parseData(data)), () => {});
+    this.log("r: " + JSON.stringify(JSON.parse(r)));
+    try {
+      this.transportRequestManager.resolveResponse(r);
+    } catch (e) {
+      this.log("err " + JSON.stringify(e));
+    }
   }
 }
 

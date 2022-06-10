@@ -76,23 +76,9 @@ pub fn main_loop(
                     return Ok(());
                 }
                 eprintln!("got request: {:?}", req);
-                match cast::<GotoDefinition>(req) {
-                    Ok((id, params)) => {
-                        eprintln!("got gotoDefinition request #{}: {:?}", id, params);
-                        let result = Some(GotoDefinitionResponse::Array(Vec::new()));
-                        let result = serde_json::to_value(&result).unwrap();
-                        let resp = Response {
-                            id,
-                            result: Some(result),
-                            error: None,
-                        };
-                        connection.sender.send(Message::Response(resp))?;
-                        continue;
-                    }
-                    Err(err @ ExtractError::JsonError { .. }) => panic!("{:?}", err),
-                    Err(ExtractError::MethodMismatch(req)) => req,
-                };
-                // ...
+                if let Some(resp) = handle_request(req) {
+                    connection.sender.send(Message::Response(resp))?;
+                }
             }
             Message::Response(resp) => {
                 eprintln!("got response: {:?}", resp);
@@ -111,4 +97,39 @@ where
     R::Params: serde::de::DeserializeOwned,
 {
     req.extract(R::METHOD)
+}
+
+pub fn handle_request(req: Request) -> Option<Response> {
+    let req = match cast::<lsp_types::request::Initialize>(req) {
+        Ok((id, _params)) => {
+            let server_capabilities = serde_json::to_value(&ServerCapabilities {
+                definition_provider: Some(OneOf::Left(true)),
+                ..Default::default()
+            })
+            .unwrap();
+            return Some(Response::new_ok(
+                id,
+                serde_json::json!({
+                    "capabilities": server_capabilities,
+                }),
+            ));
+        }
+        Err(err @ ExtractError::JsonError { .. }) => panic!("{:?}", err),
+        Err(ExtractError::MethodMismatch(req)) => req,
+    };
+    match cast::<GotoDefinition>(req) {
+        Ok((id, params)) => {
+            eprintln!("got gotoDefinition request #{}: {:?}", id, params);
+            let result = Some(GotoDefinitionResponse::Array(Vec::new()));
+            let result = serde_json::to_value(&result).unwrap();
+            return Some(Response {
+                id,
+                result: Some(result),
+                error: None,
+            });
+        }
+        Err(err @ ExtractError::JsonError { .. }) => panic!("{:?}", err),
+        Err(ExtractError::MethodMismatch(_req)) => (),
+    };
+    None
 }
