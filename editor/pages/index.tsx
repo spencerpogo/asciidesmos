@@ -3,8 +3,14 @@ import { useEffect, useState } from "react";
 import { basicSetup } from "codemirror";
 import CodeMirror from "@uiw/react-codemirror";
 import { Transport } from "@open-rpc/client-js/build/transports/Transport";
-import { JSONRPCRequestData } from "@open-rpc/client-js/build/Request";
+import {
+  getNotifications,
+  JSONRPCRequestData,
+} from "@open-rpc/client-js/build/Request";
 import { languageServerWithTransport } from "../util/langServer";
+import { keymap } from "@codemirror/view";
+import { indentWithTab } from "@codemirror/commands";
+import { acceptCompletion, startCompletion } from "@codemirror/autocomplete";
 
 enum State {
   Loading,
@@ -17,6 +23,9 @@ export class MyTransport extends Transport {
   constructor(log) {
     super();
     this.log = log;
+    console.log = (...args) =>
+      args.length == 1 &&
+      this.log(typeof args[0] === "string" ? args[0] : JSON.stringify(args));
   }
   public async connect(): Promise<void> {
     this.log("connect");
@@ -32,14 +41,22 @@ export class MyTransport extends Transport {
     data: JSONRPCRequestData,
     timeout?: number | null
   ): Promise<void> {
-    this.log(JSON.stringify(data));
+    const prom = this.transportRequestManager.addRequest(data, timeout);
+    const notifications = getNotifications(data);
+    console.log(data);
     const r = lsp_request(JSON.stringify(this.parseData(data)), () => {});
-    this.log("r: " + JSON.stringify(JSON.parse(r)));
+    this.transportRequestManager.settlePendingRequest(notifications);
+    if (!r) {
+      console.log("r empty");
+      return;
+    }
+    console.log("r", JSON.parse(r));
     try {
       this.transportRequestManager.resolveResponse(r);
     } catch (e) {
       this.log("err " + JSON.stringify(e));
     }
+    return prom;
   }
 }
 
@@ -81,7 +98,19 @@ const Main = () => {
   if (ls === null) return <p>Starting LSP...</p>;
   return (
     <>
-      <CodeMirror value={value} height="200px" extensions={[basicSetup, ls]} />
+      <CodeMirror
+        value={value}
+        height="200px"
+        extensions={[
+          basicSetup,
+          ls,
+          keymap.of([
+            indentWithTab,
+            { key: "Alt-Space", run: startCompletion },
+            { key: "tab", run: acceptCompletion },
+          ]),
+        ]}
+      />
       <pre>{logs.join("\n")}</pre>
     </>
   );
