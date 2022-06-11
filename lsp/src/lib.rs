@@ -43,10 +43,11 @@
 //! ```
 use std::error::Error;
 
-use lsp_types::OneOf;
+use lsp_types::request::Completion;
 use lsp_types::{
     request::GotoDefinition, GotoDefinitionResponse, InitializeParams, ServerCapabilities,
 };
+use lsp_types::{CompletionItem, CompletionOptions, CompletionResponse, OneOf};
 
 use lsp_server::{Connection, ExtractError, Message, Request, RequestId, Response};
 
@@ -104,6 +105,9 @@ pub fn handle_request(req: Request) -> Option<Response> {
         Ok((id, _params)) => {
             let server_capabilities = serde_json::to_value(&ServerCapabilities {
                 definition_provider: Some(OneOf::Left(true)),
+                completion_provider: Some(CompletionOptions {
+                    ..Default::default()
+                }),
                 ..Default::default()
             })
             .unwrap();
@@ -117,7 +121,7 @@ pub fn handle_request(req: Request) -> Option<Response> {
         Err(err @ ExtractError::JsonError { .. }) => panic!("{:?}", err),
         Err(ExtractError::MethodMismatch(req)) => req,
     };
-    match cast::<GotoDefinition>(req) {
+    let req = match cast::<GotoDefinition>(req) {
         Ok((id, params)) => {
             eprintln!("got gotoDefinition request #{}: {:?}", id, params);
             let result = Some(GotoDefinitionResponse::Array(Vec::new()));
@@ -129,7 +133,21 @@ pub fn handle_request(req: Request) -> Option<Response> {
             });
         }
         Err(err @ ExtractError::JsonError { .. }) => panic!("{:?}", err),
-        Err(ExtractError::MethodMismatch(_req)) => (),
+        Err(ExtractError::MethodMismatch(req)) => req,
     };
+    match cast::<Completion>(req) {
+        Ok((id, params)) => {
+            eprintln!("got completion request #{}: {:#?}", id, params);
+            let item = CompletionItem::new_simple("hello".to_string(), "world".to_string());
+            let result = CompletionResponse::Array(vec![item]);
+            return Some(Response {
+                id,
+                result: Some(serde_json::to_value(&result).unwrap()),
+                error: None,
+            });
+        }
+        Err(err @ ExtractError::JsonError { .. }) => panic!("{:?}", err),
+        Err(ExtractError::MethodMismatch(_)) => (),
+    }
     None
 }

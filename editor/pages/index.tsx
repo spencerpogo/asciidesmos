@@ -9,7 +9,7 @@ import {
 } from "@open-rpc/client-js/build/Request";
 import { languageServerWithTransport } from "../util/langServer";
 import { keymap } from "@codemirror/view";
-import { indentWithTab } from "@codemirror/commands";
+import { cursorCharLeft, indentWithTab } from "@codemirror/commands";
 import { acceptCompletion, startCompletion } from "@codemirror/autocomplete";
 
 enum State {
@@ -24,8 +24,20 @@ export class MyTransport extends Transport {
     super();
     this.log = log;
     console.log = (...args) =>
-      args.length == 1 &&
-      this.log(typeof args[0] === "string" ? args[0] : JSON.stringify(args));
+      this.log(
+        args.length == 1 && typeof args[0] === "string"
+          ? args[0]
+          : args
+              .map((i) => {
+                if (typeof i === "string" && /^[a-zA-Z0-9]*$/.test(i)) return i;
+                try {
+                  return JSON.stringify(i);
+                } catch (e) {
+                  return i.toString();
+                }
+              })
+              .join(" ")
+      );
   }
   public async connect(): Promise<void> {
     this.log("connect");
@@ -43,14 +55,14 @@ export class MyTransport extends Transport {
   ): Promise<void> {
     const prom = this.transportRequestManager.addRequest(data, timeout);
     const notifications = getNotifications(data);
-    console.log(data);
+    console.log("req", data);
     const r = lsp_request(JSON.stringify(this.parseData(data)), () => {});
     this.transportRequestManager.settlePendingRequest(notifications);
     if (!r) {
-      console.log("r empty");
+      console.log("resp empty");
       return;
     }
-    console.log("r", JSON.parse(r));
+    console.log("resp", JSON.parse(r));
     try {
       this.transportRequestManager.resolveResponse(r);
     } catch (e) {
