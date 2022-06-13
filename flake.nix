@@ -17,7 +17,7 @@
         rust = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
       in {
         devShell = pkgs.mkShell {
-          packages = [ pkgs.wasm-pack rust pkgs.openssl pkgs.pkg-config ];
+          packages = [ pkgs.wasm-pack rust pkgs.openssl pkgs.pkg-config pkgs.nodejs-16_x pkgs.yarn ];
         };
       });
 }
