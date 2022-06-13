@@ -43,6 +43,7 @@
 //! ```
 use std::error::Error;
 
+use desmos_lang::compiler::Context;
 use lsp_types::request::Completion;
 use lsp_types::{
     request::GotoDefinition, GotoDefinitionResponse, InitializeParams, ServerCapabilities,
@@ -63,12 +64,19 @@ pub fn start(connection: Connection) -> Result<(), Box<dyn Error + Sync + Send>>
     Ok(())
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct State {
+    pub src: String,
+    pub ctx: Context,
+}
+
 pub fn main_loop(
     connection: Connection,
     params: serde_json::Value,
 ) -> Result<(), Box<dyn Error + Sync + Send>> {
     let _params: InitializeParams = serde_json::from_value(params).unwrap();
     eprintln!("starting example main loop");
+    let mut state: Option<State> = None;
     for msg in &connection.receiver {
         eprintln!("got msg: {:?}", msg);
         match msg {
@@ -77,7 +85,7 @@ pub fn main_loop(
                     return Ok(());
                 }
                 eprintln!("got request: {:?}", req);
-                if let Some(resp) = handle_request(req) {
+                if let Some(resp) = handle_request(&mut state, req) {
                     connection.sender.send(Message::Response(resp))?;
                 }
             }
@@ -100,7 +108,34 @@ where
     req.extract(R::METHOD)
 }
 
-pub fn handle_request(req: Request) -> Option<Response> {
+struct RequestDispatcher {
+    pub req: Request,
+    pub resp: Option<Response>,
+}
+
+impl RequestDispatcher {
+    fn new(req: Request) -> Self {
+        Self { req, resp: None }
+    }
+
+    fn on<R>(&mut self, handler: fn(R::Params) -> Option<R::Result>) -> &mut Self
+    where
+        R: lsp_types::request::Request,
+    {
+        if self.resp.is_some() {
+            // already handled
+            return self;
+        }
+        if self.req.method == R::METHOD {
+            let params = serde_json::from_value::<R::Params>(self.req.params.clone())
+                .expect("Failed to parse");
+            self.resp = Some(Response::new_ok(self.req.id.clone(), handler(params)));
+        }
+        self
+    }
+}
+
+pub fn handle_request(state: &mut Option<State>, req: Request) -> Option<Response> {
     let req = match cast::<lsp_types::request::Initialize>(req) {
         Ok((id, _params)) => {
             let server_capabilities = serde_json::to_value(&ServerCapabilities {
