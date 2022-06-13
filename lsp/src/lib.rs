@@ -43,15 +43,18 @@
 //! ```
 use std::error::Error;
 
-use desmos_lang::compiler::Context;
+use desmos_lang::compiler::error::CompileError;
+use desmos_lang::compiler::{compile_stmts, Context};
+use lsp_types::notification::{DidChangeTextDocument, DidOpenTextDocument};
 use lsp_types::request::{Completion, Initialize};
 use lsp_types::{
     CompletionItem, CompletionOptions, CompletionParams, CompletionResponse, InitializeResult,
-    OneOf,
+    OneOf, TextDocumentSyncCapability, TextDocumentSyncKind, TextDocumentSyncOptions,
 };
 use lsp_types::{InitializeParams, ServerCapabilities};
 
 use lsp_server::{Connection, Message, Request, Response};
+use parser::{lex_and_parse, LexParseErrors};
 
 pub fn start(connection: Connection) -> Result<(), Box<dyn Error + Sync + Send>> {
     // Run the server and wait for the two threads to end (typically by trigger LSP Exit event).
@@ -69,8 +72,9 @@ pub type State = Option<StateVal>;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct StateVal {
-    pub ast: Vec<ast::Statement>,
-    pub ctx: Option<Context>,
+    pub parse_err: Option<LexParseErrors>,
+    pub compiler_err: Option<CompileError>,
+    pub compiler_ctx: Option<Context>,
 }
 
 pub fn main_loop(
@@ -107,6 +111,7 @@ pub fn main_loop(
 struct RequestDispatcher<'a> {
     pub state: &'a mut State,
     pub req: Request,
+    pub handled: bool,
     pub resp: Option<Response>,
 }
 
@@ -115,6 +120,7 @@ impl<'a> RequestDispatcher<'a> {
         Self {
             state,
             req,
+            handled: false,
             resp: None,
         }
     }
@@ -123,8 +129,7 @@ impl<'a> RequestDispatcher<'a> {
     where
         R: lsp_types::request::Request,
     {
-        if self.resp.is_some() {
-            // already handled
+        if self.handled {
             return self;
         }
         if self.req.method == R::METHOD {
@@ -134,6 +139,23 @@ impl<'a> RequestDispatcher<'a> {
                 self.req.id.clone(),
                 handler(self.state, params),
             ));
+            self.handled = true;
+        }
+        self
+    }
+
+    fn on_notif<N>(&mut self, handler: fn(&mut State, N::Params)) -> &mut Self
+    where
+        N: lsp_types::notification::Notification,
+    {
+        if self.handled {
+            return self;
+        }
+        if self.req.method == N::METHOD {
+            let params = serde_json::from_value::<N::Params>(self.req.params.clone())
+                .expect("Failed to parse");
+            handler(self.state, params);
+            self.handled = true;
         }
         self
     }
@@ -145,7 +167,7 @@ pub fn completion_handler(
 ) -> Option<Option<CompletionResponse>> {
     match state {
         None => Some(None),
-        Some(s) => match &s.ctx {
+        Some(s) => match &s.compiler_ctx {
             None => Some(None),
             Some(ctx) => Some(Some(CompletionResponse::Array(
                 ctx.variables
@@ -157,6 +179,32 @@ pub fn completion_handler(
     }
 }
 
+pub fn handle_new_content(state: &mut State, content: String) {
+    let sv = match lex_and_parse(0, content) {
+        Err(e) => StateVal {
+            parse_err: Some(e),
+            compiler_err: None,
+            compiler_ctx: None,
+        },
+        Ok(ast) => {
+            let mut ctx = Context::new();
+            match compile_stmts(ctx, ast) {
+                Err(e) => StateVal {
+                    parse_err: None,
+                    compiler_err: Some(e),
+                    compiler_ctx: None,
+                },
+                Ok(_) => StateVal {
+                    parse_err: None,
+                    compiler_err: None,
+                    compiler_ctx: Some(ctx),
+                },
+            }
+        }
+    };
+    *state = Some(sv);
+}
+
 pub fn handle_request(state: &mut State, req: Request) -> Option<Response> {
     let mut dispatcher = RequestDispatcher::new(state, req);
     dispatcher
@@ -166,12 +214,25 @@ pub fn handle_request(state: &mut State, req: Request) -> Option<Response> {
                 completion_provider: Some(CompletionOptions {
                     ..Default::default()
                 }),
+                text_document_sync: Some(TextDocumentSyncCapability::Options(
+                    TextDocumentSyncOptions {
+                        open_close: Some(true),
+                        change: Some(TextDocumentSyncKind::FULL),
+                        ..Default::default()
+                    },
+                )),
                 ..Default::default()
             };
             Some(InitializeResult {
                 capabilities,
                 ..Default::default()
             })
+        })
+        .on_notif::<DidOpenTextDocument>(|state, params| {
+            handle_new_content(state, params.text_document.text)
+        })
+        .on_notif::<DidChangeTextDocument>(|state, params| {
+            handle_new_content(state, params.content_changes.first().unwrap().text)
         })
         .on::<Completion>(completion_handler);
     dispatcher.resp

@@ -184,10 +184,9 @@ pub fn compile_expr<'a>(
     }
 }
 
-pub fn compile_stmt(
-    ctx: &mut Context,
-    expr: LocatedStatement,
-) -> Result<Option<LatexStatement>, CompileError> {
+pub type CompileResult = Result<Option<LatexStatement>, CompileError>;
+
+pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult {
     let s = expr.0;
 
     match expr.1 {
@@ -278,6 +277,13 @@ pub fn compile_stmt(
             }
         }
     }
+}
+
+pub fn compile_stmts(
+    mut ctx: Context,
+    ast: Vec<ast::Spanned<ast::Statement>>,
+) -> Result<Vec<Option<LatexStatement>>, CompileError> {
+    ast.into_iter().map(|s| compile_stmt(&mut ctx, s)).collect()
 }
 
 pub fn stmts_to_graph(

@@ -1,6 +1,6 @@
 use ariadne::{Color, Fmt, Label, Report, ReportKind};
 use clap::{App, Arg};
-use desmos_lang::compiler::{compile_stmt, error::CompileError, Context};
+use desmos_lang::compiler::{compile_stmts, error::CompileError, Context};
 use std::fs::File;
 use std::io::prelude::*;
 use std::rc::Rc;
@@ -73,11 +73,7 @@ fn try_eval(
     if flags.ast {
         eprintln!("{:#?}", ast);
     }
-    let mut ctx = Context::new();
-    let ir = ast
-        .into_iter()
-        .map(|s| compile_stmt(&mut ctx, s))
-        .collect::<Result<Vec<_>, _>>()?;
+    let ir = compile_stmts(Context::new(), ast)?;
     if flags.ir {
         eprintln!("{:#?}", ir);
     }
