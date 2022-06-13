@@ -56,9 +56,9 @@ checksum = "2da1976d75adbe5fbc88130ecd119529cf1cc6a93ae1546d8696ee66f0d21af1"
 
 [[package]]
 name = "bumpalo"
-version = "3.9.1"
+version = "3.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4a45a46ab1f2412e53d3a0ade76ffad2025804294569aae387231a0cd6e0899"
+checksum = "37ccbd214614c6783386c1af30caf03192f17891059cecc394b4fb119e363de3"
 
 [[package]]
 name = "cfg-if"
@@ -160,6 +160,7 @@ dependencies = [
  "graph",
  "latex",
  "lsp",
+ "lsp-server",
  "parser",
  "serde_json",
  "slab",
@@ -172,7 +173,11 @@ version = "0.1.0"
 dependencies = [
  "desmos_lang",
  "graph",
+ "js-sys",
  "latex",
+ "lsp",
+ "lsp-server",
+ "lsp-types",
  "parser",
  "serde_json",
  "wasm-bindgen",
@@ -243,6 +248,15 @@ name = "itoa"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1aab8fc367588b89dcee83ab0fd66b72b50b72fa1904d7095045ace2b0c81c35"
+
+[[package]]
+name = "js-sys"
+version = "0.3.57"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "671a26f820db17c2a2750743f1dd03bafd15b98c9f30c7c2628c024c05d73397"
+dependencies = [
+ "wasm-bindgen",
+]
 
 [[package]]
 name = "latex"

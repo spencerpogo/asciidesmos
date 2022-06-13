@@ -43,21 +43,16 @@
 //! ```
 use std::error::Error;
 
-use lsp_types::OneOf;
+use desmos_lang::compiler::Context;
+use lsp_types::request::Completion;
 use lsp_types::{
     request::GotoDefinition, GotoDefinitionResponse, InitializeParams, ServerCapabilities,
 };
+use lsp_types::{CompletionItem, CompletionOptions, CompletionResponse, OneOf};
 
 use lsp_server::{Connection, ExtractError, Message, Request, RequestId, Response};
 
-pub fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
-    // Note that  we must have our logging only write out to stderr.
-    eprintln!("starting generic LSP server");
-
-    // Create the transport. Includes the stdio (stdin and stdout) versions but this could
-    // also be implemented to use sockets or HTTP.
-    let (connection, io_threads) = Connection::stdio();
-
+pub fn start(connection: Connection) -> Result<(), Box<dyn Error + Sync + Send>> {
     // Run the server and wait for the two threads to end (typically by trigger LSP Exit event).
     let server_capabilities = serde_json::to_value(&ServerCapabilities {
         definition_provider: Some(OneOf::Left(true)),
@@ -66,19 +61,22 @@ pub fn main() -> Result<(), Box<dyn Error + Sync + Send>> {
     .unwrap();
     let initialization_params = connection.initialize(server_capabilities)?;
     main_loop(connection, initialization_params)?;
-    io_threads.join()?;
-
-    // Shut down gracefully.
-    eprintln!("shutting down server");
     Ok(())
 }
 
-fn main_loop(
+#[derive(Clone, Debug, PartialEq)]
+pub struct State {
+    pub src: String,
+    pub ctx: Context,
+}
+
+pub fn main_loop(
     connection: Connection,
     params: serde_json::Value,
 ) -> Result<(), Box<dyn Error + Sync + Send>> {
     let _params: InitializeParams = serde_json::from_value(params).unwrap();
     eprintln!("starting example main loop");
+    let mut state: Option<State> = None;
     for msg in &connection.receiver {
         eprintln!("got msg: {:?}", msg);
         match msg {
@@ -87,23 +85,9 @@ fn main_loop(
                     return Ok(());
                 }
                 eprintln!("got request: {:?}", req);
-                match cast::<GotoDefinition>(req) {
-                    Ok((id, params)) => {
-                        eprintln!("got gotoDefinition request #{}: {:?}", id, params);
-                        let result = Some(GotoDefinitionResponse::Array(Vec::new()));
-                        let result = serde_json::to_value(&result).unwrap();
-                        let resp = Response {
-                            id,
-                            result: Some(result),
-                            error: None,
-                        };
-                        connection.sender.send(Message::Response(resp))?;
-                        continue;
-                    }
-                    Err(err @ ExtractError::JsonError { .. }) => panic!("{:?}", err),
-                    Err(ExtractError::MethodMismatch(req)) => req,
-                };
-                // ...
+                if let Some(resp) = handle_request(&mut state, req) {
+                    connection.sender.send(Message::Response(resp))?;
+                }
             }
             Message::Response(resp) => {
                 eprintln!("got response: {:?}", resp);
@@ -122,4 +106,83 @@ where
     R::Params: serde::de::DeserializeOwned,
 {
     req.extract(R::METHOD)
+}
+
+struct RequestDispatcher {
+    pub req: Request,
+    pub resp: Option<Response>,
+}
+
+impl RequestDispatcher {
+    fn new(req: Request) -> Self {
+        Self { req, resp: None }
+    }
+
+    fn on<R>(&mut self, handler: fn(R::Params) -> Option<R::Result>) -> &mut Self
+    where
+        R: lsp_types::request::Request,
+    {
+        if self.resp.is_some() {
+            // already handled
+            return self;
+        }
+        if self.req.method == R::METHOD {
+            let params = serde_json::from_value::<R::Params>(self.req.params.clone())
+                .expect("Failed to parse");
+            self.resp = Some(Response::new_ok(self.req.id.clone(), handler(params)));
+        }
+        self
+    }
+}
+
+pub fn handle_request(state: &mut Option<State>, req: Request) -> Option<Response> {
+    let req = match cast::<lsp_types::request::Initialize>(req) {
+        Ok((id, _params)) => {
+            let server_capabilities = serde_json::to_value(&ServerCapabilities {
+                definition_provider: Some(OneOf::Left(true)),
+                completion_provider: Some(CompletionOptions {
+                    ..Default::default()
+                }),
+                ..Default::default()
+            })
+            .unwrap();
+            return Some(Response::new_ok(
+                id,
+                serde_json::json!({
+                    "capabilities": server_capabilities,
+                }),
+            ));
+        }
+        Err(err @ ExtractError::JsonError { .. }) => panic!("{:?}", err),
+        Err(ExtractError::MethodMismatch(req)) => req,
+    };
+    let req = match cast::<GotoDefinition>(req) {
+        Ok((id, params)) => {
+            eprintln!("got gotoDefinition request #{}: {:?}", id, params);
+            let result = Some(GotoDefinitionResponse::Array(Vec::new()));
+            let result = serde_json::to_value(&result).unwrap();
+            return Some(Response {
+                id,
+                result: Some(result),
+                error: None,
+            });
+        }
+        Err(err @ ExtractError::JsonError { .. }) => panic!("{:?}", err),
+        Err(ExtractError::MethodMismatch(req)) => req,
+    };
+    match cast::<Completion>(req) {
+        Ok((id, params)) => {
+            eprintln!("got completion request #{}: {:#?}", id, params);
+            let item = CompletionItem::new_simple("hello".to_string(), "world".to_string());
+            let result = CompletionResponse::Array(vec![item]);
+            return Some(Response {
+                id,
+                result: Some(serde_json::to_value(&result).unwrap()),
+                error: None,
+            });
+        }
+        Err(err @ ExtractError::JsonError { .. }) => panic!("{:?}", err),
+        Err(ExtractError::MethodMismatch(_)) => (),
+    }
+    None
 }

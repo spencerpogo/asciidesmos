@@ -77,3 +77,31 @@ pub fn try_eval(inp: &str) -> EvalResult {
         }
     }
 }
+
+#[wasm_bindgen]
+pub fn js_closure_test(f: &js_sys::Function) {
+    f.call1(
+        &JsValue::null(),
+        &JsValue::from("Hello from rust. Build: 3"),
+    )
+    .unwrap();
+}
+
+fn dbg(log: &js_sys::Function, v: &dyn std::fmt::Debug) {
+    log.call1(&JsValue::null(), &JsValue::from(format!("{:#?}", v)))
+        .unwrap();
+}
+
+#[wasm_bindgen]
+pub fn lsp_request(s: &str, log: &js_sys::Function) -> String {
+    let msg: lsp_server::Message = serde_json::from_str(s).unwrap();
+    dbg(log, &msg);
+    let resp = match msg {
+        lsp_server::Message::Request(r) => lsp::handle_request(r),
+        _ => None,
+    };
+    match resp {
+        None => "".to_string(),
+        Some(v) => serde_json::to_string(&v).unwrap(),
+    }
+}
