@@ -44,13 +44,11 @@
 use std::error::Error;
 
 use desmos_lang::compiler::Context;
-use lsp_types::request::Completion;
-use lsp_types::{
-    request::GotoDefinition, GotoDefinitionResponse, InitializeParams, ServerCapabilities,
-};
-use lsp_types::{CompletionItem, CompletionOptions, CompletionResponse, OneOf};
+use lsp_types::request::{Completion, Initialize};
+use lsp_types::{CompletionItem, CompletionOptions, CompletionResponse, InitializeResult, OneOf};
+use lsp_types::{InitializeParams, ServerCapabilities};
 
-use lsp_server::{Connection, ExtractError, Message, Request, RequestId, Response};
+use lsp_server::{Connection, Message, Request, Response};
 
 pub fn start(connection: Connection) -> Result<(), Box<dyn Error + Sync + Send>> {
     // Run the server and wait for the two threads to end (typically by trigger LSP Exit event).
@@ -76,7 +74,7 @@ pub fn main_loop(
 ) -> Result<(), Box<dyn Error + Sync + Send>> {
     let _params: InitializeParams = serde_json::from_value(params).unwrap();
     eprintln!("starting example main loop");
-    let mut state: Option<State> = None;
+    //let mut state: Option<State> = None;
     for msg in &connection.receiver {
         eprintln!("got msg: {:?}", msg);
         match msg {
@@ -85,7 +83,7 @@ pub fn main_loop(
                     return Ok(());
                 }
                 eprintln!("got request: {:?}", req);
-                if let Some(resp) = handle_request(&mut state, req) {
+                if let Some(resp) = handle_request(req) {
                     connection.sender.send(Message::Response(resp))?;
                 }
             }
@@ -100,14 +98,7 @@ pub fn main_loop(
     Ok(())
 }
 
-fn cast<R>(req: Request) -> Result<(RequestId, R::Params), ExtractError<Request>>
-where
-    R: lsp_types::request::Request,
-    R::Params: serde::de::DeserializeOwned,
-{
-    req.extract(R::METHOD)
-}
-
+#[derive(Clone, Debug)]
 struct RequestDispatcher {
     pub req: Request,
     pub resp: Option<Response>,
@@ -135,54 +126,25 @@ impl RequestDispatcher {
     }
 }
 
-pub fn handle_request(state: &mut Option<State>, req: Request) -> Option<Response> {
-    let req = match cast::<lsp_types::request::Initialize>(req) {
-        Ok((id, _params)) => {
-            let server_capabilities = serde_json::to_value(&ServerCapabilities {
+pub fn handle_request(req: Request) -> Option<Response> {
+    let mut dispatcher = RequestDispatcher::new(req);
+    dispatcher
+        .on::<Initialize>(|_params| {
+            let capabilities = ServerCapabilities {
                 definition_provider: Some(OneOf::Left(true)),
                 completion_provider: Some(CompletionOptions {
                     ..Default::default()
                 }),
                 ..Default::default()
+            };
+            Some(InitializeResult {
+                capabilities,
+                ..Default::default()
             })
-            .unwrap();
-            return Some(Response::new_ok(
-                id,
-                serde_json::json!({
-                    "capabilities": server_capabilities,
-                }),
-            ));
-        }
-        Err(err @ ExtractError::JsonError { .. }) => panic!("{:?}", err),
-        Err(ExtractError::MethodMismatch(req)) => req,
-    };
-    let req = match cast::<GotoDefinition>(req) {
-        Ok((id, params)) => {
-            eprintln!("got gotoDefinition request #{}: {:?}", id, params);
-            let result = Some(GotoDefinitionResponse::Array(Vec::new()));
-            let result = serde_json::to_value(&result).unwrap();
-            return Some(Response {
-                id,
-                result: Some(result),
-                error: None,
-            });
-        }
-        Err(err @ ExtractError::JsonError { .. }) => panic!("{:?}", err),
-        Err(ExtractError::MethodMismatch(req)) => req,
-    };
-    match cast::<Completion>(req) {
-        Ok((id, params)) => {
-            eprintln!("got completion request #{}: {:#?}", id, params);
+        })
+        .on::<Completion>(|_params| {
             let item = CompletionItem::new_simple("hello".to_string(), "world".to_string());
-            let result = CompletionResponse::Array(vec![item]);
-            return Some(Response {
-                id,
-                result: Some(serde_json::to_value(&result).unwrap()),
-                error: None,
-            });
-        }
-        Err(err @ ExtractError::JsonError { .. }) => panic!("{:?}", err),
-        Err(ExtractError::MethodMismatch(_)) => (),
-    }
-    None
+            Some(Some(CompletionResponse::Array(vec![item])))
+        });
+    dispatcher.resp
 }
