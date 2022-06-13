@@ -93,11 +93,21 @@ fn dbg(log: &js_sys::Function, v: &dyn std::fmt::Debug) {
 }
 
 #[wasm_bindgen]
-pub fn lsp_request(s: &str, log: &js_sys::Function) -> String {
+pub struct LspState {
+    state: lsp::State,
+}
+
+#[wasm_bindgen]
+pub fn lsp_state_new() -> LspState {
+    LspState { state: None }
+}
+
+#[wasm_bindgen]
+pub fn lsp_request(state: &mut LspState, s: &str, log: &js_sys::Function) -> String {
     let msg: lsp_server::Message = serde_json::from_str(s).unwrap();
     dbg(log, &msg);
     let resp = match msg {
-        lsp_server::Message::Request(r) => lsp::handle_request(r),
+        lsp_server::Message::Request(r) => lsp::handle_request(&mut state.state, r),
         _ => None,
     };
     match resp {

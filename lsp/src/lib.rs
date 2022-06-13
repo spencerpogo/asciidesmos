@@ -45,7 +45,10 @@ use std::error::Error;
 
 use desmos_lang::compiler::Context;
 use lsp_types::request::{Completion, Initialize};
-use lsp_types::{CompletionItem, CompletionOptions, CompletionResponse, InitializeResult, OneOf};
+use lsp_types::{
+    CompletionItem, CompletionOptions, CompletionParams, CompletionResponse, InitializeResult,
+    OneOf,
+};
 use lsp_types::{InitializeParams, ServerCapabilities};
 
 use lsp_server::{Connection, Message, Request, Response};
@@ -62,10 +65,12 @@ pub fn start(connection: Connection) -> Result<(), Box<dyn Error + Sync + Send>>
     Ok(())
 }
 
+pub type State = Option<StateVal>;
+
 #[derive(Clone, Debug, PartialEq)]
-pub struct State {
-    pub src: String,
-    pub ctx: Context,
+pub struct StateVal {
+    pub ast: Vec<ast::Statement>,
+    pub ctx: Option<Context>,
 }
 
 pub fn main_loop(
@@ -74,7 +79,7 @@ pub fn main_loop(
 ) -> Result<(), Box<dyn Error + Sync + Send>> {
     let _params: InitializeParams = serde_json::from_value(params).unwrap();
     eprintln!("starting example main loop");
-    //let mut state: Option<State> = None;
+    let mut state: State = None;
     for msg in &connection.receiver {
         eprintln!("got msg: {:?}", msg);
         match msg {
@@ -83,7 +88,7 @@ pub fn main_loop(
                     return Ok(());
                 }
                 eprintln!("got request: {:?}", req);
-                if let Some(resp) = handle_request(req) {
+                if let Some(resp) = handle_request(&mut state, req) {
                     connection.sender.send(Message::Response(resp))?;
                 }
             }
@@ -98,18 +103,23 @@ pub fn main_loop(
     Ok(())
 }
 
-#[derive(Clone, Debug)]
-struct RequestDispatcher {
+#[derive(Debug)]
+struct RequestDispatcher<'a> {
+    pub state: &'a mut State,
     pub req: Request,
     pub resp: Option<Response>,
 }
 
-impl RequestDispatcher {
-    fn new(req: Request) -> Self {
-        Self { req, resp: None }
+impl<'a> RequestDispatcher<'a> {
+    fn new(state: &'a mut State, req: Request) -> Self {
+        Self {
+            state,
+            req,
+            resp: None,
+        }
     }
 
-    fn on<R>(&mut self, handler: fn(R::Params) -> Option<R::Result>) -> &mut Self
+    fn on<R>(&mut self, handler: fn(&mut State, R::Params) -> Option<R::Result>) -> &mut Self
     where
         R: lsp_types::request::Request,
     {
@@ -120,16 +130,37 @@ impl RequestDispatcher {
         if self.req.method == R::METHOD {
             let params = serde_json::from_value::<R::Params>(self.req.params.clone())
                 .expect("Failed to parse");
-            self.resp = Some(Response::new_ok(self.req.id.clone(), handler(params)));
+            self.resp = Some(Response::new_ok(
+                self.req.id.clone(),
+                handler(self.state, params),
+            ));
         }
         self
     }
 }
 
-pub fn handle_request(req: Request) -> Option<Response> {
-    let mut dispatcher = RequestDispatcher::new(req);
+pub fn completion_handler(
+    state: &mut State,
+    _params: CompletionParams,
+) -> Option<Option<CompletionResponse>> {
+    match state {
+        None => Some(None),
+        Some(s) => match &s.ctx {
+            None => Some(None),
+            Some(ctx) => Some(Some(CompletionResponse::Array(
+                ctx.variables
+                    .iter()
+                    .map(|(v, typ)| CompletionItem::new_simple(v.clone(), format!("{:#?}", typ)))
+                    .collect(),
+            ))),
+        },
+    }
+}
+
+pub fn handle_request(state: &mut State, req: Request) -> Option<Response> {
+    let mut dispatcher = RequestDispatcher::new(state, req);
     dispatcher
-        .on::<Initialize>(|_params| {
+        .on::<Initialize>(|_state, _params| {
             let capabilities = ServerCapabilities {
                 definition_provider: Some(OneOf::Left(true)),
                 completion_provider: Some(CompletionOptions {
@@ -142,9 +173,6 @@ pub fn handle_request(req: Request) -> Option<Response> {
                 ..Default::default()
             })
         })
-        .on::<Completion>(|_params| {
-            let item = CompletionItem::new_simple("hello".to_string(), "world".to_string());
-            Some(Some(CompletionResponse::Array(vec![item])))
-        });
+        .on::<Completion>(completion_handler);
     dispatcher.resp
 }
