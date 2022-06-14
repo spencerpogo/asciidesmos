@@ -108,11 +108,8 @@ pub fn lsp_state_new() -> LspState {
 #[wasm_bindgen]
 pub fn lsp_request(state: &mut LspState, s: &str, log: &js_sys::Function) -> String {
     let msg: lsp_server::Message = serde_json::from_str(s).unwrap();
-    let resp = match msg {
-        lsp_server::Message::Request(r) => lsp::handle_request(&mut state.state, r),
-        _ => None,
-    };
     dbg(log, "msg", &msg);
+    let resp = lsp::handle_request(&mut state.state, msg);
     dbg(log, "state", &state.state);
     match resp {
         None => "".to_string(),

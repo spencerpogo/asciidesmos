@@ -53,7 +53,7 @@ use lsp_types::{
 };
 use lsp_types::{InitializeParams, ServerCapabilities};
 
-use lsp_server::{Connection, Message, Request, Response};
+use lsp_server::{Connection, Message, Response};
 use parser::{lex_and_parse, LexParseErrors};
 
 pub fn start(connection: Connection) -> Result<(), Box<dyn Error + Sync + Send>> {
@@ -75,6 +75,7 @@ pub enum StateVal {
     ParseErr(LexParseErrors),
     CompileErr(CompileError),
     Success(Context),
+    Test2,
 }
 
 pub fn main_loop(
@@ -86,22 +87,8 @@ pub fn main_loop(
     let mut state: State = None;
     for msg in &connection.receiver {
         eprintln!("got msg: {:?}", msg);
-        match msg {
-            Message::Request(req) => {
-                if connection.handle_shutdown(&req)? {
-                    return Ok(());
-                }
-                eprintln!("got request: {:?}", req);
-                if let Some(resp) = handle_request(&mut state, req) {
-                    connection.sender.send(Message::Response(resp))?;
-                }
-            }
-            Message::Response(resp) => {
-                eprintln!("got response: {:?}", resp);
-            }
-            Message::Notification(not) => {
-                eprintln!("got notification: {:?}", not);
-            }
+        if let Some(resp) = handle_request(&mut state, msg) {
+            connection.sender.send(Message::Response(resp))?;
         }
     }
     Ok(())
@@ -109,37 +96,43 @@ pub fn main_loop(
 
 #[derive(Debug)]
 struct RequestDispatcher<'a> {
-    pub state: &'a mut State,
-    pub req: Request,
-    pub handled: bool,
+    state: &'a mut State,
+    msg: Option<Message>,
+    handled: bool,
     pub resp: Option<Response>,
 }
 
 impl<'a> RequestDispatcher<'a> {
-    fn new(state: &'a mut State, req: Request) -> Self {
+    fn new(state: &'a mut State, msg: Message) -> Self {
         Self {
             state,
-            req,
+            msg: Some(msg),
             handled: false,
             resp: None,
         }
     }
 
-    fn on<R>(&mut self, handler: fn(&mut State, R::Params) -> Option<R::Result>) -> &mut Self
+    fn on<R>(&mut self, handler: fn(&mut State, &R::Params) -> Option<R::Result>) -> &mut Self
     where
         R: lsp_types::request::Request,
     {
         if self.handled {
             return self;
         }
-        if self.req.method == R::METHOD {
-            let params = serde_json::from_value::<R::Params>(self.req.params.clone())
-                .expect("Failed to parse");
-            self.resp = Some(Response::new_ok(
-                self.req.id.clone(),
-                handler(self.state, params),
-            ));
-            self.handled = true;
+        match &self.msg {
+            Some(Message::Request(r)) => {
+                if &r.method == R::METHOD {
+                    let r = match self.msg.take().unwrap() {
+                        Message::Request(r) => r,
+                        _ => unreachable!(),
+                    };
+                    let params =
+                        serde_json::from_value::<R::Params>(r.params).expect("Failed to parse");
+                    self.resp = Some(Response::new_ok(r.id.clone(), handler(self.state, &params)));
+                    self.handled = true;
+                }
+            }
+            _ => (),
         }
         self
     }
@@ -151,11 +144,20 @@ impl<'a> RequestDispatcher<'a> {
         if self.handled {
             return self;
         }
-        if self.req.method == N::METHOD {
-            let params = serde_json::from_value::<N::Params>(self.req.params.clone())
-                .expect("Failed to parse");
-            handler(self.state, params);
-            self.handled = true;
+        match &self.msg {
+            Some(Message::Notification(n)) => {
+                if n.method == N::METHOD {
+                    let n = match self.msg.take().unwrap() {
+                        Message::Notification(n) => n,
+                        _ => unreachable!(),
+                    };
+                    let params =
+                        serde_json::from_value::<N::Params>(n.params).expect("Failed to parse");
+                    handler(self.state, params);
+                    self.handled = true;
+                }
+            }
+            _ => (),
         }
         self
     }
@@ -163,7 +165,7 @@ impl<'a> RequestDispatcher<'a> {
 
 pub fn completion_handler(
     state: &mut State,
-    _params: CompletionParams,
+    _params: &CompletionParams,
 ) -> Option<Option<CompletionResponse>> {
     match state {
         None => Some(None),
@@ -193,8 +195,8 @@ pub fn handle_new_content(state: &mut State, content: String) {
     *state = Some(sv);
 }
 
-pub fn handle_request(state: &mut State, req: Request) -> Option<Response> {
-    let mut dispatcher = RequestDispatcher::new(state, req);
+pub fn handle_request(state: &mut State, msg: Message) -> Option<Response> {
+    let mut dispatcher = RequestDispatcher::new(state, msg);
     dispatcher
         .on::<Initialize>(|_state, _params| {
             let capabilities = ServerCapabilities {
@@ -217,6 +219,7 @@ pub fn handle_request(state: &mut State, req: Request) -> Option<Response> {
             })
         })
         .on_notif::<DidOpenTextDocument>(|state, params| {
+            *state = Some(StateVal::Test2);
             handle_new_content(state, params.text_document.text)
         })
         .on_notif::<DidChangeTextDocument>(|state, params| {
