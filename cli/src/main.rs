@@ -215,7 +215,7 @@ fn process(name: String, inp: &str, flags: &Flags) -> i32 {
             let mut sources = Sources::new();
             sources.files.insert(SrcFile {
                 name,
-                src: Rc::new(inp.into()),
+                src: Rc::new(ariadne::Source::from(inp)),
             });
             match e {
                 EvalError::ParseErrors(errs) => print_parse_err_report(sources, errs),
