@@ -8,12 +8,7 @@ import {
 import { Transport } from "@open-rpc/client-js/build/transports/Transport";
 import CodeMirror from "@uiw/react-codemirror";
 import { basicSetup } from "codemirror";
-import init, {
-  js_closure_test,
-  LspState,
-  lsp_request,
-  lsp_state_new,
-} from "desmosc-wasm";
+import init, { LspState, lsp_request, lsp_state_new } from "desmosc-wasm";
 import { useEffect, useState } from "react";
 import { languageServerWithTransport } from "../util/langServer";
 
@@ -94,7 +89,6 @@ export class MyTransport extends Transport {
 
 const Main = () => {
   const [state, setState] = useState(State.Loading);
-  const [value, setValue] = useState("test");
   const [ls, setLs] = useState(null);
   const [logs, setLogs] = useState([]);
 
@@ -116,7 +110,6 @@ const Main = () => {
     init()
       .then(() => {
         setState(State.Ready);
-        js_closure_test(setValue);
       })
       .catch((e) => {
         alert(e);
@@ -131,7 +124,7 @@ const Main = () => {
   return (
     <>
       <CodeMirror
-        value={value}
+        value="abc = 1;"
         height="200px"
         extensions={[
           basicSetup,
