@@ -23,29 +23,37 @@ enum State {
   Ready,
 }
 
+// school chromebooks :weary:
+const CAN_USE_CONSOLE = true;
+
 export class MyTransport extends Transport {
   public log: (msg: string) => void;
   public state: LspState;
 
   constructor(log) {
     super();
-    this.log = log;
     this.state = lsp_state_new();
-    console.log = (...args) =>
-      this.log(
-        args.length == 1 && typeof args[0] === "string"
-          ? args[0]
-          : args
-              .map((i) => {
-                if (typeof i === "string" && /^[a-zA-Z0-9]*$/.test(i)) return i;
-                try {
-                  return JSON.stringify(i);
-                } catch (e) {
-                  return i.toString();
-                }
-              })
-              .join(" ")
-      );
+    if (CAN_USE_CONSOLE) {
+      this.log = console.log.bind(console);
+    } else {
+      this.log = log;
+      console.log = (...args) =>
+        this.log(
+          args.length == 1 && typeof args[0] === "string"
+            ? args[0]
+            : args
+                .map((i) => {
+                  if (typeof i === "string" && /^[a-zA-Z0-9]*$/.test(i))
+                    return i;
+                  try {
+                    return JSON.stringify(i);
+                  } catch (e) {
+                    return i.toString();
+                  }
+                })
+                .join(" ")
+        );
+    }
   }
   public async connect(): Promise<void> {
     this.log("connect");
