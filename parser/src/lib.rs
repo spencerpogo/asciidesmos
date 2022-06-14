@@ -325,7 +325,7 @@ fn statement_parser() -> impl Parser<Token, Vec<ast::Spanned<ast::Statement>>, E
         .or(expr_stmt)
         .then_ignore(just(Token::CtrlSemi));
 
-    line.repeated().collect().then_ignore(end())
+    line.repeated().then_ignore(end()).collect()
 }
 
 pub type LexErrors = Vec<LexErr>;

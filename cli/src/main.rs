@@ -66,19 +66,26 @@ enum Output {
 
 struct Flags {
     tokens: bool,
+    token_spans: bool,
     ast: bool,
     ir: bool,
     output: Output,
+    dump_errs: bool,
 }
 
 fn try_eval(
     inp: &str,
-    flags: Flags,
+    flags: &Flags,
     mut out: impl std::io::Write + Sized,
 ) -> Result<(), EvalError> {
     let tokens = parser::lex(0, inp.to_string())?;
     if flags.tokens {
-        eprintln!("{:#?}", tokens.iter().map(|(_s, t)| t).collect::<Vec<_>>());
+        let v: Box<dyn std::fmt::Debug> = if flags.token_spans {
+            Box::new(&tokens)
+        } else {
+            Box::new(tokens.iter().map(|(_s, t)| t).collect::<Vec<_>>())
+        };
+        eprintln!("{:#?}", v);
     }
     let ast = parser::parse(0, tokens)?;
     if flags.ast {
@@ -198,10 +205,13 @@ fn print_compile_error_report(sources: Sources, err: CompileError) {
         .unwrap();
 }
 
-fn process(name: String, inp: &str, flags: Flags) -> i32 {
-    match try_eval(inp, flags, std::io::stdout()) {
+fn process(name: String, inp: &str, flags: &Flags) -> i32 {
+    match try_eval(inp, &flags, std::io::stdout()) {
         Ok(()) => 0,
         Err(e) => {
+            if flags.dump_errs {
+                eprintln!("{:#?}", e);
+            }
             let mut sources = Sources::new();
             sources.files.insert(SrcFile {
                 name,
@@ -252,11 +262,21 @@ fn main() {
                 .conflicts_with("eval"),
         )
         .arg(Arg::with_name("tokens").long("tokens").help("Dump tokens"))
+        .arg(
+            Arg::with_name("token spans")
+                .long("token-spans")
+                .help("When dumping tokens, include spans"),
+        )
         .arg(Arg::with_name("ast").long("ast").help("Dumps AST"))
         .arg(
             Arg::with_name("ir")
                 .long("ir")
                 .help("Dumps IR (latex syntax tree)"),
+        )
+        .arg(
+            Arg::with_name("dump errors")
+                .long("dump-errs")
+                .help("Dump raw error struct"),
         )
         .arg(
             Arg::with_name("output")
@@ -279,6 +299,7 @@ fn main() {
     // flags
     let flags = Flags {
         tokens: matches.is_present("tokens"),
+        token_spans: matches.is_present("token spans"),
         ast: matches.is_present("ast"),
         ir: matches.is_present("ir"),
         output: match matches.value_of("output").unwrap_or("state") {
@@ -286,17 +307,18 @@ fn main() {
             "state" => Output::State,
             _ => unreachable!(),
         },
+        dump_errs: matches.is_present("dump errors"),
     };
 
     let exit_code = if let Some(input) = matches.value_of("eval") {
-        process("<string>".to_string(), input, flags)
+        process("<string>".to_string(), input, &flags)
     } else if let Some(filename) = matches.value_of("file") {
         // TODO: Better error handling here?
         let mut file = File::open(filename).expect("Unable to read input");
         let mut contents = String::new();
         file.read_to_string(&mut contents)
             .expect("Unable to decode file contents");
-        process(filename.to_string(), contents.as_str(), flags)
+        process(filename.to_string(), contents.as_str(), &flags)
     } else {
         unimplemented!("REPL/pipe unimplemented")
     };
