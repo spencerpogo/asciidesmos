@@ -12,9 +12,15 @@ pub enum EvalError {
     CompileError(CompileError),
 }
 
-impl From<parser::LexParseErrors> for EvalError {
-    fn from(errs: parser::LexParseErrors) -> Self {
-        Self::ParseErrors(errs)
+impl From<parser::LexErrors> for EvalError {
+    fn from(errs: parser::LexErrors) -> Self {
+        Self::ParseErrors(parser::LexParseErrors::LexErrors(errs))
+    }
+}
+
+impl From<parser::ParseErrors> for EvalError {
+    fn from(errs: parser::ParseErrors) -> Self {
+        Self::ParseErrors(parser::LexParseErrors::ParseErrors(errs))
     }
 }
 
@@ -59,6 +65,7 @@ enum Output {
 }
 
 struct Flags {
+    tokens: bool,
     ast: bool,
     ir: bool,
     output: Output,
@@ -69,7 +76,11 @@ fn try_eval(
     flags: Flags,
     mut out: impl std::io::Write + Sized,
 ) -> Result<(), EvalError> {
-    let ast = parser::lex_and_parse(0, inp.to_string())?;
+    let tokens = parser::lex(0, inp.to_string())?;
+    if flags.tokens {
+        eprintln!("{:#?}", tokens.iter().map(|(_s, t)| t).collect::<Vec<_>>());
+    }
+    let ast = parser::parse(0, tokens)?;
     if flags.ast {
         eprintln!("{:#?}", ast);
     }
@@ -240,6 +251,7 @@ fn main() {
                 .takes_value(true)
                 .conflicts_with("eval"),
         )
+        .arg(Arg::with_name("tokens").long("tokens").help("Dump tokens"))
         .arg(Arg::with_name("ast").long("ast").help("Dumps AST"))
         .arg(
             Arg::with_name("ir")
@@ -266,6 +278,7 @@ fn main() {
     }
     // flags
     let flags = Flags {
+        tokens: matches.is_present("tokens"),
         ast: matches.is_present("ast"),
         ir: matches.is_present("ir"),
         output: match matches.value_of("output").unwrap_or("state") {
