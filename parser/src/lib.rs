@@ -347,15 +347,10 @@ pub fn lex(source: types::FileID, input: String) -> LexResult {
 }
 
 pub fn parse(source: types::FileID, tokens: Vec<ast::Spanned<Token>>) -> ParseResult {
-    let (ast, errs) = statement_parser().parse_recovery(chumsky::Stream::from_iter(
+    statement_parser().parse(chumsky::Stream::from_iter(
         types::Span::new(source, tokens.len()..tokens.len() + 1),
         tokens.into_iter().map(|(s, t)| (t, s)),
-    ));
-    if !errs.is_empty() {
-        Err(errs)
-    } else {
-        Ok(ast.unwrap_or(vec![]))
-    }
+    ))
 }
 
 #[derive(Clone, Debug, PartialEq)]
