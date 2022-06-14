@@ -73,7 +73,7 @@ fn try_eval(
     if flags.ast {
         eprintln!("{:#?}", ast);
     }
-    let ir = compile_stmts(Context::new(), ast)?;
+    let ir = compile_stmts(&mut Context::new(), ast)?;
     if flags.ir {
         eprintln!("{:#?}", ir);
     }

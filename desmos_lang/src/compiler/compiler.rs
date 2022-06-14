@@ -280,10 +280,10 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult 
 }
 
 pub fn compile_stmts(
-    mut ctx: Context,
+    ctx: &mut Context,
     ast: Vec<ast::Spanned<ast::Statement>>,
 ) -> Result<Vec<Option<LatexStatement>>, CompileError> {
-    ast.into_iter().map(|s| compile_stmt(&mut ctx, s)).collect()
+    ast.into_iter().map(|s| compile_stmt(ctx, s)).collect()
 }
 
 pub fn stmts_to_graph(
