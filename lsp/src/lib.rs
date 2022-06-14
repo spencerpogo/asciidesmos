@@ -71,10 +71,10 @@ pub fn start(connection: Connection) -> Result<(), Box<dyn Error + Sync + Send>>
 pub type State = Option<StateVal>;
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct StateVal {
-    pub parse_err: Option<LexParseErrors>,
-    pub compiler_err: Option<CompileError>,
-    pub compiler_ctx: Option<Context>,
+pub enum StateVal {
+    ParseErr(LexParseErrors),
+    CompileErr(CompileError),
+    Success(Context),
 }
 
 pub fn main_loop(
@@ -167,38 +167,26 @@ pub fn completion_handler(
 ) -> Option<Option<CompletionResponse>> {
     match state {
         None => Some(None),
-        Some(s) => match &s.compiler_ctx {
-            None => Some(None),
-            Some(ctx) => Some(Some(CompletionResponse::Array(
+        Some(s) => match &s {
+            StateVal::Success(ctx) => Some(Some(CompletionResponse::Array(
                 ctx.variables
                     .iter()
                     .map(|(v, typ)| CompletionItem::new_simple(v.clone(), format!("{:#?}", typ)))
                     .collect(),
             ))),
+            _ => Some(None),
         },
     }
 }
 
 pub fn handle_new_content(state: &mut State, content: String) {
     let sv = match lex_and_parse(0, content) {
-        Err(e) => StateVal {
-            parse_err: Some(e),
-            compiler_err: None,
-            compiler_ctx: None,
-        },
+        Err(e) => StateVal::ParseErr(e),
         Ok(ast) => {
             let mut ctx = Context::new();
             match compile_stmts(&mut ctx, ast) {
-                Err(e) => StateVal {
-                    parse_err: None,
-                    compiler_err: Some(e),
-                    compiler_ctx: None,
-                },
-                Ok(_) => StateVal {
-                    parse_err: None,
-                    compiler_err: None,
-                    compiler_ctx: Some(ctx),
-                },
+                Err(e) => StateVal::CompileErr(e),
+                Ok(_) => StateVal::Success(ctx),
             }
         }
     };
