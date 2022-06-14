@@ -188,7 +188,7 @@ pub fn handle_new_content(state: &mut State, content: String) {
         },
         Ok(ast) => {
             let mut ctx = Context::new();
-            match compile_stmts(ctx, ast) {
+            match compile_stmts(&mut ctx, ast) {
                 Err(e) => StateVal {
                     parse_err: None,
                     compiler_err: Some(e),
@@ -232,7 +232,13 @@ pub fn handle_request(state: &mut State, req: Request) -> Option<Response> {
             handle_new_content(state, params.text_document.text)
         })
         .on_notif::<DidChangeTextDocument>(|state, params| {
-            handle_new_content(state, params.content_changes.first().unwrap().text)
+            if params.content_changes.len() != 1 {
+                panic!("Expected one content change");
+            }
+            handle_new_content(
+                state,
+                params.content_changes.into_iter().nth(0).unwrap().text,
+            )
         })
         .on::<Completion>(completion_handler);
     dispatcher.resp
