@@ -82,14 +82,17 @@ pub fn try_eval(inp: &str) -> EvalResult {
 pub fn js_closure_test(f: &js_sys::Function) {
     f.call1(
         &JsValue::null(),
-        &JsValue::from("Hello from rust. Build: 3"),
+        &JsValue::from("Hello from rust. Build: 5"),
     )
     .unwrap();
 }
 
-fn dbg(log: &js_sys::Function, v: &dyn std::fmt::Debug) {
-    log.call1(&JsValue::null(), &JsValue::from(format!("{:#?}", v)))
-        .unwrap();
+fn dbg(log: &js_sys::Function, tag: &str, v: &dyn std::fmt::Debug) {
+    log.call1(
+        &JsValue::null(),
+        &JsValue::from(format!("{}: {:#?}", tag, v)),
+    )
+    .unwrap();
 }
 
 #[wasm_bindgen]
@@ -105,11 +108,12 @@ pub fn lsp_state_new() -> LspState {
 #[wasm_bindgen]
 pub fn lsp_request(state: &mut LspState, s: &str, log: &js_sys::Function) -> String {
     let msg: lsp_server::Message = serde_json::from_str(s).unwrap();
-    dbg(log, &msg);
     let resp = match msg {
         lsp_server::Message::Request(r) => lsp::handle_request(&mut state.state, r),
         _ => None,
     };
+    dbg(log, "msg", &msg);
+    dbg(log, "state", &state.state);
     match resp {
         None => "".to_string(),
         Some(v) => serde_json::to_string(&v).unwrap(),

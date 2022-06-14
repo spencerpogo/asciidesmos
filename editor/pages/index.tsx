@@ -67,7 +67,7 @@ export class MyTransport extends Transport {
     const r = lsp_request(
       this.state,
       JSON.stringify(this.parseData(data)),
-      () => {}
+      this.log
     );
     this.transportRequestManager.settlePendingRequest(notifications);
     if (!r) {
