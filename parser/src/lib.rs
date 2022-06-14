@@ -320,12 +320,13 @@ fn statement_parser() -> impl Parser<Token, Vec<ast::Spanned<ast::Statement>>, E
             (s, ast::Statement::VarDef { name, val, inline })
         });
 
-    let line = func_dec
-        .or(declaration)
-        .or(expr_stmt)
-        .then_ignore(just(Token::CtrlSemi));
+    let line = func_dec.or(declaration).or(expr_stmt);
 
-    line.repeated().then_ignore(end()).collect()
+    line.separated_by(just(Token::CtrlSemi))
+        .at_least(1)
+        .collect()
+        .then_ignore(just(Token::CtrlSemi))
+        .then_ignore(end())
 }
 
 pub type LexErrors = Vec<LexErr>;
