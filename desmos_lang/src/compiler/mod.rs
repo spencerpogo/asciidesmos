@@ -5,4 +5,4 @@ pub mod error;
 mod types;
 
 pub use crate::compiler::types::Context;
-pub use compiler::{compile_stmt, stmts_to_graph};
+pub use compiler::{compile_stmt, compile_stmts, stmts_to_graph};
