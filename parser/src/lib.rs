@@ -52,7 +52,7 @@ impl Token {
             OpEq => "`=`",
             OpColon => "`:`",
             CtrlLParen => "`(`",
-            CtrlRParen => "`(`",
+            CtrlRParen => "`)`",
             CtrlListStart => "`[`",
             CtrlListEnd => "`]`",
             CtrlComma => "`,`",
@@ -324,6 +324,7 @@ fn statement_parser() -> impl Parser<Token, Vec<ast::Spanned<ast::Statement>>, E
 
     line.separated_by(just(Token::CtrlSemi))
         .at_least(1)
+        .recover_with(skip_then_retry_until([]))
         .collect()
         .then_ignore(just(Token::CtrlSemi))
         .then_ignore(end())
