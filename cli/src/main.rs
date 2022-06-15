@@ -66,30 +66,35 @@ fn try_eval(
     mut out: impl std::io::Write + Sized,
 ) -> Result<(), EvalError> {
     let (tokens, errs) = parser::lex(0, inp.to_string());
+    if flags.tokens {
+        let v: Box<dyn std::fmt::Debug> = match &tokens {
+            Some(tokens) => {
+                if flags.token_spans {
+                    Box::new(tokens)
+                } else {
+                    Box::new(tokens.iter().map(|(_s, t)| t).collect::<Vec<_>>())
+                }
+            }
+            None => Box::<Option<()>>::new(None),
+        };
+        eprintln!("{:#?}", v);
+    }
     if !errs.is_empty() {
         return Err(EvalError::ParseErrors(parser::LexParseErrors::LexErrors(
             errs,
         )));
     }
     let tokens = tokens.unwrap();
-    if flags.tokens {
-        let v: Box<dyn std::fmt::Debug> = if flags.token_spans {
-            Box::new(&tokens)
-        } else {
-            Box::new(tokens.iter().map(|(_s, t)| t).collect::<Vec<_>>())
-        };
-        eprintln!("{:#?}", v);
-    }
     let (ast, errs) = parser::parse(0, tokens);
+    if flags.ast {
+        eprintln!("{:#?}", ast);
+    }
     if !errs.is_empty() {
         return Err(EvalError::ParseErrors(parser::LexParseErrors::ParseErrors(
             errs,
         )));
     }
     let ast = ast.unwrap();
-    if flags.ast {
-        eprintln!("{:#?}", ast);
-    }
     let ir = compile_stmts(&mut Context::new(), ast)?;
     if flags.ir {
         eprintln!("{:#?}", ir);
