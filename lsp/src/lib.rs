@@ -182,17 +182,7 @@ pub fn completion_handler(
 }
 
 pub fn handle_new_content(state: &mut State, content: String) {
-    let sv = match lex_and_parse(0, content) {
-        Err(e) => StateVal::ParseErr(e),
-        Ok(ast) => {
-            let mut ctx = Context::new();
-            match compile_stmts(&mut ctx, ast) {
-                Err(e) => StateVal::CompileErr(e),
-                Ok(_) => StateVal::Success(ctx),
-            }
-        }
-    };
-    *state = Some(sv);
+    // todo
 }
 
 pub fn handle_request(state: &mut State, msg: Message) -> Option<Response> {

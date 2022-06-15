@@ -330,24 +330,25 @@ fn statement_parser() -> impl Parser<Token, Vec<ast::Spanned<ast::Statement>>, E
 }
 
 pub type LexErrors = Vec<LexErr>;
-pub type LexResult = Result<Vec<ast::Spanned<Token>>, LexErrors>;
+pub type Tokens = Vec<ast::Spanned<Token>>;
+pub type LexResult = (Option<Tokens>, LexErrors);
 pub type ParseErrors = Vec<ParseErr>;
-pub type ExprParseResult = Result<ast::Spanned<ast::Statement>, ParseErrors>;
-pub type ParseResult = Result<Vec<ast::Spanned<ast::Statement>>, ParseErrors>;
+pub type Statements = Vec<ast::Spanned<ast::Statement>>;
+pub type ParseResult = (Option<Statements>, ParseErrors);
 
 pub fn lex(source: types::FileID, input: String) -> LexResult {
     let s: chumsky::Stream<'_, char, types::Span, _> = chumsky::Stream::from_iter(
-        types::Span::new(source, input.len()..input.len()),
+        types::Span::new(source, input.len()..input.len() + 1),
         input
             .chars()
             .enumerate()
             .map(|(i, x)| (x, types::Span::new(source, i..i + 1))),
     );
-    lexer().parse(s)
+    lexer().parse_recovery(s)
 }
 
 pub fn parse(source: types::FileID, tokens: Vec<ast::Spanned<Token>>) -> ParseResult {
-    statement_parser().parse(chumsky::Stream::from_iter(
+    statement_parser().parse_recovery(chumsky::Stream::from_iter(
         types::Span::new(source, tokens.len()..tokens.len() + 1),
         tokens.into_iter().map(|(s, t)| (t, s)),
     ))
@@ -371,12 +372,15 @@ impl From<ParseErrors> for LexParseErrors {
     }
 }
 
-pub type LexParseResult = Result<Vec<ast::Spanned<ast::Statement>>, LexParseErrors>;
+pub type LexParseResult = (Option<Statements>, LexParseErrors);
 
 pub fn lex_and_parse(source: types::FileID, input: String) -> LexParseResult {
-    let tokens = lex(source, input)?;
-    let r = parse(source, tokens)?;
-    Ok(r)
+    let (tokens, lex_errs) = lex(source, input);
+    if !lex_errs.is_empty() {
+        return (None, lex_errs.into());
+    }
+    let (ast, errs) = parse(source, tokens.unwrap());
+    (ast, errs.into())
 }
 
 #[cfg(test)]
@@ -394,19 +398,28 @@ mod tests {
 
     fn check(l: &str, expr: ast::LocatedExpression) {
         let (spn, expr) = expr;
-        check_result(l, Ok(vec![(spn, ast::Statement::Expression(expr))]));
+        check_result(
+            l,
+            (
+                Some(vec![(spn, ast::Statement::Expression(expr))]),
+                LexParseErrors::ParseErrors(vec![]),
+            ),
+        );
     }
 
     fn check_stmt(l: &str, stmt: ast::Spanned<ast::Statement>) {
-        check_result(l, Ok(vec![stmt]));
+        check_result(l, (Some(vec![stmt]), LexParseErrors::ParseErrors(vec![])));
     }
 
     fn assert_parses(l: &str) {
-        assert!(eval(l).is_ok());
+        assert_eq!(eval(l).1, LexParseErrors::ParseErrors(vec![]));
     }
 
     fn assert_does_not_parse(l: &str) {
-        assert!(eval(l).is_err());
+        match eval(l).1 {
+            LexParseErrors::LexErrors(errs) => assert_ne!(errs, vec![]),
+            LexParseErrors::ParseErrors(errs) => assert_ne!(errs, vec![]),
+        }
     }
 
     fn s(r: std::ops::Range<usize>) -> types::Span {
