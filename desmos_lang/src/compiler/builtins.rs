@@ -111,7 +111,6 @@ pub static BUILTIN_FUNCTIONS: Map<&'static str, Function> = phf_map! {
     "sqrt" => n!(),
     "nthroot" => nn!(),
 
-    // TODO: Support for nthroot
     // TODO: Support integral
     // TODO: Support sum
     // TODO: Support prod
