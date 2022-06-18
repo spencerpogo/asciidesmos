@@ -320,10 +320,7 @@ fn statement_parser() -> impl Parser<Token, Vec<ast::Spanned<ast::Statement>>, E
             (s, ast::Statement::VarDef { name, val, inline })
         });
 
-    let line = func_dec
-        .or(declaration)
-        .or(expr_stmt)
-        .or_else(|_e| Ok((types::Span::new(0, 0..0), ast::Statement::Error)));
+    let line = func_dec.or(declaration).or(expr_stmt);
 
     line.separated_by(just(Token::CtrlSemi))
         .at_least(1)
