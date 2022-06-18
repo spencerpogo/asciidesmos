@@ -11,19 +11,6 @@ pub enum EvalError {
     ParseErrors(parser::LexParseErrors),
     CompileError(CompileError),
 }
-
-impl From<parser::LexErrors> for EvalError {
-    fn from(errs: parser::LexErrors) -> Self {
-        Self::ParseErrors(parser::LexParseErrors::LexErrors(errs))
-    }
-}
-
-impl From<parser::ParseErrors> for EvalError {
-    fn from(errs: parser::ParseErrors) -> Self {
-        Self::ParseErrors(parser::LexParseErrors::ParseErrors(errs))
-    }
-}
-
 impl From<CompileError> for EvalError {
     fn from(err: CompileError) -> Self {
         Self::CompileError(err)
@@ -78,19 +65,36 @@ fn try_eval(
     flags: &Flags,
     mut out: impl std::io::Write + Sized,
 ) -> Result<(), EvalError> {
-    let tokens = parser::lex(0, inp.to_string())?;
+    let (tokens, errs) = parser::lex(0, inp.to_string());
     if flags.tokens {
-        let v: Box<dyn std::fmt::Debug> = if flags.token_spans {
-            Box::new(&tokens)
-        } else {
-            Box::new(tokens.iter().map(|(_s, t)| t).collect::<Vec<_>>())
+        let v: Box<dyn std::fmt::Debug> = match &tokens {
+            Some(tokens) => {
+                if flags.token_spans {
+                    Box::new(tokens)
+                } else {
+                    Box::new(tokens.iter().map(|(_s, t)| t).collect::<Vec<_>>())
+                }
+            }
+            None => Box::<Option<()>>::new(None),
         };
         eprintln!("{:#?}", v);
     }
-    let ast = parser::parse(0, tokens)?;
+    if !errs.is_empty() {
+        return Err(EvalError::ParseErrors(parser::LexParseErrors::LexErrors(
+            errs,
+        )));
+    }
+    let tokens = tokens.unwrap();
+    let (ast, errs) = parser::parse(0, tokens);
     if flags.ast {
         eprintln!("{:#?}", ast);
     }
+    if !errs.is_empty() {
+        return Err(EvalError::ParseErrors(parser::LexParseErrors::ParseErrors(
+            errs,
+        )));
+    }
+    let ast = ast.unwrap();
     let ir = compile_stmts(&mut Context::new(), ast)?;
     if flags.ir {
         eprintln!("{:#?}", ir);
