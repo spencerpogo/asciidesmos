@@ -276,6 +276,7 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult 
                 }
             }
         }
+        Error => unimplemented!(),
     }
 }
 

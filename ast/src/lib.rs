@@ -88,6 +88,7 @@ pub enum Statement {
     },
     FuncDef(FunctionDefinition, LocatedExpression),
     Expression(Expression),
+    Error,
 }
 
 pub type LocatedStatement = Spanned<Statement>;
