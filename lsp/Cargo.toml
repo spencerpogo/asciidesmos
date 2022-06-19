@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 ast = { path = "../ast" }
-desmos_lang = { path = "../desmos_lang" }
+compiler = { path = "../compiler" }
 lsp-server = "0.6.0"
 lsp-types = "0.93.0"
 parser = { path = "../parser" }

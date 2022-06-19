@@ -43,8 +43,8 @@
 // ```
 use std::error::Error;
 
-use desmos_lang::compiler::error::CompileError;
-use desmos_lang::compiler::Context;
+use compiler::error::CompileError;
+use compiler::Context;
 use lsp_types::notification::{DidChangeTextDocument, DidOpenTextDocument};
 use lsp_types::request::{Completion, Initialize};
 use lsp_types::{

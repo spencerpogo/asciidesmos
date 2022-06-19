@@ -1,4 +1,4 @@
-use desmos_lang::compiler::error::CompileError;
+use compiler::error::CompileError;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]

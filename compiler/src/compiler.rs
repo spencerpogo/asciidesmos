@@ -752,7 +752,7 @@ pub mod tests {
                 span: spn(),
                 kind: CompileErrorKind::WrongArgCount {
                     got: 1,
-                    expected: crate::compiler::error::ExpectedArgCount::Exact(0),
+                    expected: crate::error::ExpectedArgCount::Exact(0),
                 }
             }
         );

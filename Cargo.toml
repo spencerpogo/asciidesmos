@@ -1,2 +1,2 @@
 [workspace]
-members = ["ast", "cli", "editor", "desmos_lang", "graph", "parser", "types", "latex", "lsp"]
+members = ["ast", "cli", "compiler", "editor", "graph", "parser", "types", "latex", "lsp"]

@@ -91,6 +91,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "compiler"
+version = "0.1.0"
+dependencies = [
+ "ast",
+ "graph",
+ "latex",
+ "phf",
+ "types",
+]
+
+[[package]]
 name = "const-random"
 version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -139,24 +150,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7a81dae078cea95a014a339291cec439d2f232ebe854a9d672b796c6afafa9b7"
 
 [[package]]
-name = "desmos_lang"
-version = "0.1.0"
-dependencies = [
- "ast",
- "graph",
- "latex",
- "phf",
- "types",
-]
-
-[[package]]
 name = "desmosc"
 version = "0.1.0"
 dependencies = [
  "ariadne",
  "chumsky",
  "clap",
- "desmos_lang",
+ "compiler",
  "graph",
  "latex",
  "lsp",
@@ -171,7 +171,7 @@ dependencies = [
 name = "desmosc-wasm"
 version = "0.1.0"
 dependencies = [
- "desmos_lang",
+ "compiler",
  "graph",
  "js-sys",
  "latex",
@@ -291,7 +291,7 @@ name = "lsp"
 version = "0.1.0"
 dependencies = [
  "ast",
- "desmos_lang",
+ "compiler",
  "lsp-server",
  "lsp-types",
  "parser",

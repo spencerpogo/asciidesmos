@@ -1,6 +1,6 @@
 use ariadne::{Color, Fmt, Label, Report, ReportKind};
 use clap::{App, Arg};
-use desmos_lang::compiler::{compile_stmts, error::CompileError, Context};
+use compiler::{compile_stmts, error::CompileError, Context};
 use std::fs::File;
 use std::io::prelude::*;
 use std::rc::Rc;
