@@ -95,6 +95,7 @@ pub enum Statement {
 }
 
 pub type LocatedStatement = Spanned<Statement>;
+pub type LStatements = Vec<LocatedStatement>;
 
 // Syntax-dependent formatting functions are defined here rather than in the compiler
 

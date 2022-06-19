@@ -334,8 +334,7 @@ pub type LexErrors = Vec<LexErr>;
 pub type Tokens = Vec<ast::Spanned<Token>>;
 pub type LexResult = (Option<Tokens>, LexErrors);
 pub type ParseErrors = Vec<ParseErr>;
-pub type Statements = Vec<ast::Spanned<ast::Statement>>;
-pub type ParseResult = (Option<Statements>, ParseErrors);
+pub type ParseResult = (Option<ast::LStatements>, ParseErrors);
 
 pub fn lex(source: types::FileID, input: String) -> LexResult {
     let s: chumsky::Stream<'_, char, types::Span, _> = chumsky::Stream::from_iter(
@@ -373,7 +372,7 @@ impl From<ParseErrors> for LexParseErrors {
     }
 }
 
-pub type LexParseResult = (Option<Statements>, LexParseErrors);
+pub type LexParseResult = (Option<ast::LStatements>, LexParseErrors);
 
 pub fn lex_and_parse(source: types::FileID, input: String) -> LexParseResult {
     let (tokens, lex_errs) = lex(source, input);
