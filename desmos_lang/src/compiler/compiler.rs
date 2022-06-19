@@ -124,7 +124,7 @@ pub fn compile_expr<'a>(
                 });
             }
             match ctx.modules.get(path.first().unwrap()) {
-                Some(module) => compile_variable_ref(ctx, span, item),
+                Some(module) => compile_variable_ref(module, span, item),
                 None => Err(CompileError {
                     kind: CompileErrorKind::UnresolvedNamespace(path),
                     span,
@@ -959,5 +959,31 @@ pub mod tests {
             compile_with_ctx(&mut ctx, ast::Expression::Variable("test".to_string())),
             Ok(Latex::Variable("test".to_string()))
         );
+    }
+
+    #[test]
+    fn module_reference() {
+        let mut submodule = new_ctx();
+        submodule.variables.insert("a".to_string(), ValType::Number);
+        submodule.inline_vals.insert(
+            "b".to_string(),
+            (ValType::Number, Latex::Num("1".to_string())),
+        );
+        let mut ctx = new_ctx();
+        ctx.modules.insert("lib".to_owned(), submodule);
+        let comp_var = |v| {
+            compile_with_ctx(
+                &mut ctx,
+                ast::Expression::FullyQualifiedVariable {
+                    path: vec!["lib".to_owned()],
+                    item: v,
+                },
+            )
+        };
+        assert_eq!(
+            comp_var("a"),
+            LatexStatement::Expression(Latex::Variable("a"))
+        );
+        assert_eq!(comp_var("b"), ());
     }
 }
