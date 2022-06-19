@@ -24,7 +24,9 @@ pub struct InlineFunction {
 }
 
 pub trait Loader: LoaderClone + Debug {
-    fn load(&self, path: String) -> LStatements;
+    fn load(&mut self, path: String) -> LStatements;
+
+    fn load_stdlib_file(&mut self, contents: &str) -> LStatements;
 }
 
 // https://stackoverflow.com/a/30353928/9196137
@@ -51,7 +53,11 @@ impl Clone for Box<dyn 'static + Loader> {
 pub struct UnimplementedLoader;
 
 impl Loader for UnimplementedLoader {
-    fn load(&self, _path: String) -> LStatements {
+    fn load(&mut self, _path: String) -> LStatements {
+        unimplemented!()
+    }
+
+    fn load_stdlib_file(&mut self, _contents: &str) -> LStatements {
         unimplemented!()
     }
 }
