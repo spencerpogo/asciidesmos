@@ -1,4 +1,5 @@
-use std::{collections::HashMap, rc::Rc};
+use ast::LStatements;
+use std::{collections::HashMap, fmt::Debug, rc::Rc};
 use types::ValType;
 
 // heap version of core::runtime::Args
@@ -22,7 +23,40 @@ pub struct InlineFunction {
     pub body: latex::Latex,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+pub trait Loader: LoaderClone + Debug {
+    fn load(&self, path: String) -> LStatements;
+}
+
+// https://stackoverflow.com/a/30353928/9196137
+pub trait LoaderClone {
+    fn box_clone(&self) -> Box<dyn Loader>;
+}
+
+impl<T> LoaderClone for T
+where
+    T: 'static + Loader + Clone,
+{
+    fn box_clone(&self) -> Box<dyn Loader> {
+        Box::new(self.clone())
+    }
+}
+
+impl Clone for Box<dyn 'static + Loader> {
+    fn clone(&self) -> Self {
+        self.box_clone()
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct UnimplementedLoader;
+
+impl Loader for UnimplementedLoader {
+    fn load(&self, _path: String) -> LStatements {
+        unimplemented!()
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct Context {
     pub variables: HashMap<String, ValType>,
     pub locals: HashMap<String, ValType>,
@@ -31,11 +65,21 @@ pub struct Context {
     pub inline_fns: HashMap<String, Rc<InlineFunction>>,
     // can't support submodules (yet)
     pub modules: HashMap<String, Context>,
+    pub loader: Box<dyn Loader>,
 }
 
 impl Context {
     pub fn new() -> Self {
-        Default::default()
+        Self {
+            ..Default::default()
+        }
+    }
+
+    pub fn new_with_loader(loader: Box<dyn Loader>) -> Self {
+        Self {
+            loader,
+            ..Default::default()
+        }
     }
 }
 
@@ -48,6 +92,7 @@ impl Default for Context {
             inline_vals: HashMap::new(),
             inline_fns: HashMap::new(),
             modules: HashMap::new(),
+            loader: Box::new(UnimplementedLoader),
         }
     }
 }

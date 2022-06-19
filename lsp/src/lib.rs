@@ -44,7 +44,7 @@
 use std::error::Error;
 
 use desmos_lang::compiler::error::CompileError;
-use desmos_lang::compiler::{compile_stmts, Context};
+use desmos_lang::compiler::Context;
 use lsp_types::notification::{DidChangeTextDocument, DidOpenTextDocument};
 use lsp_types::request::{Completion, Initialize};
 use lsp_types::{
@@ -54,7 +54,7 @@ use lsp_types::{
 use lsp_types::{InitializeParams, ServerCapabilities};
 
 use lsp_server::{Connection, Message, Response};
-use parser::{lex_and_parse, LexParseErrors};
+use parser::LexParseErrors;
 
 pub fn start(connection: Connection) -> Result<(), Box<dyn Error + Sync + Send>> {
     // Run the server and wait for the two threads to end (typically by trigger LSP Exit event).
@@ -70,7 +70,7 @@ pub fn start(connection: Connection) -> Result<(), Box<dyn Error + Sync + Send>>
 
 pub type State = Option<StateVal>;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub enum StateVal {
     ParseErr(LexParseErrors),
     CompileErr(CompileError),
@@ -181,7 +181,7 @@ pub fn completion_handler(
     }
 }
 
-pub fn handle_new_content(state: &mut State, content: String) {
+pub fn handle_new_content(_state: &mut State, _content: String) {
     // todo
 }
 
