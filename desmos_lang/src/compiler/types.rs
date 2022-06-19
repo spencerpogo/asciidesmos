@@ -35,15 +35,20 @@ pub struct Context {
 
 impl Context {
     pub fn new() -> Self {
-        Self {
-            ..Default::default()
-        }
+        Default::default()
     }
 }
 
 impl Default for Context {
     fn default() -> Self {
-        Self::new()
+        Self {
+            variables: HashMap::new(),
+            locals: HashMap::new(),
+            defined_functions: HashMap::new(),
+            inline_vals: HashMap::new(),
+            inline_fns: HashMap::new(),
+            modules: HashMap::new(),
+        }
     }
 }
 
