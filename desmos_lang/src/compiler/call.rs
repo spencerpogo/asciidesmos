@@ -178,11 +178,14 @@ pub fn compile_variadic_call(
     }
 }
 
-pub fn replace_variables(node: latex::Latex, vars: &HashMap<String, latex::Latex>) -> Latex {
-    let proc = |v| replace_variables(v, vars);
+pub fn map_variables<F>(node: latex::Latex, replacer: &F) -> Latex
+where
+    F: Fn(String) -> Latex,
+{
+    let proc = |v| map_variables(v, replacer);
     let proc_vec = |v: Vec<Latex>| {
         v.into_iter()
-            .map(|l| replace_variables(l, vars))
+            .map(|l| map_variables(l, replacer))
             .collect::<Vec<_>>()
     };
     let proc_cond = |c: latex::Cond| latex::Cond {
@@ -192,10 +195,7 @@ pub fn replace_variables(node: latex::Latex, vars: &HashMap<String, latex::Latex
         result: proc(c.result),
     };
     match node {
-        Latex::Variable(name) => match vars.get(&name) {
-            Some(replacement) => replacement.clone(),
-            None => Latex::Variable(name),
-        },
+        Latex::Variable(name) => replacer(name),
         Latex::Num(n) => Latex::Num(n),
         Latex::Call {
             func,
@@ -230,6 +230,15 @@ pub fn replace_variables(node: latex::Latex, vars: &HashMap<String, latex::Latex
             default: Box::new(proc(*default)),
         },
     }
+}
+
+//pub fn replace_variables
+//vars: &HashMap<String, latex::Latex>
+pub fn replace_variables(node: Latex, vars: &HashMap<String, Latex>) -> Latex {
+    map_variables(node, &|name| match vars.get(&name) {
+        Some(replacement) => replacement.clone(),
+        None => Latex::Variable(name),
+    })
 }
 
 pub fn compile_call(
