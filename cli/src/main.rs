@@ -61,11 +61,12 @@ struct Flags {
 }
 
 fn try_eval(
+    id: types::FileID,
     inp: &str,
     flags: &Flags,
     mut out: impl std::io::Write + Sized,
 ) -> Result<(), EvalError> {
-    let (tokens, errs) = parser::lex(0, inp.to_string());
+    let (tokens, errs) = parser::lex(id, inp.to_string());
     if flags.tokens {
         let v: Box<dyn std::fmt::Debug> = match &tokens {
             Some(tokens) => {
@@ -85,7 +86,7 @@ fn try_eval(
         )));
     }
     let tokens = tokens.unwrap();
-    let (ast, errs) = parser::parse(0, tokens);
+    let (ast, errs) = parser::parse(id, tokens);
     if flags.ast {
         eprintln!("{:#?}", ast);
     }
@@ -209,17 +210,17 @@ fn print_compile_error_report(sources: Sources, err: CompileError) {
 }
 
 fn process(name: String, inp: &str, flags: &Flags) -> i32 {
-    match try_eval(inp, &flags, std::io::stdout()) {
+    let mut sources = Sources::new();
+    let id = sources.files.insert(SrcFile {
+        name,
+        src: Rc::new(ariadne::Source::from(inp)),
+    });
+    match try_eval(id, inp, &flags, std::io::stdout()) {
         Ok(()) => 0,
         Err(e) => {
             if flags.dump_errs {
                 eprintln!("{:#?}", e);
             }
-            let mut sources = Sources::new();
-            sources.files.insert(SrcFile {
-                name,
-                src: Rc::new(ariadne::Source::from(inp)),
-            });
             match e {
                 EvalError::ParseErrors(errs) => print_parse_err_report(sources, errs),
                 EvalError::CompileError(c) => print_compile_error_report(sources, c),
