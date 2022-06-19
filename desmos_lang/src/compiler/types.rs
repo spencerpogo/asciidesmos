@@ -29,16 +29,14 @@ pub struct Context {
     pub defined_functions: HashMap<String, Rc<FunctionSignature>>,
     pub inline_vals: HashMap<String, (ValType, latex::Latex)>,
     pub inline_fns: HashMap<String, Rc<InlineFunction>>,
+    // can't support submodules (yet)
+    pub modules: HashMap<String, Context>,
 }
 
 impl Context {
     pub fn new() -> Self {
         Self {
-            variables: HashMap::new(),
-            locals: HashMap::new(),
-            defined_functions: HashMap::new(),
-            inline_vals: HashMap::new(),
-            inline_fns: HashMap::new(),
+            ..Default::default()
         }
     }
 }

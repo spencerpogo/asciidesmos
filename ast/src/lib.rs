@@ -42,6 +42,10 @@ pub enum Expression {
     Error,
     Num(String),
     Variable(String),
+    FullyQualifiedVariable {
+        path: Vec<String>,
+        item: String,
+    },
     BinaryExpr {
         left: Box<LocatedExpression>,
         // Should probably make an enum for this, but its not worth the work to encode
@@ -91,3 +95,9 @@ pub enum Statement {
 }
 
 pub type LocatedStatement = Spanned<Statement>;
+
+// Syntax-dependent formatting functions are defined here rather than in the compiler
+
+pub fn fmt_namespace(path: &Vec<String>) -> String {
+    path.join("::")
+}

@@ -11,10 +11,10 @@ use latex::{
 };
 use types::ValType;
 
-pub fn resolve_variable<'a>(ctx: &'a mut Context, var: String) -> Option<&'a ValType> {
+pub fn resolve_variable(ctx: &Context, var: String) -> Option<ValType> {
     match ctx.variables.get(&*var) {
-        Some(r) => Some(r),
-        None => ctx.locals.get(&*var),
+        Some(r) => Some(*r),
+        None => ctx.locals.get(&*var).map(|v| *v),
     }
 }
 
@@ -87,6 +87,23 @@ pub fn branch_to_cond<'a>(
     })
 }
 
+pub fn compile_variable_ref(
+    ctx: &Context,
+    span: types::Span,
+    name: String,
+) -> Result<(Latex, ValType), CompileError> {
+    match ctx.inline_vals.get(&name) {
+        Some((t, v)) => Ok((v.clone(), *t)),
+        None => match resolve_variable(ctx, name.clone()) {
+            Some(var_type) => Ok((Latex::Variable(name), var_type)),
+            None => Err(CompileError {
+                kind: CompileErrorKind::UndefinedVariable(name),
+                span,
+            }),
+        },
+    }
+}
+
 // Ideally this would be functional and ctx would not need to be mutable, but rust
 //  support for immutable hashmaps isn't built in and mutation is much simpler.
 pub fn compile_expr<'a>(
@@ -98,16 +115,22 @@ pub fn compile_expr<'a>(
     match expr.1 {
         Expression::Error => unimplemented!(),
         Expression::Num(val) => Ok((Latex::Num(val.to_string()), ValType::Number)),
-        Expression::Variable(name) => match ctx.inline_vals.get(&name) {
-            Some((t, v)) => Ok((v.clone(), *t)),
-            None => match resolve_variable(ctx, name.clone()) {
-                Some(var_type) => Ok((Latex::Variable(name), *var_type)),
+        Expression::Variable(name) => compile_variable_ref(ctx, span, name),
+        Expression::FullyQualifiedVariable { path, item } => {
+            if path.len() != 1 {
+                return Err(CompileError {
+                    kind: CompileErrorKind::UnresolvedNamespace(path),
+                    span,
+                });
+            }
+            match ctx.modules.get(path.first().unwrap()) {
+                Some(module) => compile_variable_ref(ctx, span, item),
                 None => Err(CompileError {
-                    kind: CompileErrorKind::UndefinedVariable(name),
+                    kind: CompileErrorKind::UnresolvedNamespace(path),
                     span,
                 }),
-            },
-        },
+            }
+        }
         Expression::BinaryExpr {
             left,
             operator,

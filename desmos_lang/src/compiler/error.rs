@@ -23,6 +23,7 @@ pub enum CompileErrorKind {
     ExpectedFunction,
     NoNestedList,
     NoInlineVariadic,
+    UnresolvedNamespace(Vec<String>),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -39,6 +40,7 @@ impl CompileErrorKind {
         match &self {
             CompileErrorKind::UnknownFunction(func) => format!(
                 "Unknown function '{}'",
+                // TODO: move this formatting into the AST crate
                 match func {
                     ast::Function::Normal { name } => name.to_string(),
                     ast::Function::Log { base } => format!("log{}", base),
@@ -67,6 +69,9 @@ impl CompileErrorKind {
             }
             CompileErrorKind::NoInlineVariadic => {
                 "Inline functions cannot have variadic arguments".to_string()
+            }
+            CompileErrorKind::UnresolvedNamespace(path) => {
+                format!("Cannot resolve namespace '{}'", ast::fmt_namespace(&path))
             }
         }
     }
