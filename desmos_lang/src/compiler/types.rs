@@ -22,31 +22,35 @@ pub struct InlineFunction {
     pub body: latex::Latex,
 }
 
+pub trait Importer: Fn(String) -> ast::LStatements {}
+
 #[derive(Clone, Debug, PartialEq)]
-pub struct Context {
+pub struct Context<I>
+where
+    I: Importer,
+{
     pub variables: HashMap<String, ValType>,
     pub locals: HashMap<String, ValType>,
     pub defined_functions: HashMap<String, Rc<FunctionSignature>>,
     pub inline_vals: HashMap<String, (ValType, latex::Latex)>,
     pub inline_fns: HashMap<String, Rc<InlineFunction>>,
+    pub importer: I,
     // can't support submodules (yet)
-    pub modules: HashMap<String, Context>,
+    pub modules: HashMap<String, Context<I>>,
 }
 
-impl Context {
-    pub fn new() -> Self {
-        Default::default()
-    }
-}
-
-impl Default for Context {
-    fn default() -> Self {
+impl<I> Context<I>
+where
+    I: Importer,
+{
+    pub fn new(importer: I) -> Self {
         Self {
             variables: HashMap::new(),
             locals: HashMap::new(),
             defined_functions: HashMap::new(),
             inline_vals: HashMap::new(),
             inline_fns: HashMap::new(),
+            importer,
             modules: HashMap::new(),
         }
     }

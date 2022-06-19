@@ -6,7 +6,7 @@ use types;
 use super::{
     builtins,
     error::{CompileError, CompileErrorKind, ExpectedArgCount},
-    types::{Context, FunctionArgs, FunctionSignature, ResolvedFunction},
+    types::{Context, FunctionArgs, FunctionSignature, Importer, ResolvedFunction},
 };
 
 pub fn func_to_latex(func: ast::Function) -> latex::Function {
@@ -17,7 +17,13 @@ pub fn func_to_latex(func: ast::Function) -> latex::Function {
 }
 
 // Returns function and whether it is builtin
-pub fn resolve_function<'a>(ctx: &'a mut Context, func: ast::Function) -> Option<ResolvedFunction> {
+pub fn resolve_function<'a, I>(
+    ctx: &'a mut Context<I>,
+    func: ast::Function,
+) -> Option<ResolvedFunction>
+where
+    I: Importer,
+{
     match func {
         ast::Function::Log { base: _ } => Some(ResolvedFunction::Normal {
             func: Rc::new(FunctionSignature {
@@ -241,13 +247,16 @@ pub fn replace_variables(node: Latex, vars: &HashMap<String, Latex>) -> Latex {
     })
 }
 
-pub fn compile_call(
-    ctx: &mut Context,
+pub fn compile_call<I>(
+    ctx: &mut Context<I>,
     span: types::Span,
     func: ast::Function,
     modifier: ast::CallModifier,
     args: Vec<(types::Span, latex::Latex, types::ValType)>,
-) -> Result<(latex::Latex, types::ValType), CompileError> {
+) -> Result<(latex::Latex, types::ValType), CompileError>
+where
+    I: Importer,
+{
     let rfunc = resolve_function(ctx, func.clone()).ok_or(CompileError {
         kind: CompileErrorKind::UnknownFunction(func.clone()),
         span: span.clone(),

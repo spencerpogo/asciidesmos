@@ -1,6 +1,6 @@
 use super::{
     error::{CompileError, CompileErrorKind},
-    types::{Context, FunctionArgs, FunctionSignature, InlineFunction},
+    types::{Context, FunctionArgs, FunctionSignature, Importer, InlineFunction},
 };
 use ast::{
     BinaryOperator, Expression, LocatedExpression, LocatedStatement, Statement, UnaryOperator,
@@ -11,7 +11,10 @@ use latex::{
 };
 use types::ValType;
 
-pub fn resolve_variable(ctx: &Context, var: String) -> Option<ValType> {
+pub fn resolve_variable<I>(ctx: &Context<I>, var: String) -> Option<ValType>
+where
+    I: Importer,
+{
     match ctx.variables.get(&*var) {
         Some(r) => Some(*r),
         None => ctx.locals.get(&*var).map(|v| *v),
@@ -33,12 +36,15 @@ pub fn check_type(span: types::Span, got: ValType, expect: ValType) -> Result<()
 }
 
 // Combination of compile_expr and check_type
-pub fn compile_expect<'a>(
-    ctx: &mut Context,
+pub fn compile_expect<I>(
+    ctx: &mut Context<I>,
     span: types::Span,
     expr: LocatedExpression,
     expect: ValType,
-) -> Result<Latex, CompileError> {
+) -> Result<Latex, CompileError>
+where
+    I: Importer,
+{
     let (s, t) = compile_expr(ctx, expr)?;
     check_type(span, t, expect)?;
     Ok(s)
@@ -74,10 +80,13 @@ pub fn unop_to_latex(op: UnaryOperator) -> LatexUnaryOperator {
     }
 }
 
-pub fn branch_to_cond<'a>(
-    ctx: &mut Context,
+pub fn branch_to_cond<I>(
+    ctx: &mut Context<I>,
     (_spn, branch): ast::Spanned<ast::Branch>,
-) -> Result<Cond, CompileError> {
+) -> Result<Cond, CompileError>
+where
+    I: Importer,
+{
     let leftcondspan = branch.cond_left.0.clone();
     Ok(Cond {
         left: compile_expect(ctx, leftcondspan, branch.cond_left, ValType::Number)?,
@@ -87,11 +96,14 @@ pub fn branch_to_cond<'a>(
     })
 }
 
-pub fn compile_variable_ref(
-    ctx: &Context,
+pub fn compile_variable_ref<I>(
+    ctx: &Context<I>,
     span: types::Span,
     name: String,
-) -> Result<(Latex, ValType), CompileError> {
+) -> Result<(Latex, ValType), CompileError>
+where
+    I: Importer,
+{
     match ctx.inline_vals.get(&name) {
         Some((t, v)) => Ok((v.clone(), *t)),
         None => match resolve_variable(ctx, name.clone()) {
@@ -106,10 +118,13 @@ pub fn compile_variable_ref(
 
 // Ideally this would be functional and ctx would not need to be mutable, but rust
 //  support for immutable hashmaps isn't built in and mutation is much simpler.
-pub fn compile_expr<'a>(
-    ctx: &mut Context,
+pub fn compile_expr<I>(
+    ctx: &mut Context<I>,
     expr: LocatedExpression,
-) -> Result<(Latex, ValType), CompileError> {
+) -> Result<(Latex, ValType), CompileError>
+where
+    I: Importer,
+{
     let span = expr.0;
 
     match expr.1 {
@@ -209,7 +224,10 @@ pub fn compile_expr<'a>(
 
 pub type CompileResult = Result<Vec<LatexStatement>, CompileError>;
 
-pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult {
+pub fn compile_stmt<I>(ctx: &mut Context<I>, expr: LocatedStatement) -> CompileResult
+where
+    I: Importer,
+{
     let s = expr.0;
 
     match expr.1 {
@@ -302,10 +320,13 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult 
     }
 }
 
-pub fn compile_stmts(
-    ctx: &mut Context,
+pub fn compile_stmts<I>(
+    ctx: &mut Context<I>,
     ast: Vec<ast::Spanned<ast::Statement>>,
-) -> Result<Vec<LatexStatement>, CompileError> {
+) -> Result<Vec<LatexStatement>, CompileError>
+where
+    I: Importer,
+{
     Ok(ast
         .into_iter()
         .map(|s| compile_stmt(ctx, s))
@@ -315,10 +336,13 @@ pub fn compile_stmts(
         .collect())
 }
 
-pub fn stmts_to_graph(
-    ctx: &mut Context,
+pub fn stmts_to_graph<I>(
+    ctx: &mut Context<I>,
     stmts: Vec<ast::Spanned<ast::Statement>>,
-) -> Result<graph::CalcState, CompileError> {
+) -> Result<graph::CalcState, CompileError>
+where
+    I: Importer,
+{
     let latex_exprs = stmts
         .into_iter()
         .map(|s| compile_stmt(ctx, s))
@@ -341,15 +365,18 @@ pub mod tests {
     use ast::{self, Branch, FunctionDefinition};
     use types::CompareOperator;
 
-    pub fn new_ctx() -> Context {
-        Context::new()
+    pub fn new_ctx() -> Context<impl Importer> {
+        Context::new(|f| unimplemented!())
     }
 
     pub fn compile(exp: Expression) -> Result<Latex, CompileError> {
         compile_with_ctx(&mut new_ctx(), exp)
     }
 
-    pub fn compile_with_ctx(ctx: &mut Context, exp: Expression) -> Result<Latex, CompileError> {
+    pub fn compile_with_ctx<I>(ctx: &mut Context<I>, exp: Expression) -> Result<Latex, CompileError>
+    where
+        I: Importer,
+    {
         Ok(compile_expr(ctx, (spn(), exp))?.0)
     }
 
@@ -357,10 +384,13 @@ pub mod tests {
         compile_stmt_with_ctx(&mut new_ctx(), stmt)
     }
 
-    pub fn compile_stmt_with_ctx(
-        ctx: &mut Context,
+    pub fn compile_stmt_with_ctx<I>(
+        ctx: &mut Context<I>,
         stmt: Statement,
-    ) -> Result<Vec<LatexStatement>, CompileError> {
+    ) -> Result<Vec<LatexStatement>, CompileError>
+    where
+        I: Importer,
+    {
         super::compile_stmt(ctx, (spn(), stmt))
     }
 
