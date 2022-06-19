@@ -207,15 +207,15 @@ pub fn compile_expr<'a>(
     }
 }
 
-pub type CompileResult = Result<Option<LatexStatement>, CompileError>;
+pub type CompileResult = Result<Vec<LatexStatement>, CompileError>;
 
 pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult {
     let s = expr.0;
 
     match expr.1 {
-        Statement::Expression(e) => Ok(Some(LatexStatement::Expression(
+        Statement::Expression(e) => Ok(vec![LatexStatement::Expression(
             compile_expr(ctx, (s, e))?.0,
-        ))),
+        )]),
         Statement::FuncDef(fdef, e) => {
             // Add args into locals
             for (aspan, aname, atype) in fdef.args.iter() {
@@ -260,12 +260,12 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult 
                         body,
                     }),
                 );
-                return Ok(None);
+                return Ok(vec![]);
             }
             ctx.defined_functions
                 .insert(fdef.name.clone(), std::rc::Rc::new(sig));
 
-            Ok(Some(LatexStatement::FuncDef {
+            Ok(vec![LatexStatement::FuncDef {
                 name: fdef.name,
                 args: fdef
                     .args
@@ -273,7 +273,7 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult 
                     .map(|(_span, name, _typ)| name)
                     .collect(),
                 body: Box::new(body),
-            }))
+            }])
         }
         Statement::VarDef { name, val, inline } => {
             if ctx.variables.contains_key(name.as_str())
@@ -288,14 +288,14 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult 
             match inline {
                 true => {
                     ctx.inline_vals.insert(name.clone(), (t, val_latex));
-                    Ok(None)
+                    Ok(vec![])
                 }
                 false => {
                     ctx.variables.insert(name.clone(), t);
-                    Ok(Some(LatexStatement::Assignment(
+                    Ok(vec![LatexStatement::Assignment(
                         Box::new(Latex::Variable(name)),
                         Box::new(val_latex),
-                    )))
+                    )])
                 }
             }
         }
@@ -305,8 +305,14 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult 
 pub fn compile_stmts(
     ctx: &mut Context,
     ast: Vec<ast::Spanned<ast::Statement>>,
-) -> Result<Vec<Option<LatexStatement>>, CompileError> {
-    ast.into_iter().map(|s| compile_stmt(ctx, s)).collect()
+) -> Result<Vec<LatexStatement>, CompileError> {
+    Ok(ast
+        .into_iter()
+        .map(|s| compile_stmt(ctx, s))
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .flatten()
+        .collect())
 }
 
 pub fn stmts_to_graph(
@@ -321,8 +327,8 @@ pub fn stmts_to_graph(
         expressions: graph::Expressions::from_latex_strings(
             latex_exprs
                 .into_iter()
-                .filter(Option::is_some)
-                .map(|l| latex::latex_stmt_to_str(l.unwrap()))
+                .flatten()
+                .map(|l| latex::latex_stmt_to_str(l))
                 .collect(),
         ),
         ..Default::default()
@@ -347,19 +353,19 @@ pub mod tests {
         Ok(compile_expr(ctx, (spn(), exp))?.0)
     }
 
-    pub fn compile_stmt(stmt: Statement) -> Result<Option<LatexStatement>, CompileError> {
+    pub fn compile_stmt(stmt: Statement) -> Result<Vec<LatexStatement>, CompileError> {
         compile_stmt_with_ctx(&mut new_ctx(), stmt)
     }
 
     pub fn compile_stmt_with_ctx(
         ctx: &mut Context,
         stmt: Statement,
-    ) -> Result<Option<LatexStatement>, CompileError> {
+    ) -> Result<Vec<LatexStatement>, CompileError> {
         super::compile_stmt(ctx, (spn(), stmt))
     }
 
     pub fn check_stmt(stmt: Statement, r: LatexStatement) {
-        assert_eq!(compile_stmt(stmt).unwrap(), Some(r));
+        assert_eq!(compile_stmt(stmt).unwrap(), vec![r]);
     }
 
     pub fn check(exp: Expression, r: Latex) {
@@ -617,11 +623,11 @@ pub mod tests {
                     (spn(), Expression::Variable("a".to_string())),
                 )
             ),
-            Ok(Some(LatexStatement::FuncDef {
+            Ok(vec![LatexStatement::FuncDef {
                 name: "f".to_string(),
                 args: vec!["a".to_string()],
                 body: Box::new(Latex::Variable("a".to_string())),
-            }),)
+            }])
         );
         // Check that the variable is no longer in scope
         assert_eq!(
@@ -950,10 +956,10 @@ pub mod tests {
                     inline: false,
                 }
             ),
-            Ok(Some(LatexStatement::Assignment(
+            Ok(vec![LatexStatement::Assignment(
                 Box::new(Latex::Variable("test".to_string())),
                 Box::new(Latex::Num("1".to_string()))
-            )))
+            )])
         );
         assert_eq!(
             compile_with_ctx(&mut ctx, ast::Expression::Variable("test".to_string())),
@@ -973,7 +979,7 @@ pub mod tests {
         ctx.modules.insert("lib".to_owned(), submodule);
         let comp_var = |v| {
             compile_with_ctx(
-                &mut ctx,
+                &mut ctx.clone(),
                 ast::Expression::FullyQualifiedVariable {
                     path: vec!["lib".to_owned()],
                     item: v,
@@ -981,9 +987,9 @@ pub mod tests {
             )
         };
         assert_eq!(
-            comp_var("a"),
-            LatexStatement::Expression(Latex::Variable("a"))
+            comp_var("a".to_owned()),
+            Ok(Latex::Variable("a".to_owned()))
         );
-        assert_eq!(comp_var("b"), ());
+        assert_eq!(comp_var("b".to_owned()), Ok(Latex::Num("1".to_owned())));
     }
 }
