@@ -114,6 +114,8 @@ pub static BUILTIN_FUNCTIONS: Map<&'static str, Function> = phf_map! {
     // TODO: Support integral
     // TODO: Support sum
     // TODO: Support prod
+    // theses are going to be pretty hard as they require
+    //  adding variables to scope based on presence of d$var
 
     // TODO: Support for optional arguments.
     // Round takes either one or two arguments
