@@ -24,6 +24,7 @@ pub enum CompileErrorKind {
     NoNestedList,
     NoInlineVariadic,
     UnresolvedNamespace(Vec<String>),
+    ModuleNotFound(String),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -72,6 +73,9 @@ impl CompileErrorKind {
             }
             CompileErrorKind::UnresolvedNamespace(path) => {
                 format!("Cannot resolve namespace '{}'", ast::fmt_namespace(&path))
+            }
+            CompileErrorKind::ModuleNotFound(path) => {
+                format!("Module not found: '{}'", path)
             }
         }
     }

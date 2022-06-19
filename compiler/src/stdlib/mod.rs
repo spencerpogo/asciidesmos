@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use ast::LStatements;
 
 use crate::types::Loader;
@@ -13,6 +11,10 @@ pub struct StdlibLoader {
 static TEST_DSM: &str = include_str!("test.dsm");
 
 impl StdlibLoader {
+    pub fn new(loader: Box<dyn Loader>) -> Self {
+        Self { loader, test: None }
+    }
+
     pub fn load_lib(&mut self, lib: &str) -> Option<LStatements> {
         match lib {
             "test" => Some(StdlibLoader::load_resolved_lib(

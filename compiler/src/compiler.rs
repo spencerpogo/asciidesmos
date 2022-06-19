@@ -299,6 +299,7 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult 
                 }
             }
         }
+        Statement::Import(import) => crate::import::handle_import(ctx, s, import),
     }
 }
 

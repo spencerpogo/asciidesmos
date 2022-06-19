@@ -2,6 +2,7 @@ mod builtins;
 mod call;
 mod compiler;
 pub mod error;
+mod import;
 mod stdlib;
 mod types;
 

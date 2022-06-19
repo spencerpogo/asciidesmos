@@ -2,6 +2,8 @@ use ast::LStatements;
 use std::{collections::HashMap, fmt::Debug, rc::Rc};
 use types::ValType;
 
+use crate::stdlib::StdlibLoader;
+
 // heap version of core::runtime::Args
 #[derive(Clone, Debug, PartialEq)]
 pub enum FunctionArgs {
@@ -24,7 +26,7 @@ pub struct InlineFunction {
 }
 
 pub trait Loader: LoaderClone + Debug {
-    fn load(&mut self, path: String) -> LStatements;
+    fn load(&mut self, path: &str) -> Option<LStatements>;
 
     fn load_stdlib_file(&mut self, contents: &str) -> LStatements;
 }
@@ -53,7 +55,7 @@ impl Clone for Box<dyn 'static + Loader> {
 pub struct UnimplementedLoader;
 
 impl Loader for UnimplementedLoader {
-    fn load(&mut self, _path: String) -> LStatements {
+    fn load(&mut self, _path: &str) -> Option<LStatements> {
         unimplemented!()
     }
 
@@ -71,6 +73,7 @@ pub struct Context {
     pub inline_fns: HashMap<String, Rc<InlineFunction>>,
     // can't support submodules (yet)
     pub modules: HashMap<String, Context>,
+    pub stdlib: StdlibLoader,
     pub loader: Box<dyn Loader>,
 }
 
@@ -91,6 +94,7 @@ impl Context {
 
 impl Default for Context {
     fn default() -> Self {
+        let loader = Box::new(UnimplementedLoader);
         Self {
             variables: HashMap::new(),
             locals: HashMap::new(),
@@ -98,7 +102,8 @@ impl Default for Context {
             inline_vals: HashMap::new(),
             inline_fns: HashMap::new(),
             modules: HashMap::new(),
-            loader: Box::new(UnimplementedLoader),
+            stdlib: StdlibLoader::new(loader.clone()),
+            loader,
         }
     }
 }

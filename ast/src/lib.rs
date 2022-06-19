@@ -82,6 +82,13 @@ pub struct FunctionDefinition {
     pub inline: bool,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct Import {
+    pub name: String,
+    pub path: String,
+    pub emit: bool,
+}
+
 // A statement is a part of a program
 #[derive(Clone, Debug, PartialEq)]
 pub enum Statement {
@@ -92,6 +99,7 @@ pub enum Statement {
     },
     FuncDef(FunctionDefinition, LocatedExpression),
     Expression(Expression),
+    Import(Import),
 }
 
 pub type LocatedStatement = Spanned<Statement>;
