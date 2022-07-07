@@ -26,9 +26,9 @@ pub struct InlineFunction {
 }
 
 pub trait Loader: LoaderClone + Debug {
-    fn load(&mut self, path: &str) -> Option<LStatements>;
+    fn load_path(&mut self, path: &str) -> Option<LStatements>;
 
-    fn load_stdlib_file(&mut self, contents: &str) -> LStatements;
+    fn load_string(&mut self, contents: &str) -> LStatements;
 }
 
 // https://stackoverflow.com/a/30353928/9196137
@@ -55,11 +55,11 @@ impl Clone for Box<dyn 'static + Loader> {
 pub struct UnimplementedLoader;
 
 impl Loader for UnimplementedLoader {
-    fn load(&mut self, _path: &str) -> Option<LStatements> {
+    fn load_path(&mut self, _path: &str) -> Option<LStatements> {
         unimplemented!()
     }
 
-    fn load_stdlib_file(&mut self, _contents: &str) -> LStatements {
+    fn load_string(&mut self, _contents: &str) -> LStatements {
         unimplemented!()
     }
 }

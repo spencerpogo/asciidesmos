@@ -34,7 +34,7 @@ impl StdlibLoader {
         match lib {
             Some(ast) => ast.clone(),
             None => {
-                let ast = loader.load_stdlib_file(src);
+                let ast = loader.load_string(src);
                 *lib = Some(ast.clone());
                 ast
             }
