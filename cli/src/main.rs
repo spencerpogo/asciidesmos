@@ -212,14 +212,15 @@ pub fn print_parse_err_report(sources: Sources, errs: parser::LexParseErrors) {
 }
 
 fn print_compile_error_report(sources: Sources, err: CompileError) {
-    let report =
-        Report::<types::Span>::build(ReportKind::Error, err.span.file_id, err.span.range.start);
-    report
-        .with_message(format!("{}", err.kind))
-        .with_label(Label::new(err.span).with_color(Color::Red))
-        .finish()
-        .eprint(sources)
-        .unwrap();
+    let mut report =
+        Report::<types::Span>::build(ReportKind::Error, err.span.file_id, err.span.range.start)
+            .with_message(format!("{}", err.kind))
+            .with_label(Label::new(err.span).with_color(Color::Red));
+
+    if let Some(help) = err.kind.help() {
+        report.set_help(help);
+    }
+    report.finish().eprint(sources).unwrap();
 }
 
 fn process(name: String, inp: &str, flags: &Flags) -> i32 {
