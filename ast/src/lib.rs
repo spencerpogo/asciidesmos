@@ -42,6 +42,7 @@ pub enum Expression {
     Error,
     Num(String),
     Variable(String),
+    RawLatex(ValType, String),
     FullyQualifiedVariable {
         path: Vec<String>,
         item: String,

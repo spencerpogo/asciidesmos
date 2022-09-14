@@ -53,6 +53,7 @@ pub enum Latex {
         rest: Vec<Cond>,
         default: Box<Latex>,
     },
+    Raw(String),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -202,6 +203,7 @@ pub fn latex_to_str(l: Latex) -> String {
                 .collect::<String>(),
             latex_to_str(*default)
         ),
+        Latex::Raw(l) => l,
     }
 }
 

@@ -204,6 +204,7 @@ pub fn compile_expr<'a>(
                 ValType::Number,
             ))
         }
+        Expression::RawLatex(ty, l) => Ok((Latex::Raw(l), ty)),
     }
 }
 
