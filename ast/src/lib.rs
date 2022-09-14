@@ -113,5 +113,5 @@ pub type LStatements = Vec<LocatedStatement>;
 // Syntax-dependent formatting functions are defined here rather than in the compiler
 
 pub fn fmt_namespace(path: &Vec<String>) -> String {
-    path.join("::")
+    path.join(".")
 }

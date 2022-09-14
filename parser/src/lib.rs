@@ -28,6 +28,7 @@ pub enum Token {
     CtrlMap,
     CtrlThen,
     CtrlSemi,
+    CtrlGci,
     KeywordWhere,
     KeywordElse,
     KeywordInline,
@@ -64,6 +65,7 @@ impl Token {
             CtrlMap => "`@`",
             CtrlThen => "`->`",
             CtrlSemi => "`;`",
+            CtrlGci => "`.`",
             KeywordWhere => "`where`",
             KeywordElse => "`else`",
             KeywordInline => "`inline`",
@@ -107,7 +109,8 @@ fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
         .or(mkop(']', Token::CtrlListEnd))
         .or(mkop(',', Token::CtrlComma))
         .or(mkop('@', Token::CtrlMap))
-        .or(mkop(';', Token::CtrlSemi));
+        .or(mkop(';', Token::CtrlSemi))
+        .or(mkop('.', Token::CtrlGci));
 
     let ident = text::ident().map(|i: String| match i.as_str() {
         "where" => Token::KeywordWhere,
@@ -167,6 +170,29 @@ fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr>
             .delimited_by(just(Token::CtrlListStart), just(Token::CtrlListEnd))
             .map_with_span(|v, s| (s, ast::Expression::List(v)));
 
+        let ident = select! {
+            Token::Ident(i) => i,
+        };
+        // this isn't the best
+        let qualified_var = ident
+            .then_ignore(just(Token::CtrlGci))
+            .then(ident.separated_by(just(Token::CtrlGci)))
+            .map_with_span(|(first, rest), s| {
+                if rest.is_empty() {
+                    return (s, ast::Expression::Variable(first));
+                }
+                let mut path = rest;
+                path.insert(0, first);
+                let (last, path) = path.split_last().unwrap();
+                (
+                    s,
+                    ast::Expression::FullyQualifiedVariable {
+                        path: path.to_vec(),
+                        item: last.clone(),
+                    },
+                )
+            });
+
         let val = select! {
             Token::Num(n) => ast::Expression::Num(n),
             Token::Ident(i) => ast::Expression::Variable(i)
@@ -174,6 +200,7 @@ fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr>
         .map_with_span(|v, s| (s, v));
 
         let atom = list
+            .or(qualified_var)
             .or(val)
             .or(expr
                 .clone()
