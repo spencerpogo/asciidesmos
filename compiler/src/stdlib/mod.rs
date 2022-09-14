@@ -1,43 +1,41 @@
+use std::collections::HashMap;
+
 use ast::LStatements;
+use phf::{phf_map, Map};
 
 use crate::types::Loader;
 
 #[derive(Clone, Debug)]
 pub struct StdlibLoader {
     pub loader: Box<dyn Loader>,
-    pub test: Option<LStatements>,
+    pub cache: HashMap<String, LStatements>,
 }
 
-static TEST_DSM: &str = include_str!("test.dsm");
+pub static STDLIB_SOURCES: Map<&'static str, &'static str> = phf_map! {
+    "test" => include_str!("test.dsm"),
+};
 
 impl StdlibLoader {
     pub fn new(loader: Box<dyn Loader>) -> Self {
-        Self { loader, test: None }
-    }
-
-    pub fn load_lib(&mut self, lib: &str) -> Option<LStatements> {
-        match lib {
-            "test" => Some(StdlibLoader::load_resolved_lib(
-                &mut self.loader,
-                TEST_DSM,
-                &mut self.test,
-            )),
-            _ => None,
+        Self {
+            loader,
+            cache: HashMap::new(),
         }
     }
 
-    fn load_resolved_lib(
-        loader: &mut Box<dyn Loader>,
-        src: &str,
-        lib: &mut Option<LStatements>,
-    ) -> LStatements {
-        match lib {
-            Some(ast) => ast.clone(),
-            None => {
-                let ast = loader.load_stdlib_file(src);
-                *lib = Some(ast.clone());
-                ast
-            }
+    pub fn load_lib(&mut self, name: &str) -> Option<LStatements> {
+        if let Some(ast) = self.cache.get(name) {
+            return Some(ast.clone());
+        };
+        match STDLIB_SOURCES.get(name) {
+            Some(source_code) => match self.loader.parse_source(source_code) {
+                Some(ast) => {
+                    self.cache.insert(name.to_owned(), ast.clone());
+                    Some(ast)
+                }
+                None => None,
+            },
+            None => None,
         }
     }
 }

@@ -28,7 +28,7 @@ pub struct InlineFunction {
 pub trait Loader: LoaderClone + Debug {
     fn load(&mut self, path: &str) -> Option<LStatements>;
 
-    fn load_stdlib_file(&mut self, contents: &str) -> LStatements;
+    fn parse_source(&mut self, source: &str) -> Option<LStatements>;
 }
 
 // https://stackoverflow.com/a/30353928/9196137
@@ -59,7 +59,7 @@ impl Loader for UnimplementedLoader {
         unimplemented!()
     }
 
-    fn load_stdlib_file(&mut self, _contents: &str) -> LStatements {
+    fn parse_source(&mut self, _source: &str) -> Option<LStatements> {
         unimplemented!()
     }
 }
