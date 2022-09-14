@@ -64,11 +64,11 @@ struct Flags {
 struct CliLoader;
 
 impl compiler::Loader for CliLoader {
-    fn load(&mut self, _path: &str) -> Option<compiler::LStatements> {
+    fn load(&self, _path: &str) -> Option<compiler::LStatements> {
         unimplemented!()
     }
 
-    fn parse_source(&mut self, source: &str) -> Option<compiler::LStatements> {
+    fn parse_source(&self, source: &str) -> Option<compiler::LStatements> {
         parser::lex_and_parse(0, source.to_string()).0
     }
 }
