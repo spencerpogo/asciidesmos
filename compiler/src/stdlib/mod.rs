@@ -7,7 +7,6 @@ use crate::types::Loader;
 
 #[derive(Clone, Debug)]
 pub struct StdlibLoader {
-    pub loader: Box<dyn Loader>,
     pub cache: HashMap<String, LStatements>,
 }
 
@@ -16,19 +15,18 @@ pub static STDLIB_SOURCES: Map<&'static str, &'static str> = phf_map! {
 };
 
 impl StdlibLoader {
-    pub fn new(loader: Box<dyn Loader>) -> Self {
+    pub fn new() -> Self {
         Self {
-            loader,
             cache: HashMap::new(),
         }
     }
 
-    pub fn load_lib(&mut self, name: &str) -> Option<LStatements> {
+    pub fn load_lib(&mut self, loader: Box<dyn Loader>, name: &str) -> Option<LStatements> {
         if let Some(ast) = self.cache.get(name) {
             return Some(ast.clone());
         };
         match STDLIB_SOURCES.get(name) {
-            Some(source_code) => match self.loader.parse_source(source_code) {
+            Some(source_code) => match loader.parse_source(source_code) {
                 Some(ast) => {
                     self.cache.insert(name.to_owned(), ast.clone());
                     Some(ast)

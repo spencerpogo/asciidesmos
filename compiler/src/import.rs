@@ -29,7 +29,9 @@ pub fn handle_import(
     import: ast::Import,
 ) -> Result<Vec<latex::LatexStatement>, CompileError> {
     let maybe_ast = match path_type(import.path.as_str()) {
-        PathType::NonLocal => ctx.stdlib.load_lib(import.path.as_str()),
+        PathType::NonLocal => ctx
+            .stdlib
+            .load_lib(ctx.loader.clone(), import.path.as_str()),
         PathType::Local => ctx.loader.load(import.path.as_str()),
     };
     let ast = match maybe_ast {
