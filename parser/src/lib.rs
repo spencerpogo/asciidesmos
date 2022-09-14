@@ -381,8 +381,23 @@ fn statement_parser() -> impl Parser<Token, Vec<ast::Spanned<ast::Statement>>, E
                 }),
             )
         });
+    let include = just(Token::KeywordInclude)
+        .ignore_then(p_str)
+        .map_with_span(|path, s| {
+            (
+                s,
+                ast::Statement::Import(ast::Import {
+                    mode: ast::ImportMode::Include,
+                    path,
+                }),
+            )
+        });
 
-    let line = import.or(func_dec).or(declaration).or(expr_stmt);
+    let line = import
+        .or(include)
+        .or(func_dec)
+        .or(declaration)
+        .or(expr_stmt);
 
     line.separated_by(just(Token::CtrlSemi))
         .at_least(1)
