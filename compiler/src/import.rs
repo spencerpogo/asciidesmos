@@ -1,3 +1,5 @@
+use ast::ImportMode;
+
 use crate::{
     compile_stmts,
     error::{CompileError, CompileErrorKind},
@@ -41,8 +43,13 @@ pub fn handle_import(
     };
     let mut mod_ctx = Context::new_with_loader(ctx.loader.clone());
     let out = compile_stmts(&mut mod_ctx, ast)?;
-    ctx.modules.insert(import.name, mod_ctx);
-    Ok(if import.emit { out } else { vec![] })
+    Ok(match import.mode {
+        ImportMode::Import { name } => {
+            ctx.modules.insert(name, mod_ctx);
+            vec![]
+        }
+        ImportMode::Include => out,
+    })
 }
 
 #[cfg(test)]
@@ -52,9 +59,8 @@ mod tests {
     #[test]
     fn stdlib_import() {
         let i = ast::Import {
-            name: "test".to_owned(),
             path: "test".to_owned(),
-            emit: true,
+            mode: ast::ImportMode::Include,
         };
         check_stmt(
             ast::Statement::Import(i.clone()),
@@ -64,7 +70,12 @@ mod tests {
             ),
         );
         assert_eq!(
-            compile_stmt(ast::Statement::Import(ast::Import { emit: false, ..i })),
+            compile_stmt(ast::Statement::Import(ast::Import {
+                mode: ast::ImportMode::Import {
+                    name: "test".to_owned()
+                },
+                ..i
+            })),
             Ok(vec![])
         );
     }

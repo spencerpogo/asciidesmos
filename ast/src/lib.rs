@@ -83,10 +83,15 @@ pub struct FunctionDefinition {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum ImportMode {
+    Import { name: String },
+    Include,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct Import {
-    pub name: String,
     pub path: String,
-    pub emit: bool,
+    pub mode: ImportMode,
 }
 
 // A statement is a part of a program
