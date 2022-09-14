@@ -60,6 +60,19 @@ struct Flags {
     dump_errs: bool,
 }
 
+#[derive(Clone, Debug)]
+struct CliLoader;
+
+impl compiler::Loader for CliLoader {
+    fn load(&mut self, _path: &str) -> Option<compiler::LStatements> {
+        unimplemented!()
+    }
+
+    fn parse_source(&mut self, source: &str) -> Option<compiler::LStatements> {
+        parser::lex_and_parse(0, source.to_string()).0
+    }
+}
+
 fn try_eval(
     id: types::FileID,
     inp: &str,
@@ -96,7 +109,7 @@ fn try_eval(
         )));
     }
     let ast = ast.unwrap();
-    let ir = compile_stmts(&mut Context::new(), ast)?;
+    let ir = compile_stmts(&mut Context::new_with_loader(Box::new(CliLoader)), ast)?;
     if flags.ir {
         eprintln!("{:#?}", ir);
     }
