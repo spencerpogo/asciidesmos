@@ -48,7 +48,7 @@ pub fn handle_import(
     Ok(match import.mode {
         ImportMode::Import { name } => {
             ctx.modules.insert(name, mod_ctx);
-            vec![]
+            out
         }
         ImportMode::Include => out,
     })
