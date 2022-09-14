@@ -6,6 +6,7 @@ pub type LexErr = Simple<char, types::Span>;
 pub enum Token {
     Num(String),
     Ident(String),
+    Str(String),
     OpMinus,
     OpPlus,
     OpMult,
@@ -30,6 +31,9 @@ pub enum Token {
     KeywordWhere,
     KeywordElse,
     KeywordInline,
+    KeywordImport,
+    KeywordFrom,
+    KeywordInclude,
 }
 
 impl Token {
@@ -38,6 +42,7 @@ impl Token {
         match self {
             Num(_) => "number",
             Ident(_) => "identifier",
+            Str(_) => "string",
             OpMinus => "`-`",
             OpPlus => "`+`",
             OpMult => "`*`",
@@ -62,12 +67,21 @@ impl Token {
             KeywordWhere => "`where`",
             KeywordElse => "`else`",
             KeywordInline => "`inline`",
+            KeywordImport => "`import`",
+            KeywordFrom => "`from`",
+            KeywordInclude => "`include`",
         }
     }
 }
 
 fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
     let int = text::int(10).map(Token::Num);
+
+    let p_str = just('\"')
+        .ignore_then(filter(|c| *c != '"' && *c != '\n').repeated())
+        .then_ignore(just('\"'))
+        .collect::<String>()
+        .map(|s| Token::Str(s));
 
     let mkop = |c, t| just(c).to(t);
     let op = just("<=")
@@ -99,10 +113,14 @@ fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
         "where" => Token::KeywordWhere,
         "else" => Token::KeywordElse,
         "inline" => Token::KeywordInline,
+        "import" => Token::KeywordImport,
+        "from" => Token::KeywordFrom,
+        "include" => Token::KeywordInclude,
         _ => Token::Ident(i),
     });
 
     let token = int
+        .or(p_str)
         .or(ctrl)
         .or(op)
         .or(ident)
@@ -320,7 +338,24 @@ fn statement_parser() -> impl Parser<Token, Vec<ast::Spanned<ast::Statement>>, E
             (s, ast::Statement::VarDef { name, val, inline })
         });
 
-    let line = func_dec.or(declaration).or(expr_stmt);
+    let p_str = select! {
+        Token::Str(s) => s,
+    };
+    let import = just(Token::KeywordImport)
+        .ignore_then(ident)
+        .then_ignore(just(Token::KeywordFrom))
+        .then(p_str)
+        .map_with_span(|(name, path), s| {
+            (
+                s,
+                ast::Statement::Import(ast::Import {
+                    mode: ast::ImportMode::Import { name },
+                    path,
+                }),
+            )
+        });
+
+    let line = import.or(func_dec).or(declaration).or(expr_stmt);
 
     line.separated_by(just(Token::CtrlSemi))
         .at_least(1)
