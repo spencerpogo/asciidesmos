@@ -35,6 +35,8 @@ pub enum Token {
     KeywordImport,
     KeywordFrom,
     KeywordInclude,
+    KeywordLatex,
+    KeywordLatexList,
 }
 
 impl Token {
@@ -72,6 +74,8 @@ impl Token {
             KeywordImport => "`import`",
             KeywordFrom => "`from`",
             KeywordInclude => "`include`",
+            KeywordLatex => "`latex`",
+            KeywordLatexList => "`latex_list`",
         }
     }
 }
@@ -119,6 +123,8 @@ fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
         "import" => Token::KeywordImport,
         "from" => Token::KeywordFrom,
         "include" => Token::KeywordInclude,
+        "latex" => Token::KeywordLatex,
+        "latex_list" => Token::KeywordLatexList,
         _ => Token::Ident(i),
     });
 
@@ -307,7 +313,16 @@ fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr>
                 )
             });
 
-        where_block.or(call).or(sum)
+        let p_str = select! {
+            Token::Str(s) => s,
+        };
+        let latex = just(Token::KeywordLatex)
+            .to(types::ValType::Number)
+            .or(just(Token::KeywordLatexList).to(types::ValType::List))
+            .then(p_str)
+            .map_with_span(|(ty, l), s| (s, ast::Expression::RawLatex(ty, l)));
+
+        where_block.or(call).or(sum).or(latex)
     })
 }
 
