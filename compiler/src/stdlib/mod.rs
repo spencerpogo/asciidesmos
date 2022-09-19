@@ -26,13 +26,13 @@ impl StdlibLoader {
             return Some(ast.clone());
         };
         match STDLIB_SOURCES.get(name) {
-            Some(source_code) => match loader.parse_source(source_code) {
-                Some(ast) => {
-                    self.cache.insert(name.to_owned(), ast.clone());
-                    Some(ast)
-                }
-                None => None,
-            },
+            Some(source_code) => {
+                let ast = loader
+                    .parse_source(source_code)
+                    .expect("stdlib module should parse");
+                self.cache.insert(name.to_owned(), ast.clone());
+                Some(ast)
+            }
             None => None,
         }
     }
