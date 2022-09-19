@@ -60,25 +60,63 @@ mod tests {
 
     #[test]
     fn stdlib_import() {
+        #[derive(Copy, Clone, Debug)]
+        struct TestLoader;
+        impl crate::Loader for TestLoader {
+            fn load(&self, _path: &str) -> Option<ast::LStatements> {
+                return None;
+            }
+
+            fn parse_source(&self, _source: &str) -> Option<ast::LStatements> {
+                return Some(vec![
+                    (
+                        spn(),
+                        ast::Statement::VarDef {
+                            name: "test_var".to_string(),
+                            val: (spn(), ast::Expression::Num("1".to_string())),
+                            inline: false,
+                        },
+                    ),
+                    (
+                        spn(),
+                        ast::Statement::VarDef {
+                            name: "test".to_string(),
+                            val: (spn(), ast::Expression::Num("2".to_string())),
+                            inline: true,
+                        },
+                    ),
+                ]);
+            }
+        }
+
         let i = ast::Import {
             path: "test".to_owned(),
             mode: ast::ImportMode::Include,
         };
-        check_stmt(
-            ast::Statement::Import(i.clone()),
-            latex::LatexStatement::Assignment(
+        assert_eq!(
+            compile_stmt_with_ctx(
+                &mut crate::Context::new_with_loader(Box::new(TestLoader)),
+                ast::Statement::Import(i.clone())
+            ),
+            Ok(vec![latex::LatexStatement::Assignment(
                 Box::new(latex::Latex::Variable("test_var".to_owned())),
                 Box::new(latex::Latex::Num("1".to_owned())),
-            ),
+            )]),
         );
         assert_eq!(
-            compile_stmt(ast::Statement::Import(ast::Import {
-                mode: ast::ImportMode::Import {
-                    name: "test".to_owned()
-                },
-                ..i
-            })),
-            Ok(vec![])
+            compile_stmt_with_ctx(
+                &mut crate::Context::new_with_loader(Box::new(TestLoader)),
+                ast::Statement::Import(ast::Import {
+                    mode: ast::ImportMode::Import {
+                        name: "test".to_owned()
+                    },
+                    ..i
+                })
+            ),
+            Ok(vec![latex::LatexStatement::Assignment(
+                Box::new(latex::Latex::Variable("test_var".to_owned())),
+                Box::new(latex::Latex::Num("1".to_owned())),
+            )])
         );
     }
 }
