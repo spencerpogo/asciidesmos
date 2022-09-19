@@ -767,4 +767,20 @@ mod tests {
             ),
         );
     }
+
+    #[test]
+    fn import() {
+        check_stmt(
+            "import abcd from \"efgh\";",
+            (
+                s(0..23),
+                ast::Statement::Import(ast::Import {
+                    mode: ast::ImportMode::Import {
+                        name: "abcd".to_string(),
+                    },
+                    path: "efgh".to_string(),
+                }),
+            ),
+        );
+    }
 }
