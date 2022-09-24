@@ -272,6 +272,26 @@ fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr>
                 .or(just(Token::OpMinus).to(ast::BinaryOperator::Subtract))
         );
 
+        let ind = sum
+            .clone()
+            .then(
+                just(Token::CtrlListStart)
+                    .ignore_then(sum)
+                    .then_ignore(just(Token::CtrlListEnd))
+                    .map(Option::Some)
+                    .or(empty().to(Option::None)),
+            )
+            .map_with_span(|(sum, maybe_ind), s| match maybe_ind {
+                Some(ind) => (
+                    s,
+                    ast::Expression::Index {
+                        val: Box::new(sum),
+                        ind: Box::new(ind),
+                    },
+                ),
+                None => sum,
+            });
+
         let cond_op = just(Token::OpCmpLt)
             .to(types::CompareOperator::LessThan)
             .or(just(Token::OpCmpLe).to(types::CompareOperator::LessThanEqual))
@@ -322,7 +342,7 @@ fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr>
             .then(p_str)
             .map_with_span(|(ty, l), s| (s, ast::Expression::RawLatex(ty, l)));
 
-        where_block.or(call).or(sum).or(latex)
+        where_block.or(call).or(ind).or(latex)
     })
 }
 
