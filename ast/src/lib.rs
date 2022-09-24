@@ -69,6 +69,10 @@ pub enum Expression {
         rest: Vec<Spanned<Branch>>,
         default: Box<LocatedExpression>,
     },
+    Index {
+        val: Box<LocatedExpression>,
+        ind: Box<LocatedExpression>,
+    },
 }
 
 pub type Spanned<T> = (Span, T);
