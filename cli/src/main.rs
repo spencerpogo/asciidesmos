@@ -56,6 +56,19 @@ struct Flags {
     dump_errs: bool,
 }
 
+#[derive(Clone, Debug)]
+struct CliLoader;
+
+impl compiler::Loader for CliLoader {
+    fn load(&self, _path: &str) -> Option<compiler::LStatements> {
+        unimplemented!()
+    }
+
+    fn parse_source(&self, source: &str) -> Option<compiler::LStatements> {
+        parser::lex_and_parse(0, source.to_string()).0
+    }
+}
+
 fn try_eval(
     id: types::FileID,
     inp: &str,
@@ -107,7 +120,7 @@ fn try_eval(
         }
         Some(ast) => ast,
     };
-    let ir = match compile_stmts(&mut Context::new(), ast) {
+    let ir = match compile_stmts(&mut Context::new_with_loader(Box::new(CliLoader)), ast) {
         Err(compile_error) => {
             return Err(EvalError {
                 parse_errors,
@@ -224,14 +237,15 @@ pub fn print_parse_err_report(sources: &mut Sources, errs: parser::LexParseError
 }
 
 fn print_compile_error_report(sources: &mut Sources, err: CompileError) {
-    let report =
-        Report::<types::Span>::build(ReportKind::Error, err.span.file_id, err.span.range.start);
-    report
-        .with_message(format!("{}", err.kind))
-        .with_label(Label::new(err.span).with_color(Color::Red))
-        .finish()
-        .eprint(sources)
-        .unwrap();
+    let mut report =
+        Report::<types::Span>::build(ReportKind::Error, err.span.file_id, err.span.range.start)
+            .with_message(format!("{}", err.kind))
+            .with_label(Label::new(err.span).with_color(Color::Red));
+
+    if let Some(help) = err.kind.help() {
+        report.set_help(help);
+    }
+    report.finish().eprint(sources).unwrap();
 }
 
 fn process(name: String, inp: &str, flags: &Flags) -> i32 {

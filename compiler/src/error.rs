@@ -37,7 +37,7 @@ pub struct CompileError {
 struct DummyRuleType {}
 
 impl CompileErrorKind {
-    fn as_msg(&self) -> String {
+    pub fn as_msg(&self) -> String {
         match &self {
             CompileErrorKind::UnknownFunction(func) => format!(
                 "Unknown function '{}'",
@@ -77,6 +77,19 @@ impl CompileErrorKind {
             CompileErrorKind::ModuleNotFound(path) => {
                 format!("Module not found: '{}'", path)
             }
+        }
+    }
+
+    pub fn help(&self) -> Option<String> {
+        match &self {
+            CompileErrorKind::TypeMismatch { got, expected } => {
+                if *got == ValType::List && *expected == ValType::Number {
+                    Some("To map a function over a list use @, like `sin@([1])".to_string())
+                } else {
+                    None
+                }
+            }
+            _ => None,
         }
     }
 }

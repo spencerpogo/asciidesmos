@@ -26,9 +26,9 @@ pub struct InlineFunction {
 }
 
 pub trait Loader: LoaderClone + Debug {
-    fn load_path(&mut self, path: &str) -> Option<LStatements>;
+    fn load(&self, path: &str) -> Option<LStatements>;
 
-    fn load_string(&mut self, contents: &str) -> LStatements;
+    fn parse_source(&self, source: &str) -> Option<LStatements>;
 }
 
 // https://stackoverflow.com/a/30353928/9196137
@@ -55,11 +55,11 @@ impl Clone for Box<dyn 'static + Loader> {
 pub struct UnimplementedLoader;
 
 impl Loader for UnimplementedLoader {
-    fn load_path(&mut self, _path: &str) -> Option<LStatements> {
+    fn load(&self, _path: &str) -> Option<LStatements> {
         unimplemented!()
     }
 
-    fn load_string(&mut self, _contents: &str) -> LStatements {
+    fn parse_source(&self, _source: &str) -> Option<LStatements> {
         unimplemented!()
     }
 }
@@ -102,7 +102,7 @@ impl Default for Context {
             inline_vals: HashMap::new(),
             inline_fns: HashMap::new(),
             modules: HashMap::new(),
-            stdlib: StdlibLoader::new(loader.clone()),
+            stdlib: StdlibLoader::new(),
             loader,
         }
     }

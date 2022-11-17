@@ -204,6 +204,20 @@ pub fn compile_expr<'a>(
                 ValType::Number,
             ))
         }
+        Expression::RawLatex(ty, l) => Ok((Latex::Raw(l), ty)),
+        Expression::Index { val, ind } => {
+            let (ls, lv) = *val;
+            let ll = compile_expect(ctx, ls.clone(), (ls, lv), ValType::List)?;
+            let (rl, rt) = compile_expr(ctx, *ind)?;
+            Ok((
+                Latex::BinaryExpression {
+                    left: Box::new(ll),
+                    operator: LatexBinaryOperator::Index,
+                    right: Box::new(rl),
+                },
+                rt,
+            ))
+        }
     }
 }
 

@@ -42,6 +42,7 @@ pub enum Expression {
     Error,
     Num(String),
     Variable(String),
+    RawLatex(ValType, String),
     FullyQualifiedVariable {
         path: Vec<String>,
         item: String,
@@ -68,6 +69,10 @@ pub enum Expression {
         rest: Vec<Spanned<Branch>>,
         default: Box<LocatedExpression>,
     },
+    Index {
+        val: Box<LocatedExpression>,
+        ind: Box<LocatedExpression>,
+    },
 }
 
 pub type Spanned<T> = (Span, T);
@@ -83,10 +88,15 @@ pub struct FunctionDefinition {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub enum ImportMode {
+    Import { name: String },
+    Include,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct Import {
-    pub name: String,
     pub path: String,
-    pub emit: bool,
+    pub mode: ImportMode,
 }
 
 // A statement is a part of a program
@@ -108,5 +118,5 @@ pub type LStatements = Vec<LocatedStatement>;
 // Syntax-dependent formatting functions are defined here rather than in the compiler
 
 pub fn fmt_namespace(path: &Vec<String>) -> String {
-    path.join("::")
+    path.join(".")
 }

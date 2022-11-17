@@ -229,6 +229,7 @@ where
             rest: rest.into_iter().map(proc_cond).collect::<Vec<_>>(),
             default: Box::new(proc(*default)),
         },
+        Latex::Raw(l) => Latex::Raw(l),
     }
 }
 

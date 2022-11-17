@@ -6,6 +6,7 @@ pub type LexErr = Simple<char, types::Span>;
 pub enum Token {
     Num(String),
     Ident(String),
+    Str(String),
     OpMinus,
     OpPlus,
     OpMult,
@@ -27,9 +28,15 @@ pub enum Token {
     CtrlMap,
     CtrlThen,
     CtrlSemi,
+    CtrlGci,
     KeywordWhere,
     KeywordElse,
     KeywordInline,
+    KeywordImport,
+    KeywordFrom,
+    KeywordInclude,
+    KeywordLatex,
+    KeywordLatexList,
 }
 
 impl Token {
@@ -38,6 +45,7 @@ impl Token {
         match self {
             Num(_) => "number",
             Ident(_) => "identifier",
+            Str(_) => "string",
             OpMinus => "`-`",
             OpPlus => "`+`",
             OpMult => "`*`",
@@ -59,15 +67,27 @@ impl Token {
             CtrlMap => "`@`",
             CtrlThen => "`->`",
             CtrlSemi => "`;`",
+            CtrlGci => "`.`",
             KeywordWhere => "`where`",
             KeywordElse => "`else`",
             KeywordInline => "`inline`",
+            KeywordImport => "`import`",
+            KeywordFrom => "`from`",
+            KeywordInclude => "`include`",
+            KeywordLatex => "`latex`",
+            KeywordLatexList => "`latex_list`",
         }
     }
 }
 
 fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
     let int = text::int(10).map(Token::Num);
+
+    let p_str = just('\"')
+        .ignore_then(filter(|c| *c != '"' && *c != '\n').repeated())
+        .then_ignore(just('\"'))
+        .collect::<String>()
+        .map(|s| Token::Str(s));
 
     let mkop = |c, t| just(c).to(t);
     let op = just("<=")
@@ -93,16 +113,23 @@ fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
         .or(mkop(']', Token::CtrlListEnd))
         .or(mkop(',', Token::CtrlComma))
         .or(mkop('@', Token::CtrlMap))
-        .or(mkop(';', Token::CtrlSemi));
+        .or(mkop(';', Token::CtrlSemi))
+        .or(mkop('.', Token::CtrlGci));
 
     let ident = text::ident().map(|i: String| match i.as_str() {
         "where" => Token::KeywordWhere,
         "else" => Token::KeywordElse,
         "inline" => Token::KeywordInline,
+        "import" => Token::KeywordImport,
+        "from" => Token::KeywordFrom,
+        "include" => Token::KeywordInclude,
+        "latex" => Token::KeywordLatex,
+        "latex_list" => Token::KeywordLatexList,
         _ => Token::Ident(i),
     });
 
     let token = int
+        .or(p_str)
         .or(ctrl)
         .or(op)
         .or(ident)
@@ -149,6 +176,29 @@ fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr>
             .delimited_by(just(Token::CtrlListStart), just(Token::CtrlListEnd))
             .map_with_span(|v, s| (s, ast::Expression::List(v)));
 
+        let ident = select! {
+            Token::Ident(i) => i,
+        };
+        // this isn't the best
+        let qualified_var = ident
+            .then_ignore(just(Token::CtrlGci))
+            .then(ident.separated_by(just(Token::CtrlGci)))
+            .map_with_span(|(first, rest), s| {
+                if rest.is_empty() {
+                    return (s, ast::Expression::Variable(first));
+                }
+                let mut path = rest;
+                path.insert(0, first);
+                let (last, path) = path.split_last().unwrap();
+                (
+                    s,
+                    ast::Expression::FullyQualifiedVariable {
+                        path: path.to_vec(),
+                        item: last.clone(),
+                    },
+                )
+            });
+
         let val = select! {
             Token::Num(n) => ast::Expression::Num(n),
             Token::Ident(i) => ast::Expression::Variable(i)
@@ -156,6 +206,7 @@ fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr>
         .map_with_span(|v, s| (s, v));
 
         let atom = list
+            .or(qualified_var)
             .or(val)
             .or(expr
                 .clone()
@@ -221,6 +272,26 @@ fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr>
                 .or(just(Token::OpMinus).to(ast::BinaryOperator::Subtract))
         );
 
+        let ind = sum
+            .clone()
+            .then(
+                just(Token::CtrlListStart)
+                    .ignore_then(sum)
+                    .then_ignore(just(Token::CtrlListEnd))
+                    .map(Option::Some)
+                    .or(empty().to(Option::None)),
+            )
+            .map_with_span(|(sum, maybe_ind), s| match maybe_ind {
+                Some(ind) => (
+                    s,
+                    ast::Expression::Index {
+                        val: Box::new(sum),
+                        ind: Box::new(ind),
+                    },
+                ),
+                None => sum,
+            });
+
         let cond_op = just(Token::OpCmpLt)
             .to(types::CompareOperator::LessThan)
             .or(just(Token::OpCmpLe).to(types::CompareOperator::LessThanEqual))
@@ -262,7 +333,16 @@ fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr>
                 )
             });
 
-        where_block.or(call).or(sum)
+        let p_str = select! {
+            Token::Str(s) => s,
+        };
+        let latex = just(Token::KeywordLatex)
+            .to(types::ValType::Number)
+            .or(just(Token::KeywordLatexList).to(types::ValType::List))
+            .then(p_str)
+            .map_with_span(|(ty, l), s| (s, ast::Expression::RawLatex(ty, l)));
+
+        where_block.or(call).or(ind).or(latex)
     })
 }
 
@@ -320,7 +400,39 @@ fn statement_parser() -> impl Parser<Token, Vec<ast::Spanned<ast::Statement>>, E
             (s, ast::Statement::VarDef { name, val, inline })
         });
 
-    let line = func_dec.or(declaration).or(expr_stmt);
+    let p_str = select! {
+        Token::Str(s) => s,
+    };
+    let import = just(Token::KeywordImport)
+        .ignore_then(ident)
+        .then_ignore(just(Token::KeywordFrom))
+        .then(p_str)
+        .map_with_span(|(name, path), s| {
+            (
+                s,
+                ast::Statement::Import(ast::Import {
+                    mode: ast::ImportMode::Import { name },
+                    path,
+                }),
+            )
+        });
+    let include = just(Token::KeywordInclude)
+        .ignore_then(p_str)
+        .map_with_span(|path, s| {
+            (
+                s,
+                ast::Statement::Import(ast::Import {
+                    mode: ast::ImportMode::Include,
+                    path,
+                }),
+            )
+        });
+
+    let line = import
+        .or(include)
+        .or(func_dec)
+        .or(declaration)
+        .or(expr_stmt);
 
     line.separated_by(just(Token::CtrlSemi))
         .at_least(1)
@@ -680,6 +792,22 @@ mod tests {
                     },
                     (s(38..39), num("7")),
                 ),
+            ),
+        );
+    }
+
+    #[test]
+    fn import() {
+        check_stmt(
+            "import abcd from \"efgh\";",
+            (
+                s(0..23),
+                ast::Statement::Import(ast::Import {
+                    mode: ast::ImportMode::Import {
+                        name: "abcd".to_string(),
+                    },
+                    path: "efgh".to_string(),
+                }),
             ),
         );
     }
