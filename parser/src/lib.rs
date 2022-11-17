@@ -354,26 +354,37 @@ pub fn parse(source: types::FileID, tokens: Vec<ast::Spanned<Token>>) -> ParseRe
     ))
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum LexParseErrors {
-    LexErrors(LexErrors),
-    ParseErrors(ParseErrors),
+#[derive(Clone, Debug, PartialEq, Default)]
+pub struct LexParseErrors {
+    pub lex_errors: LexErrors,
+    pub parse_errors: ParseErrors,
+}
+
+impl LexParseErrors {
+    pub fn new() -> Self {
+        Self { lex_errors: vec![], parse_errors: vec![] }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.lex_errors.is_empty() && self.parse_errors.is_empty()
+    }
 }
 
 impl From<LexErrors> for LexParseErrors {
-    fn from(err: LexErrors) -> Self {
-        Self::LexErrors(err)
+    fn from(errs: LexErrors) -> Self {
+        Self { lex_errors: errs, parse_errors: vec![] }
     }
 }
 
 impl From<ParseErrors> for LexParseErrors {
-    fn from(err: ParseErrors) -> Self {
-        Self::ParseErrors(err)
+    fn from(errs: ParseErrors) -> Self {
+        Self { lex_errors: vec![], parse_errors: errs }
     }
 }
 
 pub type LexParseResult = (Option<ast::LStatements>, LexParseErrors);
 
+// this function is not very error tolerant!
 pub fn lex_and_parse(source: types::FileID, input: String) -> LexParseResult {
     let (tokens, lex_errs) = lex(source, input);
     if !lex_errs.is_empty() {
@@ -402,24 +413,21 @@ mod tests {
             l,
             (
                 Some(vec![(spn, ast::Statement::Expression(expr))]),
-                LexParseErrors::ParseErrors(vec![]),
+                LexParseErrors::new(),
             ),
         );
     }
 
     fn check_stmt(l: &str, stmt: ast::Spanned<ast::Statement>) {
-        check_result(l, (Some(vec![stmt]), LexParseErrors::ParseErrors(vec![])));
+        check_result(l, (Some(vec![stmt]), LexParseErrors::new()));
     }
 
     fn assert_parses(l: &str) {
-        assert_eq!(eval(l).1, LexParseErrors::ParseErrors(vec![]));
+        assert_eq!(eval(l).1, LexParseErrors::new());
     }
 
     fn assert_does_not_parse(l: &str) {
-        match eval(l).1 {
-            LexParseErrors::LexErrors(errs) => assert_ne!(errs, vec![]),
-            LexParseErrors::ParseErrors(errs) => assert_ne!(errs, vec![]),
-        }
+        assert_ne!(eval(l).1, LexParseErrors::new());
     }
 
     fn s(r: std::ops::Range<usize>) -> types::Span {

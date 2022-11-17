@@ -1,20 +1,16 @@
 use ariadne::{Color, Fmt, Label, Report, ReportKind};
 use clap::{App, Arg};
 use compiler::{compile_stmts, error::CompileError, Context};
+use parser::LexParseErrors;
 use std::fs::File;
 use std::io::prelude::*;
 use std::rc::Rc;
 use types::FileID;
 
-#[derive(Debug)]
-pub enum EvalError {
-    ParseErrors(parser::LexParseErrors),
-    CompileError(CompileError),
-}
-impl From<CompileError> for EvalError {
-    fn from(err: CompileError) -> Self {
-        Self::CompileError(err)
-    }
+#[derive(Debug, Default)]
+pub struct EvalError {
+    pub parse_errors: parser::LexParseErrors,
+    pub compile_error: Option<CompileError>,
 }
 
 #[derive(Clone)]
@@ -66,7 +62,9 @@ fn try_eval(
     flags: &Flags,
     mut out: impl std::io::Write + Sized,
 ) -> Result<(), EvalError> {
-    let (tokens, errs) = parser::lex(id, inp.to_string());
+    // return as soon as we get an unrecoverable error.
+    // Otherwise, collect errors from all phases
+    let (tokens, lex_errors) = parser::lex(id, inp.to_string());
     if flags.tokens {
         let v: Box<dyn std::fmt::Debug> = match &tokens {
             Some(tokens) => {
@@ -80,23 +78,49 @@ fn try_eval(
         };
         eprintln!("{:#?}", v);
     }
-    if !errs.is_empty() {
-        return Err(EvalError::ParseErrors(parser::LexParseErrors::LexErrors(
-            errs,
-        )));
-    }
-    let tokens = tokens.unwrap();
-    let (ast, errs) = parser::parse(id, tokens);
+    let tokens = match tokens {
+        None => {
+            return Err(EvalError {
+                parse_errors: LexParseErrors {
+                    lex_errors,
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+        }
+        Some(tokens) => tokens,
+    };
+    let (ast, parse_errors) = parser::parse(id, tokens);
     if flags.ast {
         eprintln!("{:#?}", ast);
     }
-    if !errs.is_empty() {
-        return Err(EvalError::ParseErrors(parser::LexParseErrors::ParseErrors(
-            errs,
-        )));
-    }
-    let ast = ast.unwrap();
-    let ir = compile_stmts(&mut Context::new(), ast)?;
+    let parse_errors = LexParseErrors {
+        lex_errors,
+        parse_errors,
+    };
+    let ast = match ast {
+        None => {
+            return Err(EvalError {
+                parse_errors,
+                ..Default::default()
+            })
+        }
+        Some(ast) => ast,
+    };
+    let ir = match compile_stmts(&mut Context::new(), ast) {
+        Err(compile_error) => {
+            return Err(EvalError {
+                parse_errors,
+                compile_error: Some(compile_error),
+            })
+        }
+        Ok(ir) => {
+            if !parse_errors.is_empty() {
+                return Err(EvalError { parse_errors, ..Default::default() })
+            }
+            ir
+        },
+    };
     if flags.ir {
         eprintln!("{:#?}", ir);
     }
@@ -117,17 +141,18 @@ fn try_eval(
     })
 }
 
-pub fn print_parse_err_report(sources: Sources, errs: parser::LexParseErrors) {
-    let a: Vec<chumsky::error::Simple<String, types::Span>> = match errs {
-        parser::LexParseErrors::LexErrors(errs) => errs
-            .into_iter()
-            .map(|e| e.map(|c| format!("`{}`", c.to_string())))
-            .collect(),
-        parser::LexParseErrors::ParseErrors(errs) => errs
-            .into_iter()
-            .map(|e| e.map(|c| c.to_str().to_string()))
-            .collect(),
-    };
+pub fn print_parse_err_report(sources: &mut Sources, errs: parser::LexParseErrors) {
+    let a: Vec<chumsky::error::Simple<String, types::Span>> = errs
+        .lex_errors
+        .into_iter()
+        .map(|e| e.map(|c| format!("`{}`", c.to_string())))
+        .chain(
+            errs.parse_errors
+                .into_iter()
+                .map(|e| e.map(|c| c.to_str().to_string())),
+        )
+        .collect();
+    let mut sources = sources;
     for e in a.into_iter() {
         let report =
             Report::<types::Span>::build(ReportKind::Error, e.span().file_id, e.span().range.start);
@@ -193,12 +218,12 @@ pub fn print_parse_err_report(sources: Sources, errs: parser::LexParseErrors) {
         }
         .finish()
         // might want to avoid this in the future
-        .eprint(sources.clone())
+        .eprint(&mut sources)
         .unwrap();
     }
 }
 
-fn print_compile_error_report(sources: Sources, err: CompileError) {
+fn print_compile_error_report(sources: &mut Sources, err: CompileError) {
     let report =
         Report::<types::Span>::build(ReportKind::Error, err.span.file_id, err.span.range.start);
     report
@@ -221,11 +246,16 @@ fn process(name: String, inp: &str, flags: &Flags) -> i32 {
             if flags.dump_errs {
                 eprintln!("{:#?}", e);
             }
-            match e {
-                EvalError::ParseErrors(errs) => print_parse_err_report(sources, errs),
-                EvalError::CompileError(c) => print_compile_error_report(sources, c),
-            };
-            1
+            let mut exit = 0;
+            if !e.parse_errors.is_empty() {
+                print_parse_err_report(&mut sources, e.parse_errors);
+                exit = 1;
+            }
+            if let Some(compile_error) = e.compile_error {
+                print_compile_error_report(&mut sources, compile_error);
+                exit = 1;
+            }
+            exit
         }
     }
 }
