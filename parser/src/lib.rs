@@ -434,12 +434,14 @@ fn statement_parser() -> impl Parser<Token, Vec<ast::Spanned<ast::Statement>>, E
         .or(declaration)
         .or(expr_stmt);
 
-    line.separated_by(just(Token::CtrlSemi))
-        .at_least(1)
-        .recover_with(skip_then_retry_until([]))
-        .collect()
-        .then_ignore(just(Token::CtrlSemi))
+    line.clone()
+        .then(just(Token::CtrlSemi).ignore_then(line.or_not()).repeated())
         .then_ignore(end())
+        .map(|(first, rest)| {
+            std::iter::once(first)
+                .chain(rest.into_iter().flatten())
+                .collect()
+        })
 }
 
 pub type LexErrors = Vec<LexErr>;
