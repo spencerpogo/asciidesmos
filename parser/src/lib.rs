@@ -474,7 +474,10 @@ pub struct LexParseErrors {
 
 impl LexParseErrors {
     pub fn new() -> Self {
-        Self { lex_errors: vec![], parse_errors: vec![] }
+        Self {
+            lex_errors: vec![],
+            parse_errors: vec![],
+        }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -484,13 +487,19 @@ impl LexParseErrors {
 
 impl From<LexErrors> for LexParseErrors {
     fn from(errs: LexErrors) -> Self {
-        Self { lex_errors: errs, parse_errors: vec![] }
+        Self {
+            lex_errors: errs,
+            parse_errors: vec![],
+        }
     }
 }
 
 impl From<ParseErrors> for LexParseErrors {
     fn from(errs: ParseErrors) -> Self {
-        Self { lex_errors: vec![], parse_errors: errs }
+        Self {
+            lex_errors: vec![],
+            parse_errors: errs,
+        }
     }
 }
 
