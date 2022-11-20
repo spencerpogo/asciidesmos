@@ -368,7 +368,7 @@ fn statement_parser() -> impl Parser<Token, Vec<ast::Spanned<ast::Statement>>, E
     let arg = ident
         .then(type_annotation.or(empty().to(types::ValType::Number)))
         .map_with_span(|(name, ty), s| (s, name, ty));
-    let inline = just(Token::KeywordInline).to(true).or(empty().to(false));
+    let inline = just(Token::KeywordInline).or_not().map(|t| t.is_some());
     let func_dec = inline
         .clone()
         .then(ident.clone())
