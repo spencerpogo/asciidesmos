@@ -22,8 +22,8 @@ pub enum Token {
     OpColon,
     CtrlLParen,
     CtrlRParen,
-    CtrlListStart,
-    CtrlListEnd,
+    CtrlLBrac,
+    CtrlRBrac,
     CtrlComma,
     CtrlMap,
     CtrlThen,
@@ -61,8 +61,8 @@ impl Token {
             OpColon => "`:`",
             CtrlLParen => "`(`",
             CtrlRParen => "`)`",
-            CtrlListStart => "`[`",
-            CtrlListEnd => "`]`",
+            CtrlLBrac => "`[`",
+            CtrlRBrac => "`]`",
             CtrlComma => "`,`",
             CtrlMap => "`@`",
             CtrlThen => "`->`",
@@ -109,8 +109,8 @@ fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
         .to(Token::CtrlThen)
         .or(mkop('(', Token::CtrlLParen))
         .or(mkop(')', Token::CtrlRParen))
-        .or(mkop('[', Token::CtrlListStart))
-        .or(mkop(']', Token::CtrlListEnd))
+        .or(mkop('[', Token::CtrlLBrac))
+        .or(mkop(']', Token::CtrlRBrac))
         .or(mkop(',', Token::CtrlComma))
         .or(mkop('@', Token::CtrlMap))
         .or(mkop(';', Token::CtrlSemi))
@@ -173,7 +173,7 @@ fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr>
         let list = expr
             .clone()
             .separated_by(just(Token::CtrlComma))
-            .delimited_by(just(Token::CtrlListStart), just(Token::CtrlListEnd))
+            .delimited_by(just(Token::CtrlLBrac), just(Token::CtrlRBrac))
             .map_with_span(|v, s| (s, ast::Expression::List(v)));
 
         let ident = select! {
@@ -214,12 +214,12 @@ fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr>
             .recover_with(nested_delimiters(
                 Token::CtrlLParen,
                 Token::CtrlRParen,
-                [(Token::CtrlListStart, Token::CtrlListEnd)],
+                [(Token::CtrlLBrac, Token::CtrlRBrac)],
                 |span| (span, ast::Expression::Error),
             ))
             .recover_with(nested_delimiters(
-                Token::CtrlListStart,
-                Token::CtrlListEnd,
+                Token::CtrlLBrac,
+                Token::CtrlRBrac,
                 [(Token::CtrlLParen, Token::CtrlRParen)],
                 |span| (span, ast::Expression::Error),
             ));
@@ -275,9 +275,9 @@ fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr>
         let ind = sum
             .clone()
             .then(
-                just(Token::CtrlListStart)
+                just(Token::CtrlLBrac)
                     .ignore_then(sum)
-                    .then_ignore(just(Token::CtrlListEnd))
+                    .then_ignore(just(Token::CtrlRBrac))
                     .map(Option::Some)
                     .or(empty().to(Option::None)),
             )
