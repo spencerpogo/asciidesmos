@@ -1,7 +1,7 @@
 use ast;
 use latex::{self, Latex};
 use std::{collections::HashMap, rc::Rc};
-use types;
+use types::{self, ValType};
 
 use super::{
     builtins,
@@ -73,12 +73,13 @@ pub fn compile_static_call(
             span,
         });
     }
+    let is_mapcall = modifier == ast::CallModifier::MapCall;
     let args_latex = args
         .into_iter()
         .zip(rargs.iter())
         .map(|(got_type, expect_type)| -> Result<latex::Latex, _> {
             let (aspan, arg_latex, got_type) = got_type;
-            let is_valid_map = modifier == ast::CallModifier::MapCall
+            let is_valid_map = is_mapcall
                 && got_type == types::ValType::List
                 && *expect_type == types::ValType::Number;
             if !is_valid_map && got_type != *expect_type {
@@ -101,7 +102,7 @@ pub fn compile_static_call(
             is_builtin,
             args: args_latex,
         },
-        rfunc.ret,
+        if is_mapcall { ValType::List } else { rfunc.ret },
     ))
 }
 
@@ -552,6 +553,39 @@ mod tests {
                 got: ValType::List,
                 expected: ValType::Number
             }
+        );
+    }
+
+    #[test]
+    fn mapcall_type() {
+        check(
+            Expression::Index {
+                val: Box::new((
+                    spn(),
+                    Expression::Call {
+                        modifier: ast::CallModifier::MapCall,
+                        func: ast::Function::Normal {
+                            name: "sin".to_string(),
+                        },
+                        args: vec![(
+                            spn(),
+                            Expression::List(vec![(spn(), Expression::Num("1".to_string()))]),
+                        )],
+                    },
+                )),
+                ind: Box::new((spn(), Expression::Num("1".to_string()))),
+            },
+            Latex::BinaryExpression {
+                left: Box::new(Latex::Call {
+                    func: latex::Function::Normal {
+                        name: "sin".to_string(),
+                    },
+                    is_builtin: true,
+                    args: vec![Latex::List(vec![Latex::Num("1".to_string())])],
+                }),
+                operator: latex::BinaryOperator::Index,
+                right: Box::new(Latex::Num("1".to_string())),
+            },
         );
     }
 }
