@@ -1,7 +1,6 @@
 use ariadne::{Color, Fmt, Label, Report, ReportKind};
 use clap::{App, Arg};
 use compiler::{compile_stmts, error::CompileError, Context};
-use parser::LexParseErrors;
 use std::fs::File;
 use std::io::prelude::*;
 use std::rc::Rc;
@@ -9,8 +8,15 @@ use types::FileID;
 
 #[derive(Debug, Default)]
 pub struct EvalError {
-    pub parse_errors: parser::LexParseErrors,
+    pub lex_errors: Vec<parser::LexErr>,
+    pub parse_errors: Vec<parser::ParseErr>,
     pub compile_error: Option<CompileError>,
+}
+
+impl EvalError {
+    fn is_empty(&self) -> bool {
+        self.lex_errors.is_empty() && self.parse_errors.is_empty() && self.compile_error.is_none()
+    }
 }
 
 #[derive(Clone)]
@@ -75,68 +81,50 @@ fn try_eval(
     flags: &Flags,
     mut out: impl std::io::Write + Sized,
 ) -> Result<(), EvalError> {
-    // return as soon as we get an unrecoverable error.
-    // Otherwise, collect errors from all phases
+    let mut err = EvalError {
+        ..Default::default()
+    };
+
     let (tokens, lex_errors) = parser::lex(id, inp.to_string());
-    if flags.tokens {
-        let v: Box<dyn std::fmt::Debug> = match &tokens {
-            Some(tokens) => {
-                if flags.token_spans {
-                    Box::new(tokens)
-                } else {
-                    Box::new(tokens.iter().map(|(_s, t)| t).collect::<Vec<_>>())
-                }
-            }
-            None => Box::<Option<()>>::new(None),
-        };
-        eprintln!("{:#?}", v);
-    }
+    err.lex_errors = lex_errors;
     let tokens = match tokens {
-        None => {
-            return Err(EvalError {
-                parse_errors: LexParseErrors {
-                    lex_errors,
-                    ..Default::default()
-                },
-                ..Default::default()
-            })
-        }
+        None => return Err(err),
         Some(tokens) => tokens,
     };
+
+    if flags.tokens && flags.token_spans {
+        eprintln!("{:#?}", tokens);
+    } else if flags.tokens {
+        eprintln!("{:#?}", tokens.iter().map(|(_s, t)| t).collect::<Vec<_>>());
+    };
+
     let (ast, parse_errors) = parser::parse(id, tokens);
+    err.parse_errors = parse_errors;
+    let ast = match ast {
+        None => return Err(err),
+        Some(ast) => ast,
+    };
+
     if flags.ast {
         eprintln!("{:#?}", ast);
     }
-    let parse_errors = LexParseErrors {
-        lex_errors,
-        parse_errors,
-    };
-    let ast = match ast {
-        None => {
-            return Err(EvalError {
-                parse_errors,
-                ..Default::default()
-            })
-        }
-        Some(ast) => ast,
-    };
+
     let ir = match compile_stmts(&mut Context::new_with_loader(Box::new(CliLoader)), ast) {
         Err(compile_error) => {
-            return Err(EvalError {
-                parse_errors,
-                compile_error: Some(compile_error),
-            })
+            err.compile_error = Some(compile_error);
+            return Err(err);
         }
-        Ok(ir) => {
-            if !parse_errors.is_empty() {
-                return Err(EvalError { parse_errors, ..Default::default() })
-            }
-            ir
-        },
+        Ok(ir) => ir,
     };
+
     if flags.ir {
         eprintln!("{:#?}", ir);
     }
+
+    if !err.is_empty() {
+        return Err(err);
+    }
+
     let r = ir
         .into_iter()
         .map(|l| latex::latex_stmt_to_str(l))
@@ -154,19 +142,41 @@ fn try_eval(
     })
 }
 
-pub fn print_parse_err_report(sources: &mut Sources, errs: parser::LexParseErrors) {
-    let a: Vec<chumsky::error::Simple<String, types::Span>> = errs
-        .lex_errors
+// Format the error's input type as a String
+type GenericParseErr = chumsky::error::Simple<String, types::Span>;
+
+pub fn fmt_lex_errs<I>(lex_errs: I) -> impl IntoIterator<Item = GenericParseErr>
+where
+    I: IntoIterator<Item = parser::LexErr>,
+{
+    lex_errs.into_iter().map(|e| e.map(|c| format!("`{}`", c)))
+}
+
+pub fn fmt_parse_errs<I>(parse_errs: I) -> impl IntoIterator<Item = GenericParseErr>
+where
+    I: IntoIterator<Item = parser::ParseErr>,
+{
+    parse_errs
         .into_iter()
-        .map(|e| e.map(|c| format!("`{}`", c.to_string())))
-        .chain(
-            errs.parse_errors
-                .into_iter()
-                .map(|e| e.map(|c| c.to_str().to_string())),
-        )
-        .collect();
+        .map(|e| e.map(|c| c.to_str().to_string()))
+}
+
+pub fn fmt_lexparse_errs(
+    lex_errs: Vec<parser::LexErr>,
+    parse_errs: Vec<parser::ParseErr>,
+) -> impl IntoIterator<Item = GenericParseErr> {
+    fmt_lex_errs(lex_errs)
+        .into_iter()
+        .chain(fmt_parse_errs(parse_errs))
+}
+
+pub fn print_parse_err_report<I>(sources: &mut Sources, errs: I)
+where
+    I: IntoIterator<Item = GenericParseErr>,
+{
+    // stack copy to avoid clones
     let mut sources = sources;
-    for e in a.into_iter() {
+    for e in errs.into_iter() {
         let report =
             Report::<types::Span>::build(ReportKind::Error, e.span().file_id, e.span().range.start);
         match e.reason() {
@@ -230,7 +240,6 @@ pub fn print_parse_err_report(sources: &mut Sources, errs: parser::LexParseError
             ),
         }
         .finish()
-        // might want to avoid this in the future
         .eprint(&mut sources)
         .unwrap();
     }
@@ -260,16 +269,14 @@ fn process(name: String, inp: &str, flags: &Flags) -> i32 {
             if flags.dump_errs {
                 eprintln!("{:#?}", e);
             }
-            let mut exit = 0;
-            if !e.parse_errors.is_empty() {
-                print_parse_err_report(&mut sources, e.parse_errors);
-                exit = 1;
-            }
+            print_parse_err_report(
+                &mut sources,
+                fmt_lexparse_errs(e.lex_errors, e.parse_errors),
+            );
             if let Some(compile_error) = e.compile_error {
                 print_compile_error_report(&mut sources, compile_error);
-                exit = 1;
             }
-            exit
+            1
         }
     }
 }
