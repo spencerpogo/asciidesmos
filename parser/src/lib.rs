@@ -206,6 +206,7 @@ fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr>
         .map_with_span(|v, s| (s, v));
 
         let atom = list
+            .or(call)
             .or(qualified_var)
             .or(val)
             .or(expr
@@ -342,7 +343,7 @@ fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr>
             .then(p_str)
             .map_with_span(|(ty, l), s| (s, ast::Expression::RawLatex(ty, l)));
 
-        where_block.or(call).or(ind).or(latex)
+        where_block.or(ind).or(latex)
     })
 }
 
@@ -821,5 +822,10 @@ mod tests {
                 }),
             ),
         );
+    }
+
+    #[test]
+    fn ind_prec() {
+        assert_parses("sin@([0])[1]");
     }
 }
