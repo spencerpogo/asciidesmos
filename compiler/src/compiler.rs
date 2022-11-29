@@ -6,7 +6,7 @@ use ast::{
     BinaryOperator, Expression, LocatedExpression, LocatedStatement, Statement, UnaryOperator,
 };
 use latex::{
-    self, BinaryOperator as LatexBinaryOperator, Cond, Latex, LatexStatement,
+    BinaryOperator as LatexBinaryOperator, Cond, Latex, LatexStatement,
     UnaryOperator as LatexUnaryOperator,
 };
 use types::ValType;
@@ -74,7 +74,7 @@ pub fn unop_to_latex(op: UnaryOperator) -> LatexUnaryOperator {
     }
 }
 
-pub fn branch_to_cond<'a>(
+pub fn branch_to_cond(
     ctx: &mut Context,
     (_spn, branch): ast::Spanned<ast::Branch>,
 ) -> Result<Cond, CompileError> {
@@ -105,7 +105,7 @@ pub fn compile_variable_ref(
 
 // Ideally this would be functional and ctx would not need to be mutable, but rust
 //  support for immutable hashmaps isn't built in and mutation is much simpler.
-pub fn compile_expr<'a>(
+pub fn compile_expr(
     ctx: &mut Context,
     expr: LocatedExpression,
 ) -> Result<(Latex, ValType), CompileError> {
@@ -317,7 +317,7 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult 
                 }
             }
         }
-        Statement::Import(import) => crate::import::handle_import(ctx, s, import),
+        Statement::Import(import) => super::import::handle_import(ctx, s, import),
     }
 }
 
@@ -391,24 +391,20 @@ pub mod tests {
         assert_eq!(compile(exp).unwrap(), r);
     }
 
-    pub fn comp_with_var<'a>(
-        v: &str,
-        vtype: ValType,
-        exp: Expression,
-    ) -> Result<Latex, CompileError> {
+    pub fn comp_with_var(v: &str, vtype: ValType, exp: Expression) -> Result<Latex, CompileError> {
         let mut ctx = new_ctx();
         ctx.variables.insert(v.to_string(), vtype);
         compile_with_ctx(&mut ctx, exp)
     }
 
-    pub fn check_with_var<'a>(v: &str, vtype: ValType, exp: Expression, r: Latex) {
+    pub fn check_with_var(v: &str, vtype: ValType, exp: Expression, r: Latex) {
         assert_eq!(comp_with_var(v, vtype, exp), Ok(r));
     }
 
-    // generates a fake span to satisfy the type-checker as proper spans aren't
-    //  important for most tests
+    // generates a fake span to satisfy the type-checker
+    // accurate spans are relevant to testing the parser but not for the compiler
     #[inline]
-    pub fn spn<'a>() -> types::Span {
+    pub fn spn() -> types::Span {
         types::Span::new(1234, 0..0)
     }
 
