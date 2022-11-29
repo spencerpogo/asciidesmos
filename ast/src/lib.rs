@@ -64,6 +64,11 @@ pub enum Expression {
         args: Vec<LocatedExpression>,
     },
     List(Vec<LocatedExpression>),
+    Range {
+        first: Box<LocatedExpression>,
+        second: Option<Box<LocatedExpression>>,
+        end: Box<LocatedExpression>,
+    },
     Piecewise {
         first: Box<Spanned<Branch>>,
         rest: Vec<Spanned<Branch>>,

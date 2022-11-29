@@ -221,6 +221,11 @@ where
             operator,
         },
         Latex::List(inner) => Latex::List(proc_vec(inner)),
+        Latex::Range { first, second, end } => Latex::Range {
+            first: Box::new(proc(*first)),
+            second: second.map(|v| Box::new(proc(*v))),
+            end: Box::new(proc(*end)),
+        },
         Latex::Piecewise {
             first,
             rest,

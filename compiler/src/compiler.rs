@@ -185,6 +185,27 @@ pub fn compile_expr<'a>(
 
             Ok((Latex::List(items), ValType::List))
         }
+        Expression::Range { first, second, end } => {
+            let range = Latex::Range {
+                first: Box::new(compile_expect(
+                    ctx,
+                    first.0.clone(),
+                    *first,
+                    ValType::Number,
+                )?),
+                second: match second {
+                    Some(second) => Some(Box::new(compile_expect(
+                        ctx,
+                        second.0.clone(),
+                        *second,
+                        ValType::Number,
+                    )?)),
+                    None => None,
+                },
+                end: Box::new(compile_expect(ctx, end.0.clone(), *end, ValType::Number)?),
+            };
+            Ok((range, ValType::List))
+        }
         Expression::Piecewise {
             first,
             rest,

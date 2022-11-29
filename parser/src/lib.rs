@@ -29,6 +29,7 @@ pub enum Token {
     CtrlThen,
     CtrlSemi,
     CtrlGci,
+    CtrlEllipses,
     KeywordWhere,
     KeywordElse,
     KeywordInline,
@@ -68,6 +69,7 @@ impl Token {
             CtrlThen => "`->`",
             CtrlSemi => "`;`",
             CtrlGci => "`.`",
+            CtrlEllipses => "`...`",
             KeywordWhere => "`where`",
             KeywordElse => "`else`",
             KeywordInline => "`inline`",
@@ -89,13 +91,14 @@ fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
         .collect::<String>()
         .map(|s| Token::Str(s));
 
-    let mkop = |c, t| just(c).to(t);
+    let mkop = |c: char, t: Token| just(c).to(t);
+    let mkops = |s: &'static str, t: Token| just(s).to(t);
     let op = just("<=")
         .to(Token::OpCmpLe)
         .or(mkop('>', Token::OpCmpGt))
-        .or(just(">=").to(Token::OpCmpGe))
-        .or(just("==").to(Token::OpCmpEq))
-        .or(just("**").to(Token::OpExp))
+        .or(mkops(">=", Token::OpCmpGe))
+        .or(mkops("==", Token::OpCmpEq))
+        .or(mkops("**", Token::OpExp))
         .or(mkop('-', Token::OpMinus))
         .or(mkop('+', Token::OpPlus))
         .or(mkop('*', Token::OpMult))
@@ -114,6 +117,7 @@ fn lexer() -> impl Parser<char, Vec<ast::Spanned<Token>>, Error = LexErr> {
         .or(mkop(',', Token::CtrlComma))
         .or(mkop('@', Token::CtrlMap))
         .or(mkop(';', Token::CtrlSemi))
+        .or(mkops("...", Token::CtrlEllipses))
         .or(mkop('.', Token::CtrlGci));
 
     let ident = text::ident().map(|i: String| match i.as_str() {
@@ -170,6 +174,25 @@ fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr>
             )
         });
 
+        let range = expr
+            .clone()
+            .map(Box::new)
+            .then_ignore(just(Token::CtrlComma))
+            .then(
+                expr.clone()
+                    .then_ignore(just(Token::CtrlComma))
+                    .map(Box::new)
+                    .map(Option::Some)
+                    .or(empty().to(Option::None)),
+            )
+            .then_ignore(just(Token::CtrlEllipses))
+            .then_ignore(just(Token::CtrlComma))
+            .then(expr.clone().map(Box::new))
+            .delimited_by(just(Token::CtrlLBrac), just(Token::CtrlRBrac))
+            .map_with_span(|((first, second), end), s| {
+                (s, ast::Expression::Range { first, second, end })
+            });
+
         let list = expr
             .clone()
             .separated_by(just(Token::CtrlComma))
@@ -205,7 +228,8 @@ fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr>
         }
         .map_with_span(|v, s| (s, v));
 
-        let atom = list
+        let atom = range
+            .or(list)
             .or(call)
             .or(qualified_var)
             .or(val)
@@ -827,5 +851,34 @@ mod tests {
     #[test]
     fn ind_prec() {
         assert_parses("sin@([0])[1]");
+    }
+
+    #[test]
+    fn range() {
+        check(
+            "[1,...,2]",
+            (
+                s(0..9),
+                ast::Expression::Range {
+                    first: Box::new((s(1..2), num("1"))),
+                    second: None,
+                    end: Box::new((s(7..8), num("2"))),
+                },
+            ),
+        );
+        check(
+            "[1,2,...,3]",
+            (
+                s(0..11),
+                ast::Expression::Range {
+                    first: Box::new((s(1..2), num("1"))),
+                    second: Some(Box::new((s(3..4), num("2")))),
+                    end: Box::new((s(9..10), num("3"))),
+                },
+            ),
+        );
+        assert_does_not_parse("[1,2,3...,4]");
+        assert_does_not_parse("[1,...,2,3");
+        assert_does_not_parse("[1,...,2,...,3]");
     }
 }

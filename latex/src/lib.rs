@@ -49,6 +49,11 @@ pub enum Latex {
         operator: UnaryOperator,
     },
     List(Vec<Latex>),
+    Range {
+        first: Box<Latex>,
+        second: Option<Box<Latex>>,
+        end: Box<Latex>,
+    },
     Piecewise {
         first: Box<Cond>,
         rest: Vec<Cond>,
@@ -193,6 +198,22 @@ pub fn latex_to_str(l: Latex) -> String {
             UnaryOperator::Factorial => format!("{}!", latex_to_str(*left),),
         },
         Latex::List(items) => format!("\\left[{}\\right]", multi_latex_to_str(items).join(",")),
+        Latex::Range { first, second, end } => {
+            if let Some(second) = second {
+                format!(
+                    "\\left[{},{},...,{}\\right]",
+                    latex_to_str(*first),
+                    latex_to_str(*second),
+                    latex_to_str(*end)
+                )
+            } else {
+                format!(
+                    "\\left[{},...,{}\\right]",
+                    latex_to_str(*first),
+                    latex_to_str(*end)
+                )
+            }
+        }
         Latex::Piecewise {
             first,
             rest,
