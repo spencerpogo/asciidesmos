@@ -25,7 +25,7 @@ pub fn check_type(span: types::Span, got: ValType, expect: ValType) -> Result<()
                 got,
                 expected: expect,
             },
-            span,
+            span: span.clone(),
         })
     } else {
         Ok(())
@@ -33,12 +33,12 @@ pub fn check_type(span: types::Span, got: ValType, expect: ValType) -> Result<()
 }
 
 // Combination of compile_expr and check_type
-pub fn compile_expect<'a>(
+pub fn compile_expect(
     ctx: &mut Context,
-    span: types::Span,
     expr: LocatedExpression,
     expect: ValType,
 ) -> Result<Latex, CompileError> {
+    let span = expr.0.clone();
     let (s, t) = compile_expr(ctx, expr)?;
     check_type(span, t, expect)?;
     Ok(s)
@@ -78,9 +78,8 @@ pub fn branch_to_cond<'a>(
     ctx: &mut Context,
     (_spn, branch): ast::Spanned<ast::Branch>,
 ) -> Result<Cond, CompileError> {
-    let leftcondspan = branch.cond_left.0.clone();
     Ok(Cond {
-        left: compile_expect(ctx, leftcondspan, branch.cond_left, ValType::Number)?,
+        left: compile_expect(ctx, branch.cond_left, ValType::Number)?,
         op: branch.cond,
         right: compile_expr(ctx, branch.cond_right)?.0,
         result: compile_expr(ctx, branch.val)?.0,
@@ -136,9 +135,8 @@ pub fn compile_expr<'a>(
             operator,
             right,
         } => {
-            let span2 = span.clone();
-            let lv = compile_expect(ctx, span, *left, ValType::Number)?;
-            let rv = compile_expect(ctx, span2, *right, ValType::Number)?;
+            let lv = compile_expect(ctx, *left, ValType::Number)?;
+            let rv = compile_expect(ctx, *right, ValType::Number)?;
             Ok((binop_to_latex(lv, operator, rv), ValType::Number))
         }
         Expression::UnaryExpr {
@@ -146,7 +144,7 @@ pub fn compile_expr<'a>(
             operator: op,
         } => Ok((
             Latex::UnaryExpression {
-                left: Box::new(compile_expect(ctx, span, *v, ValType::Number)?),
+                left: Box::new(compile_expect(ctx, *v, ValType::Number)?),
                 operator: unop_to_latex(op),
             },
             ValType::Number,
@@ -187,22 +185,12 @@ pub fn compile_expr<'a>(
         }
         Expression::Range { first, second, end } => {
             let range = Latex::Range {
-                first: Box::new(compile_expect(
-                    ctx,
-                    first.0.clone(),
-                    *first,
-                    ValType::Number,
-                )?),
+                first: Box::new(compile_expect(ctx, *first, ValType::Number)?),
                 second: match second {
-                    Some(second) => Some(Box::new(compile_expect(
-                        ctx,
-                        second.0.clone(),
-                        *second,
-                        ValType::Number,
-                    )?)),
+                    Some(second) => Some(Box::new(compile_expect(ctx, *second, ValType::Number)?)),
                     None => None,
                 },
-                end: Box::new(compile_expect(ctx, end.0.clone(), *end, ValType::Number)?),
+                end: Box::new(compile_expect(ctx, *end, ValType::Number)?),
             };
             Ok((range, ValType::List))
         }
@@ -210,25 +198,20 @@ pub fn compile_expr<'a>(
             first,
             rest,
             default,
-        } => {
-            let def = *default;
-            let dspan = def.0.clone();
-            Ok((
-                Latex::Piecewise {
-                    first: Box::new(branch_to_cond(ctx, *first)?),
-                    rest: rest
-                        .into_iter()
-                        .map(|b| branch_to_cond(ctx, b))
-                        .collect::<Result<Vec<_>, _>>()?,
-                    default: Box::new(compile_expect(ctx, dspan, def, ValType::Number)?),
-                },
-                ValType::Number,
-            ))
-        }
+        } => Ok((
+            Latex::Piecewise {
+                first: Box::new(branch_to_cond(ctx, *first)?),
+                rest: rest
+                    .into_iter()
+                    .map(|b| branch_to_cond(ctx, b))
+                    .collect::<Result<Vec<_>, _>>()?,
+                default: Box::new(compile_expect(ctx, *default, ValType::Number)?),
+            },
+            ValType::Number,
+        )),
         Expression::RawLatex(ty, l) => Ok((Latex::Raw(l), ty)),
         Expression::Index { val, ind } => {
-            let (ls, lv) = *val;
-            let ll = compile_expect(ctx, ls.clone(), (ls, lv), ValType::List)?;
+            let ll = compile_expect(ctx, *val, ValType::List)?;
             let (rl, rt) = compile_expr(ctx, *ind)?;
             Ok((
                 Latex::BinaryExpression {
