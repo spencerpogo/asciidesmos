@@ -12,7 +12,7 @@ use latex::{
 use types::ValType;
 
 pub fn resolve_variable(ctx: &Context, var: String) -> Option<ValType> {
-    match ctx.variables.get(&*var) {
+    match ctx.variables.get::<str>(var.as_ref()) {
         Some(r) => Some(*r),
         None => ctx.locals.get(&*var).map(|v| *v),
     }
