@@ -18,6 +18,7 @@ pub enum CompileErrorKind {
         got: ValType,
         expected: ValType,
     },
+    ExpectedNumGotListWeak,
     UndefinedVariable(String),
     DuplicateVariable(String),
     ExpectedFunction,
@@ -56,6 +57,10 @@ impl CompileErrorKind {
             }
             CompileErrorKind::TypeMismatch { got, expected } => {
                 format!("Expected type {:#?} but got {:#?}", expected, got)
+            }
+            CompileErrorKind::ExpectedNumGotListWeak => {
+                // TODO: there will be syntax to map list
+                format!("Expected number but got list")
             }
             CompileErrorKind::UndefinedVariable(var) => {
                 format!("Undefined variable '{}'", var)

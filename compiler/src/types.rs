@@ -4,6 +4,23 @@ use types::ValType;
 
 use crate::stdlib::StdlibLoader;
 
+// ValType that supports list mapping
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ValTypeWeak {
+    Num,
+    List,
+    MappedList,
+}
+
+impl From<ValType> for ValTypeWeak {
+    fn from(v: ValType) -> Self {
+        match v {
+            ValType::Number => Self::Num,
+            ValType::List => Self::List,
+        }
+    }
+}
+
 // heap version of core::runtime::Args
 #[derive(Clone, Debug, PartialEq)]
 pub enum FunctionArgs {

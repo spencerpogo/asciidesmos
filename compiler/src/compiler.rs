@@ -44,6 +44,36 @@ pub fn compile_expect(
     Ok(s)
 }
 
+pub fn compile_expect_num(
+    ctx: &mut Context,
+    expr: LocatedExpression,
+) -> Result<Latex, CompileError> {
+    let span = expr.0.clone();
+    let (s, t) = compile_expr(ctx, expr)?;
+    if t != ValType::Number {
+        return Err(CompileError {
+            kind: CompileErrorKind::ExpectedNumGotListWeak,
+            span: span,
+        });
+    }
+    Ok(s)
+}
+
+pub fn compile_expect_num_strict(
+    ctx: &mut Context,
+    expr: LocatedExpression,
+) -> Result<Latex, CompileError> {
+    let span = expr.0.clone();
+    let (s, t) = compile_expr(ctx, expr)?;
+    if t != ValType::Number {
+        return Err(CompileError {
+            kind: CompileErrorKind::ExpectedNumGotListWeak,
+            span: span,
+        });
+    }
+    Ok(s)
+}
+
 pub fn binop_to_latex(lv: Latex, operator: BinaryOperator, rv: Latex) -> Latex {
     Latex::BinaryExpression {
         operator: match operator {
@@ -79,7 +109,7 @@ pub fn branch_to_cond(
     (_spn, branch): ast::Spanned<ast::Branch>,
 ) -> Result<Cond, CompileError> {
     Ok(Cond {
-        left: compile_expect(ctx, branch.cond_left, ValType::Number)?,
+        left: compile_expect_num(ctx, branch.cond_left)?,
         op: branch.cond,
         right: compile_expr(ctx, branch.cond_right)?.0,
         result: compile_expr(ctx, branch.val)?.0,
@@ -135,8 +165,8 @@ pub fn compile_expr(
             operator,
             right,
         } => {
-            let lv = compile_expect(ctx, *left, ValType::Number)?;
-            let rv = compile_expect(ctx, *right, ValType::Number)?;
+            let lv = compile_expect_num(ctx, *left)?;
+            let rv = compile_expect_num(ctx, *right)?;
             Ok((binop_to_latex(lv, operator, rv), ValType::Number))
         }
         Expression::UnaryExpr {
@@ -144,7 +174,7 @@ pub fn compile_expr(
             operator: op,
         } => Ok((
             Latex::UnaryExpression {
-                left: Box::new(compile_expect(ctx, *v, ValType::Number)?),
+                left: Box::new(compile_expect_num(ctx, *v)?),
                 operator: unop_to_latex(op),
             },
             ValType::Number,
@@ -185,12 +215,12 @@ pub fn compile_expr(
         }
         Expression::Range { first, second, end } => {
             let range = Latex::Range {
-                first: Box::new(compile_expect(ctx, *first, ValType::Number)?),
+                first: Box::new(compile_expect_num_strict(ctx, *first)?),
                 second: match second {
-                    Some(second) => Some(Box::new(compile_expect(ctx, *second, ValType::Number)?)),
+                    Some(second) => Some(Box::new(compile_expect_num_strict(ctx, *second)?)),
                     None => None,
                 },
-                end: Box::new(compile_expect(ctx, *end, ValType::Number)?),
+                end: Box::new(compile_expect_num_strict(ctx, *end)?),
             };
             Ok((range, ValType::List))
         }
@@ -205,7 +235,7 @@ pub fn compile_expr(
                     .into_iter()
                     .map(|b| branch_to_cond(ctx, b))
                     .collect::<Result<Vec<_>, _>>()?,
-                default: Box::new(compile_expect(ctx, *default, ValType::Number)?),
+                default: Box::new(compile_expect_num(ctx, *default)?),
             },
             ValType::Number,
         )),
