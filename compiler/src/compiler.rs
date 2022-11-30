@@ -18,62 +18,6 @@ pub fn resolve_variable(ctx: &Context, var: String) -> Option<ValType> {
     }
 }
 
-pub fn check_type(span: types::Span, got: ValType, expect: ValType) -> Result<(), CompileError> {
-    if got != expect {
-        Err(CompileError {
-            kind: CompileErrorKind::TypeMismatch {
-                got,
-                expected: expect,
-            },
-            span: span.clone(),
-        })
-    } else {
-        Ok(())
-    }
-}
-
-// Combination of compile_expr and check_type
-pub fn compile_expect(
-    ctx: &mut Context,
-    expr: LocatedExpression,
-    expect: ValType,
-) -> Result<Latex, CompileError> {
-    let span = expr.0.clone();
-    let (s, t) = compile_expr(ctx, expr)?;
-    check_type(span, t, expect)?;
-    Ok(s)
-}
-
-pub fn compile_expect_num(
-    ctx: &mut Context,
-    expr: LocatedExpression,
-) -> Result<Latex, CompileError> {
-    let span = expr.0.clone();
-    let (s, t) = compile_expr(ctx, expr)?;
-    if t != ValType::Number {
-        return Err(CompileError {
-            kind: CompileErrorKind::ExpectedNumGotListWeak,
-            span: span,
-        });
-    }
-    Ok(s)
-}
-
-pub fn compile_expect_num_strict(
-    ctx: &mut Context,
-    expr: LocatedExpression,
-) -> Result<Latex, CompileError> {
-    let span = expr.0.clone();
-    let (s, t) = compile_expr(ctx, expr)?;
-    if t != ValType::Number {
-        return Err(CompileError {
-            kind: CompileErrorKind::ExpectedNumGotListWeak,
-            span: span,
-        });
-    }
-    Ok(s)
-}
-
 pub fn binop_to_latex(lv: Latex, operator: BinaryOperator, rv: Latex) -> Latex {
     Latex::BinaryExpression {
         operator: match operator {
@@ -104,14 +48,42 @@ pub fn unop_to_latex(op: UnaryOperator) -> LatexUnaryOperator {
     }
 }
 
+pub fn types_equal_weak(l: ValType, r: ValType) -> bool {
+    // TODO when ValTypeWeak implemented
+    l == r
+}
+
+pub fn comp_binop(
+    ctx: &mut Context,
+    left: LocatedExpression,
+    right: LocatedExpression,
+) -> Result<((Latex, ValType), (Latex, ValType)), CompileError> {
+    let ls = left.0.clone();
+    let rs = left.0.clone();
+    let (lv, lt) = compile_expr(ctx, left)?;
+    let (rv, rt) = compile_expr(ctx, right)?;
+    if !types_equal_weak(lt, rt) {
+        return Err(CompileError {
+            kind: CompileErrorKind::ExpectedSameTypes {
+                left: lt,
+                right: rt,
+            },
+            span: ls.with_end_of(&rs).unwrap_or(ls),
+        });
+    }
+    Ok(((lv, lt), (rv, rt)))
+}
+
 pub fn branch_to_cond(
     ctx: &mut Context,
     (_spn, branch): ast::Spanned<ast::Branch>,
 ) -> Result<Cond, CompileError> {
+    // TODO: type check here?
+    let (left, right) = comp_binop(ctx, branch.cond_left, branch.cond_right)?;
     Ok(Cond {
-        left: compile_expect_num(ctx, branch.cond_left)?,
+        left: left.0,
         op: branch.cond,
-        right: compile_expr(ctx, branch.cond_right)?.0,
+        right: right.0,
         result: compile_expr(ctx, branch.val)?.0,
     })
 }
@@ -165,9 +137,9 @@ pub fn compile_expr(
             operator,
             right,
         } => {
-            let lv = compile_expect_num(ctx, *left)?;
-            let rv = compile_expect_num(ctx, *right)?;
-            Ok((binop_to_latex(lv, operator, rv), ValType::Number))
+            let (left, right) = comp_binop(ctx, *left, *right)?;
+            debug_assert_eq!(left.1, right.1);
+            Ok((binop_to_latex(left.0, operator, right.0), left.1))
         }
         Expression::UnaryExpr {
             val: v,

@@ -85,7 +85,7 @@ pub fn compile_static_call(
             if !is_valid_map && got_type != *expect_type {
                 // TODO this error sucks and logic should be more strict for MapCalls
                 return Err(CompileError {
-                    kind: CompileErrorKind::TypeMismatch {
+                    kind: CompileErrorKind::ArgTypeMismatch {
                         got: got_type,
                         expected: *expect_type,
                     },
@@ -127,7 +127,7 @@ pub fn compile_variadic_call(
         let first = args.first().unwrap();
         if first.2 != types::ValType::List {
             return Err(CompileError {
-                kind: CompileErrorKind::TypeMismatch {
+                kind: CompileErrorKind::ArgTypeMismatch {
                     got: first.2,
                     expected: types::ValType::List,
                 },
@@ -159,7 +159,7 @@ pub fn compile_variadic_call(
                     Ok(a.1)
                 } else {
                     Err(CompileError {
-                        kind: CompileErrorKind::TypeMismatch {
+                        kind: CompileErrorKind::ArgTypeMismatch {
                             got: a.2,
                             expected: types::ValType::Number,
                         },
@@ -280,7 +280,7 @@ pub fn compile_call(
             {
                 if typ != got_typ {
                     return Err(CompileError {
-                        kind: CompileErrorKind::TypeMismatch {
+                        kind: CompileErrorKind::ArgTypeMismatch {
                             got: got_typ,
                             expected: typ,
                         },
@@ -432,7 +432,7 @@ mod tests {
         assert_eq!(
             compile(inp.clone()),
             Err(CompileError {
-                kind: CompileErrorKind::TypeMismatch {
+                kind: CompileErrorKind::ArgTypeMismatch {
                     got: ValType::List,
                     expected: ValType::Number
                 },
@@ -554,7 +554,7 @@ mod tests {
             })
             .unwrap_err()
             .kind,
-            CompileErrorKind::TypeMismatch {
+            CompileErrorKind::ArgTypeMismatch {
                 got: ValType::List,
                 expected: ValType::Number
             }

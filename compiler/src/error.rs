@@ -14,11 +14,15 @@ pub enum CompileErrorKind {
         got: ArgCount,
         expected: ExpectedArgCount,
     },
-    TypeMismatch {
+    ArgTypeMismatch {
         got: ValType,
         expected: ValType,
     },
     ExpectedNumGotListWeak,
+    ExpectedSameTypes {
+        left: ValType,
+        right: ValType,
+    },
     UndefinedVariable(String),
     DuplicateVariable(String),
     ExpectedFunction,
@@ -55,12 +59,18 @@ impl CompileErrorKind {
                 };
                 format!("Expected {} arguments but got {}", ex_fmt, got)
             }
-            CompileErrorKind::TypeMismatch { got, expected } => {
+            CompileErrorKind::ArgTypeMismatch { got, expected } => {
                 format!("Expected type {:#?} but got {:#?}", expected, got)
             }
             CompileErrorKind::ExpectedNumGotListWeak => {
                 // TODO: there will be syntax to map list
                 format!("Expected number but got list")
+            }
+            CompileErrorKind::ExpectedSameTypes { left, right } => {
+                format!(
+                    "Expected left type {:#?} to match right type {:#?}",
+                    left, right
+                )
             }
             CompileErrorKind::UndefinedVariable(var) => {
                 format!("Undefined variable '{}'", var)
