@@ -18,7 +18,15 @@ pub enum CompileErrorKind {
         got: ValType,
         expected: ValType,
     },
-    ExpectedNumGotListWeak,
+    NegateList,
+    FactorialList,
+    RangeExpectNumber,
+    IndexNonList,
+    IndexWithNonNumber,
+    RetAnnMismatch {
+        got: ValType,
+        expected: ValType,
+    },
     ExpectedSameTypes {
         left: ValType,
         right: ValType,
@@ -62,9 +70,28 @@ impl CompileErrorKind {
             CompileErrorKind::ArgTypeMismatch { got, expected } => {
                 format!("Expected type {:#?} but got {:#?}", expected, got)
             }
-            CompileErrorKind::ExpectedNumGotListWeak => {
+            CompileErrorKind::NegateList => {
                 // TODO: there will be syntax to map list
-                format!("Expected number but got list")
+                format!("Cannot negate a list")
+            }
+            CompileErrorKind::FactorialList => {
+                format!("Cannot take the factorial of a list")
+            }
+            CompileErrorKind::RangeExpectNumber => {
+                format!("Range argument must be numbers")
+            }
+            CompileErrorKind::IndexNonList => {
+                format!("Cannot index non-list")
+            }
+            CompileErrorKind::IndexWithNonNumber => {
+                format!("Index must be a number")
+            }
+            CompileErrorKind::RetAnnMismatch { got, expected } => {
+                format!(
+                    "Expected type {:#?} due to return type annotation, but function returned {:#?}", 
+                    expected,
+                    got
+                )
             }
             CompileErrorKind::ExpectedSameTypes { left, right } => {
                 format!(
@@ -97,13 +124,6 @@ impl CompileErrorKind {
 
     pub fn help(&self) -> Option<String> {
         match &self {
-            CompileErrorKind::TypeMismatch { got, expected } => {
-                if *got == ValType::List && *expected == ValType::Number {
-                    Some("To map a function over a list use @, like `sin@([1])".to_string())
-                } else {
-                    None
-                }
-            }
             _ => None,
         }
     }

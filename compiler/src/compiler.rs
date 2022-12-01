@@ -41,16 +41,35 @@ pub fn binop_to_latex(lv: Latex, operator: BinaryOperator, rv: Latex) -> Latex {
     }
 }
 
-pub fn unop_to_latex(op: UnaryOperator) -> LatexUnaryOperator {
-    match op {
-        UnaryOperator::Negate => LatexUnaryOperator::Negate,
-        UnaryOperator::Factorial => LatexUnaryOperator::Factorial,
-    }
-}
-
 pub fn types_equal_weak(l: ValType, r: ValType) -> bool {
     // TODO when ValTypeWeak implemented
     l == r
+}
+
+pub fn comp_expect_num(
+    ctx: &mut Context,
+    expr: LocatedExpression,
+    kind: CompileErrorKind,
+) -> Result<(Latex, ValType), CompileError> {
+    let s = expr.0.clone();
+    let (v, t) = compile_expr(ctx, expr)?;
+    if !types_equal_weak(t, ValType::Number) {
+        return Err(CompileError { kind, span: s });
+    }
+    Ok((v, t))
+}
+
+pub fn comp_expect_num_strict(
+    ctx: &mut Context,
+    expr: LocatedExpression,
+    kind: CompileErrorKind,
+) -> Result<(Latex, ValType), CompileError> {
+    let span = expr.0.clone();
+    let (v, t) = compile_expr(ctx, expr)?;
+    if t != ValType::Number {
+        return Err(CompileError { kind, span });
+    }
+    Ok((v, t))
 }
 
 pub fn comp_binop(
@@ -77,15 +96,19 @@ pub fn comp_binop(
 pub fn branch_to_cond(
     ctx: &mut Context,
     (_spn, branch): ast::Spanned<ast::Branch>,
-) -> Result<Cond, CompileError> {
+) -> Result<(Cond, ValType), CompileError> {
     // TODO: type check here?
     let (left, right) = comp_binop(ctx, branch.cond_left, branch.cond_right)?;
-    Ok(Cond {
-        left: left.0,
-        op: branch.cond,
-        right: right.0,
-        result: compile_expr(ctx, branch.val)?.0,
-    })
+    debug_assert_eq!(left.1, right.1);
+    Ok((
+        Cond {
+            left: left.0,
+            op: branch.cond,
+            right: right.0,
+            result: compile_expr(ctx, branch.val)?.0,
+        },
+        left.1,
+    ))
 }
 
 pub fn compile_variable_ref(
@@ -146,8 +169,18 @@ pub fn compile_expr(
             operator: op,
         } => Ok((
             Latex::UnaryExpression {
-                left: Box::new(compile_expect_num(ctx, *v)?),
-                operator: unop_to_latex(op),
+                left: Box::new(match op {
+                    UnaryOperator::Negate => {
+                        comp_expect_num(ctx, *v, CompileErrorKind::NegateList)?.0
+                    }
+                    UnaryOperator::Factorial => {
+                        comp_expect_num(ctx, *v, CompileErrorKind::FactorialList)?.0
+                    }
+                }),
+                operator: match op {
+                    UnaryOperator::Negate => LatexUnaryOperator::Negate,
+                    UnaryOperator::Factorial => LatexUnaryOperator::Factorial,
+                },
             },
             ValType::Number,
         )),
@@ -187,12 +220,19 @@ pub fn compile_expr(
         }
         Expression::Range { first, second, end } => {
             let range = Latex::Range {
-                first: Box::new(compile_expect_num_strict(ctx, *first)?),
+                first: Box::new(
+                    comp_expect_num_strict(ctx, *first, CompileErrorKind::RangeExpectNumber)?.0,
+                ),
                 second: match second {
-                    Some(second) => Some(Box::new(compile_expect_num_strict(ctx, *second)?)),
+                    Some(second) => Some(Box::new(
+                        comp_expect_num_strict(ctx, *second, CompileErrorKind::RangeExpectNumber)?
+                            .0,
+                    )),
                     None => None,
                 },
-                end: Box::new(compile_expect_num_strict(ctx, *end)?),
+                end: Box::new(
+                    comp_expect_num_strict(ctx, *end, CompileErrorKind::RangeExpectNumber)?.0,
+                ),
             };
             Ok((range, ValType::List))
         }
@@ -200,24 +240,56 @@ pub fn compile_expr(
             first,
             rest,
             default,
-        } => Ok((
-            Latex::Piecewise {
-                first: Box::new(branch_to_cond(ctx, *first)?),
-                rest: rest
-                    .into_iter()
-                    .map(|b| branch_to_cond(ctx, b))
-                    .collect::<Result<Vec<_>, _>>()?,
-                default: Box::new(compile_expect_num(ctx, *default)?),
-            },
-            ValType::Number,
-        )),
+        } => {
+            let (first, ft) = branch_to_cond(ctx, *first)?;
+            let rest = rest
+                .into_iter()
+                .map(|b| {
+                    let span = b.0.clone();
+                    let (cond, t) = branch_to_cond(ctx, b)?;
+                    if ft != t {
+                        return Err(CompileError {
+                            kind: CompileErrorKind::ExpectedSameTypes { left: ft, right: t },
+                            span,
+                        });
+                    }
+                    Ok(cond)
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            let dspan = default.0.clone();
+            let (default, dt) = compile_expr(ctx, *default)?;
+            if ft != dt {
+                return Err(CompileError {
+                    kind: CompileErrorKind::ExpectedSameTypes {
+                        left: ft,
+                        right: dt,
+                    },
+                    span: dspan,
+                });
+            }
+            Ok((
+                Latex::Piecewise {
+                    first: Box::new(first),
+                    rest,
+                    default: Box::new(default),
+                },
+                ValType::Number,
+            ))
+        }
         Expression::RawLatex(ty, l) => Ok((Latex::Raw(l), ty)),
         Expression::Index { val, ind } => {
-            let ll = compile_expect(ctx, *val, ValType::List)?;
-            let (rl, rt) = compile_expr(ctx, *ind)?;
+            let valspan = val.0.clone();
+            let (left, vt) = compile_expr(ctx, *val)?;
+            if vt != ValType::List {
+                return Err(CompileError {
+                    kind: CompileErrorKind::IndexNonList,
+                    span: valspan,
+                });
+            }
+            let (rl, rt) = comp_expect_num(ctx, *ind, CompileErrorKind::IndexWithNonNumber)?;
             Ok((
                 Latex::BinaryExpression {
-                    left: Box::new(ll),
+                    left: Box::new(left),
                     operator: LatexBinaryOperator::Index,
                     right: Box::new(rl),
                 },
@@ -251,7 +323,15 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult 
             let (body, ret) = compile_expr(ctx, e)?;
             // Validate the return type annotation
             if let Some(retann) = fdef.ret_annotation {
-                check_type(s, ret, retann)?;
+                if ret != retann {
+                    return Err(CompileError {
+                        kind: CompileErrorKind::RetAnnMismatch {
+                            got: ret,
+                            expected: retann,
+                        },
+                        span: s,
+                    });
+                };
             }
             // remove args from scope
             for (_span, aname, _atyp) in fdef.args.iter() {
@@ -515,9 +595,9 @@ pub mod tests {
             })
             .unwrap_err()
             .kind,
-            CompileErrorKind::TypeMismatch {
-                got: ValType::List,
-                expected: ValType::Number
+            CompileErrorKind::ExpectedSameTypes {
+                left: ValType::List,
+                right: ValType::Number
             }
         );
     }
@@ -534,10 +614,7 @@ pub mod tests {
             })
             .unwrap_err()
             .kind,
-            CompileErrorKind::TypeMismatch {
-                got: ValType::List,
-                expected: ValType::Number
-            }
+            CompileErrorKind::FactorialList
         );
     }
 
@@ -670,7 +747,7 @@ pub mod tests {
             ))
             .unwrap_err(),
             CompileError {
-                kind: CompileErrorKind::TypeMismatch {
+                kind: CompileErrorKind::RetAnnMismatch {
                     got: ValType::Number,
                     expected: ValType::List
                 },
@@ -805,7 +882,7 @@ pub mod tests {
             .unwrap_err(),
             CompileError {
                 span: spn(),
-                kind: CompileErrorKind::TypeMismatch {
+                kind: CompileErrorKind::ArgTypeMismatch {
                     expected: ValType::Number,
                     got: ValType::List
                 }
@@ -876,52 +953,48 @@ pub mod tests {
     fn piecewise_multi() {
         let mut ctx = new_ctx();
         ctx.variables.insert("a".to_string(), ValType::Number);
+        let firstbranch = Branch {
+            cond_left: (spn(), Expression::Variable("a".to_string())),
+            cond: CompareOperator::GreaterThanEqual,
+            cond_right: (spn(), Expression::Num("1".to_string())),
+            val: (spn(), Expression::Num("2".to_string())),
+        };
+        let ast = Expression::Piecewise {
+            first: Box::new((spn(), firstbranch.clone())),
+            rest: vec![
+                (
+                    spn(),
+                    Branch {
+                        cond_left: (spn(), Expression::Variable("a".to_string())),
+                        cond: CompareOperator::LessThanEqual,
+                        cond_right: (spn(), Expression::Num("3".to_string())),
+                        val: (spn(), Expression::Num("4".to_string())),
+                    },
+                ),
+                (
+                    spn(),
+                    Branch {
+                        cond_left: (spn(), Expression::Variable("a".to_string())),
+                        cond: CompareOperator::LessThan,
+                        cond_right: (spn(), Expression::Num("5".to_string())),
+                        val: (spn(), Expression::Num("6".to_string())),
+                    },
+                ),
+                (
+                    spn(),
+                    Branch {
+                        cond_left: (spn(), Expression::Variable("a".to_string())),
+                        cond: CompareOperator::GreaterThan,
+                        cond_right: (spn(), Expression::Num("7".to_string())),
+                        val: (spn(), Expression::Num("8".to_string())),
+                    },
+                ),
+            ],
+            default: Box::new((spn(), Expression::Num("9".to_string()))),
+        };
         // input taken from parser test output
         assert_eq!(
-            compile_with_ctx(
-                &mut ctx,
-                Expression::Piecewise {
-                    first: Box::new((
-                        spn(),
-                        Branch {
-                            cond_left: (spn(), Expression::Variable("a".to_string())),
-                            cond: CompareOperator::GreaterThanEqual,
-                            cond_right: (spn(), Expression::Num("1".to_string())),
-                            val: (spn(), Expression::Num("2".to_string()))
-                        }
-                    )),
-                    rest: vec![
-                        (
-                            spn(),
-                            Branch {
-                                cond_left: (spn(), Expression::Variable("a".to_string())),
-                                cond: CompareOperator::LessThanEqual,
-                                cond_right: (spn(), Expression::Num("3".to_string())),
-                                val: (spn(), Expression::Num("4".to_string()))
-                            }
-                        ),
-                        (
-                            spn(),
-                            Branch {
-                                cond_left: (spn(), Expression::Variable("a".to_string())),
-                                cond: CompareOperator::LessThan,
-                                cond_right: (spn(), Expression::Num("5".to_string())),
-                                val: (spn(), Expression::Num("6".to_string()))
-                            }
-                        ),
-                        (
-                            spn(),
-                            Branch {
-                                cond_left: (spn(), Expression::Variable("a".to_string())),
-                                cond: CompareOperator::GreaterThan,
-                                cond_right: (spn(), Expression::Num("7".to_string())),
-                                val: (spn(), Expression::Num("8".to_string()))
-                            }
-                        )
-                    ],
-                    default: Box::new((spn(), Expression::Num("9".to_string())))
-                }
-            ),
+            compile_with_ctx(&mut ctx, ast.clone()),
             Ok(Latex::Piecewise {
                 first: Box::new(Cond {
                     left: Latex::Variable("a".to_string()),
@@ -952,6 +1025,51 @@ pub mod tests {
                 default: Box::new(Latex::Num("9".to_string()))
             }),
         );
+        let ast = match ast {
+            Expression::Piecewise {
+                first: _,
+                rest,
+                default,
+            } => Expression::Piecewise {
+                first: Box::new((
+                    spn(),
+                    Branch {
+                        cond_left: (
+                            spn(),
+                            Expression::List(vec![(spn(), Expression::Num("1".to_string()))]),
+                        ),
+                        ..firstbranch
+                    },
+                )),
+                rest,
+                default,
+            },
+            _ => unreachable!(),
+        };
+        assert_eq!(
+            compile_with_ctx(&mut ctx, ast.clone()).unwrap_err().kind,
+            CompileErrorKind::ExpectedSameTypes {
+                left: ValType::List,
+                right: ValType::Number,
+            }
+        );
+        let ast = match ast {
+            Expression::Piecewise {
+                first,
+                rest,
+                default,
+            } => {
+                let mut rest = rest.clone();
+                *rest.get_mut(0).unwrap() = ();
+                Expression::Piecewise {
+                    first,
+                    rest,
+                    default,
+                }
+            }
+            _ => unreachable!(),
+        };
+        assert_eq!()
     }
 
     #[test]
@@ -1009,4 +1127,7 @@ pub mod tests {
         );
         assert_eq!(comp_var("b".to_owned()), Ok(Latex::Num("1".to_owned())));
     }
+
+    #[test]
+    fn piecewise_typecheck() {}
 }
