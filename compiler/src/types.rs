@@ -21,6 +21,46 @@ impl From<ValType> for Typ {
     }
 }
 
+impl Typ {
+    pub fn is_num_weak(self) -> bool {
+        match self {
+            Self::Num => true,
+            Self::List => false,
+            Self::MappedList => true,
+        }
+    }
+
+    pub fn is_list_weak(self) -> bool {
+        match self {
+            Self::Num => false,
+            Self::List => true,
+            Self::MappedList => true,
+        }
+    }
+
+    pub fn is_num_strict(self) -> bool {
+        self == Self::Num
+    }
+
+    pub fn eq_weak(self, rhs: Self) -> bool {
+        match self {
+            Self::Num => rhs.is_num_weak(),
+            Self::List => rhs == Self::List,
+            // todo: reject redundant cmp of mappedlist to mappedlist?
+            Self::MappedList => rhs.is_num_weak(),
+        }
+    }
+
+    // Given two types that are eq_weak, simulate the result of a desmos binop
+    pub fn binop_result(self, rhs: Self) -> Self {
+        if self.is_list_weak() || rhs.is_list_weak() {
+            return Self::List;
+        }
+        // both sides are strictly Self::Num
+        Self::Num
+    }
+}
+
 // heap version of core::runtime::Args
 #[derive(Clone, Debug, PartialEq)]
 pub enum FunctionArgs {
@@ -86,7 +126,7 @@ pub struct Context {
     pub variables: HashMap<String, ValType>,
     pub locals: HashMap<String, ValType>,
     pub defined_functions: HashMap<String, Rc<FunctionSignature>>,
-    pub inline_vals: HashMap<String, (ValType, latex::Latex)>,
+    pub inline_vals: HashMap<String, (Typ, latex::Latex)>,
     pub inline_fns: HashMap<String, Rc<InlineFunction>>,
     // can't support submodules (yet)
     pub modules: HashMap<String, Context>,
