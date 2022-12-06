@@ -184,6 +184,16 @@ pub fn compile_expr(
             },
             ValType::Number,
         )),
+        Expression::Map(val) => {
+            let (v, t) = compile_expr(ctx, *val)?;
+            if t != ValType::List {
+                return Err(CompileError {
+                    kind: CompileErrorKind::MapNonList,
+                    span,
+                });
+            }
+            Ok((v, ValType::List))
+        }
         Expression::Call {
             modifier,
             func,

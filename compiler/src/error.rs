@@ -22,6 +22,7 @@ pub enum CompileErrorKind {
     FactorialList,
     RangeExpectNumber,
     IndexNonList,
+    MapNonList,
     IndexWithNonNumber,
     RetAnnMismatch {
         got: ValType,
@@ -82,6 +83,9 @@ impl CompileErrorKind {
             }
             CompileErrorKind::IndexNonList => {
                 format!("Cannot index non-list")
+            }
+            CompileErrorKind::MapNonList => {
+                format!("Cannot map non-list")
             }
             CompileErrorKind::IndexWithNonNumber => {
                 format!("Index must be a number")

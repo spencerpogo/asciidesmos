@@ -6,13 +6,13 @@ use crate::stdlib::StdlibLoader;
 
 // ValType that supports list mapping
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ValTypeWeak {
+pub enum Typ {
     Num,
     List,
     MappedList,
 }
 
-impl From<ValType> for ValTypeWeak {
+impl From<ValType> for Typ {
     fn from(v: ValType) -> Self {
         match v {
             ValType::Number => Self::Num,

@@ -58,6 +58,7 @@ pub enum Expression {
         val: Box<LocatedExpression>,
         operator: UnaryOperator,
     },
+    Map(Box<LocatedExpression>),
     Call {
         modifier: CallModifier,
         func: Function,
