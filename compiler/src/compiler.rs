@@ -1025,51 +1025,6 @@ pub mod tests {
                 default: Box::new(Latex::Num("9".to_string()))
             }),
         );
-        let ast = match ast {
-            Expression::Piecewise {
-                first: _,
-                rest,
-                default,
-            } => Expression::Piecewise {
-                first: Box::new((
-                    spn(),
-                    Branch {
-                        cond_left: (
-                            spn(),
-                            Expression::List(vec![(spn(), Expression::Num("1".to_string()))]),
-                        ),
-                        ..firstbranch
-                    },
-                )),
-                rest,
-                default,
-            },
-            _ => unreachable!(),
-        };
-        assert_eq!(
-            compile_with_ctx(&mut ctx, ast.clone()).unwrap_err().kind,
-            CompileErrorKind::ExpectedSameTypes {
-                left: ValType::List,
-                right: ValType::Number,
-            }
-        );
-        let ast = match ast {
-            Expression::Piecewise {
-                first,
-                rest,
-                default,
-            } => {
-                let mut rest = rest.clone();
-                *rest.get_mut(0).unwrap() = ();
-                Expression::Piecewise {
-                    first,
-                    rest,
-                    default,
-                }
-            }
-            _ => unreachable!(),
-        };
-        assert_eq!()
     }
 
     #[test]
@@ -1127,7 +1082,4 @@ pub mod tests {
         );
         assert_eq!(comp_var("b".to_owned()), Ok(Latex::Num("1".to_owned())));
     }
-
-    #[test]
-    fn piecewise_typecheck() {}
 }
