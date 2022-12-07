@@ -117,69 +117,45 @@ pub fn compile_variadic_call(
     rfunc: FunctionSignature,
     is_builtin: bool,
 ) -> Result<(latex::Latex, types::ValType), CompileError> {
-    if modifier == ast::CallModifier::MapCall {
-        if args.len() != 1 {
-            return Err(CompileError {
-                kind: CompileErrorKind::WrongArgCount {
-                    got: args.len(),
-                    expected: ExpectedArgCount::Exact(1),
-                },
-                span: span,
-            });
-        }
-        let first = args.first().unwrap();
-        if first.2 != Typ::List {
-            return Err(CompileError {
-                kind: CompileErrorKind::ArgTypeMismatch {
-                    got: first.2,
-                    expected: types::ValType::List,
-                },
-                span: span,
-            });
-        }
-        Ok((
-            latex::Latex::Call {
-                func: func_to_latex(func),
-                is_builtin,
-                args: vec![first.1.clone()],
+    if args.is_empty() {
+        return Err(CompileError {
+            kind: CompileErrorKind::WrongArgCount {
+                got: 0,
+                expected: ExpectedArgCount::NonZero,
             },
-            rfunc.ret,
-        ))
-    } else {
-        if args.is_empty() {
-            return Err(CompileError {
-                kind: CompileErrorKind::WrongArgCount {
-                    got: 0,
-                    expected: ExpectedArgCount::NonZero,
-                },
-                span: span,
-            });
-        }
-        let args_latex = args
-            .into_iter()
-            .map(|a| -> Result<latex::Latex, _> {
-                if a.2 == types::ValType::Number {
-                    Ok(a.1)
-                } else {
-                    Err(CompileError {
-                        kind: CompileErrorKind::ArgTypeMismatch {
-                            got: a.2,
-                            expected: types::ValType::Number,
-                        },
-                        span: a.0,
-                    })
-                }
-            })
-            .collect::<Result<Vec<latex::Latex>, _>>()?;
-        Ok((
-            latex::Latex::Call {
-                func: func_to_latex(func),
-                is_builtin,
-                args: args_latex,
-            },
-            rfunc.ret,
-        ))
+            span: span,
+        });
     }
+    unimplemented!();
+    /*// if variadic functions are passed a single list, they will return a single value
+    // if passed multiple lists, normal automatic mapping applies
+    let (args_latex, ret) = if args.len() == 1 && first.2.is_list_weak() {
+        (first.1, Typ::Num)
+    } else {
+        let args_results = args
+            .into_iter()
+            .try_reduce(|l, r| -> Result<Typ, CompileError> {
+                if !l.2.eq_weak(r.2) {
+                    return Err(CompileError {
+                        kind: CompileErrorKind::ExpectedSameTypes {
+                            left: l.2,
+                            right: r.2,
+                        },
+                        span: r.0,
+                    });
+                }
+                Ok(l.2.binop_result(r.2))
+            })?
+            .unwrap_or(rfunc.ret);
+    };
+    Ok((
+        latex::Latex::Call {
+            func: func_to_latex(func),
+            is_builtin,
+            args: args_latex,
+        },
+        ret,
+    ))*/
 }
 
 pub fn map_variables<F>(node: latex::Latex, replacer: &F) -> Latex
@@ -277,11 +253,12 @@ pub fn compile_call(
                 });
             }
 
-            let mut vars = HashMap::new();
+            unimplemented!();
+            /*let mut vars = HashMap::new();
             for ((name, typ), (arg_span, arg_lat, got_typ)) in
                 rfunc.args.into_iter().zip(args.into_iter())
             {
-                if typ != got_typ {
+                if typ.into() != got_typ {
                     return Err(CompileError {
                         kind: CompileErrorKind::ArgTypeMismatch {
                             got: got_typ,
@@ -291,9 +268,9 @@ pub fn compile_call(
                     });
                 }
                 vars.insert(name, arg_lat);
-            }
+            }*/
 
-            Ok((replace_variables(rfunc.body, &vars), rfunc.ret))
+            //Ok((replace_variables(rfunc.body, &vars), rfunc.ret))
         }
         ResolvedFunction::Normal {
             func: rfunc,
@@ -309,7 +286,8 @@ pub fn compile_call(
                 is_builtin,
             ),
             FunctionArgs::Variadic => {
-                compile_variadic_call(span, func, modifier, args, (*rfunc).clone(), is_builtin)
+                unimplemented!()
+                //compile_variadic_call(span, func, modifier, args, (*rfunc).clone(), is_builtin)
             }
         },
     }
@@ -436,7 +414,7 @@ mod tests {
             compile(inp.clone()),
             Err(CompileError {
                 kind: CompileErrorKind::ArgTypeMismatch {
-                    got: ValType::List,
+                    got: Typ::List,
                     expected: ValType::Number
                 },
                 span: spn()
@@ -558,7 +536,7 @@ mod tests {
             .unwrap_err()
             .kind,
             CompileErrorKind::ArgTypeMismatch {
-                got: ValType::List,
+                got: Typ::List,
                 expected: ValType::Number
             }
         );

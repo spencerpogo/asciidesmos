@@ -208,7 +208,8 @@ pub fn compile_expr(
             super::call::compile_call(ctx, span, func, modifier, compiled_args)
         }
         Expression::List(values) => {
-            let items = values
+            unimplemented!();
+            /*let items = values
                 .into_iter()
                 .map(|(s, e)| -> Result<Latex, CompileError> {
                     let (latex, vtype) = compile_expr(ctx, (s.clone(), e))?;
@@ -223,10 +224,11 @@ pub fn compile_expr(
                 })
                 .collect::<Result<Vec<Latex>, CompileError>>()?;
 
-            Ok((Latex::List(items), ValType::List))
+            Ok((Latex::List(items), ValType::List))*/
         }
         Expression::Range { first, second, end } => {
-            let range = Latex::Range {
+            unimplemented!();
+            /*let range = Latex::Range {
                 first: Box::new(
                     comp_expect_num_strict(ctx, *first, CompileErrorKind::RangeExpectNumber)?.0,
                 ),
@@ -241,7 +243,7 @@ pub fn compile_expr(
                     comp_expect_num_strict(ctx, *end, CompileErrorKind::RangeExpectNumber)?.0,
                 ),
             };
-            Ok((range, ValType::List))
+            Ok((range, ValType::List))*/
         }
         Expression::Piecewise {
             first,
@@ -284,9 +286,10 @@ pub fn compile_expr(
                 ft,
             ))
         }
-        Expression::RawLatex(ty, l) => Ok((Latex::Raw(l), ty)),
+        Expression::RawLatex(ty, l) => Ok((Latex::Raw(l), ty.into())),
         Expression::Index { val, ind } => {
-            let valspan = val.0.clone();
+            unimplemented!();
+            /*let valspan = val.0.clone();
             let (left, vt) = compile_expr(ctx, *val)?;
             if vt != ValType::List {
                 return Err(CompileError {
@@ -302,7 +305,7 @@ pub fn compile_expr(
                     right: Box::new(rl),
                 },
                 rt,
-            ))
+            ))*/
         }
     }
 }
@@ -317,7 +320,8 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult 
             compile_expr(ctx, (s, e))?.0,
         )]),
         Statement::FuncDef(fdef, e) => {
-            // Add args into locals
+            unimplemented!();
+            /*// Add args into locals
             for (aspan, aname, atype) in fdef.args.iter() {
                 if ctx.variables.contains_key(aname) || ctx.locals.contains_key(aname) {
                     return Err(CompileError {
@@ -381,10 +385,11 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult 
                     .map(|(_span, name, _typ)| name)
                     .collect(),
                 body: Box::new(body),
-            }])
+            }])*/
         }
         Statement::VarDef { name, val, inline } => {
-            if ctx.variables.contains_key(name.as_str())
+            unimplemented!();
+            /*if ctx.variables.contains_key(name.as_str())
                 || ctx.inline_vals.contains_key(name.as_str())
             {
                 return Err(CompileError {
@@ -405,7 +410,7 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult 
                         Box::new(val_latex),
                     )])
                 }
-            }
+            }*/
         }
         Statement::Import(import) => super::import::handle_import(ctx, s, import),
     }
@@ -514,13 +519,13 @@ pub mod tests {
     fn variable() {
         check_with_var(
             "a",
-            Typ::Num,
+            ValType::Number,
             Expression::Variable("a".to_string()),
             Latex::Variable("a".to_string()),
         );
         check_with_var(
             "abc",
-            Typ::Num,
+            ValType::Number,
             Expression::Variable("abc".to_string()),
             Latex::Variable("abc".to_string()),
         );
@@ -604,8 +609,8 @@ pub mod tests {
             .unwrap_err()
             .kind,
             CompileErrorKind::ExpectedSameTypes {
-                left: ValType::List,
-                right: ValType::Number
+                left: Typ::List,
+                right: Typ::Num
             }
         );
     }
@@ -892,7 +897,7 @@ pub mod tests {
                 span: spn(),
                 kind: CompileErrorKind::ArgTypeMismatch {
                     expected: ValType::Number,
-                    got: ValType::List
+                    got: Typ::List
                 }
             }
         );
@@ -901,7 +906,7 @@ pub mod tests {
     #[test]
     fn funcdef_catch_shadow() {
         let mut ctx = new_ctx();
-        ctx.variables.insert("a".to_string(), Typ::Num);
+        ctx.variables.insert("a".to_string(), ValType::Number);
         assert_eq!(
             compile_stmt_with_ctx(
                 &mut ctx,
@@ -925,7 +930,7 @@ pub mod tests {
     #[test]
     fn piecewise_single() {
         let mut ctx = new_ctx();
-        ctx.variables.insert("a".to_string(), Typ::Num);
+        ctx.variables.insert("a".to_string(), ValType::Number);
         // input taken from parser test output
         assert_eq!(
             compile_with_ctx(
@@ -960,7 +965,7 @@ pub mod tests {
     #[test]
     fn piecewise_multi() {
         let mut ctx = new_ctx();
-        ctx.variables.insert("a".to_string(), Typ::Num);
+        ctx.variables.insert("a".to_string(), ValType::Number);
         let firstbranch = Branch {
             cond_left: (spn(), Expression::Variable("a".to_string())),
             cond: CompareOperator::GreaterThanEqual,
@@ -1068,7 +1073,7 @@ pub mod tests {
     #[test]
     fn module_reference() {
         let mut submodule = new_ctx();
-        submodule.variables.insert("a".to_string(), Typ::Num);
+        submodule.variables.insert("a".to_string(), ValType::Number);
         submodule
             .inline_vals
             .insert("b".to_string(), (Typ::Num, Latex::Num("1".to_string())));
