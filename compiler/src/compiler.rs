@@ -208,27 +208,17 @@ pub fn compile_expr(
             super::call::compile_call(ctx, span, func, modifier, compiled_args)
         }
         Expression::List(values) => {
-            unimplemented!();
-            /*let items = values
+            let items = values
                 .into_iter()
-                .map(|(s, e)| -> Result<Latex, CompileError> {
-                    let (latex, vtype) = compile_expr(ctx, (s.clone(), e))?;
-                    if vtype != ValType::Number {
-                        Err(CompileError {
-                            span: s,
-                            kind: CompileErrorKind::NoNestedList,
-                        })
-                    } else {
-                        Ok(latex)
-                    }
+                .map(|e| -> Result<Latex, CompileError> {
+                    Ok(comp_expect_num_strict(ctx, e, CompileErrorKind::NoNestedList)?.0)
                 })
                 .collect::<Result<Vec<Latex>, CompileError>>()?;
 
-            Ok((Latex::List(items), ValType::List))*/
+            Ok((Latex::List(items), Typ::List))
         }
         Expression::Range { first, second, end } => {
-            unimplemented!();
-            /*let range = Latex::Range {
+            let range = Latex::Range {
                 first: Box::new(
                     comp_expect_num_strict(ctx, *first, CompileErrorKind::RangeExpectNumber)?.0,
                 ),
@@ -243,7 +233,7 @@ pub fn compile_expr(
                     comp_expect_num_strict(ctx, *end, CompileErrorKind::RangeExpectNumber)?.0,
                 ),
             };
-            Ok((range, ValType::List))*/
+            Ok((range, Typ::List))
         }
         Expression::Piecewise {
             first,
