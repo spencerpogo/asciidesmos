@@ -6,7 +6,7 @@ use types::{self, ValType};
 use crate::{
     builtins,
     error::{CompileError, CompileErrorKind, ExpectedArgCount},
-    types::{Context, FunctionArgs, FunctionSignature, ResolvedFunction, Typ},
+    types::{Context, FunctionArgs, FunctionSignature, ResolvedFunction, Typ, TypInfo},
 };
 
 pub fn func_to_latex(func: ast::Function) -> latex::Function {
@@ -59,7 +59,7 @@ pub fn compile_static_call(
     rfunc: FunctionSignature,
     rargs: &Vec<types::ValType>,
     is_builtin: bool,
-) -> Result<(latex::Latex, Typ), CompileError> {
+) -> Result<(latex::Latex, Typ, Option<TypInfo>), CompileError> {
     // Validate arg count
     let got = args.len();
     let expect = rargs.len();
@@ -106,6 +106,7 @@ pub fn compile_static_call(
             None => rfunc.ret.into(), // there were no args
             Some(ret_typ) => ret_typ.binop_result(ret_typ.into()),
         },
+        None,
     ))
 }
 
@@ -233,7 +234,7 @@ pub fn compile_call(
     func: ast::Function,
     modifier: ast::CallModifier,
     args: Vec<(types::Span, latex::Latex, Typ)>,
-) -> Result<(latex::Latex, Typ), CompileError> {
+) -> Result<(latex::Latex, Typ, Option<TypInfo>), CompileError> {
     let rfunc = resolve_function(ctx, func.clone()).ok_or(CompileError {
         kind: CompileErrorKind::UnknownFunction(func.clone()),
         span: span.clone(),

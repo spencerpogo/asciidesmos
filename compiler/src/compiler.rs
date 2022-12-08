@@ -112,11 +112,11 @@ pub fn compile_variable_ref(
     ctx: &Context,
     span: types::Span,
     name: String,
-) -> Result<(Latex, Typ), CompileError> {
+) -> Result<(Latex, Typ, Option<TypInfo>), CompileError> {
     match ctx.inline_vals.get(&name) {
-        Some((t, v)) => Ok((v.clone(), *t)),
+        Some((t, v)) => Ok((v.clone(), *t, None)),
         None => match resolve_variable(ctx, name.clone()) {
-            Some(var_type) => Ok((Latex::Variable(name), var_type.into())),
+            Some(var_type) => Ok((Latex::Variable(name), var_type.into(), None)),
             None => Err(CompileError {
                 kind: CompileErrorKind::UndefinedVariable(name),
                 span,
@@ -133,9 +133,9 @@ pub fn compile_expr(
 ) -> Result<(Latex, Typ, Option<TypInfo>), CompileError> {
     let span = expr.0;
 
-    let r = match expr.1 {
+    match expr.1 {
         Expression::Error => unimplemented!(),
-        Expression::Num(val) => Ok((Latex::Num(val.to_string()), Typ::Num)),
+        Expression::Num(val) => Ok((Latex::Num(val.to_string()), Typ::Num, None)),
         Expression::Variable(name) => compile_variable_ref(ctx, span, name),
         Expression::FullyQualifiedVariable { path, item } => {
             if path.len() != 1 {
@@ -159,7 +159,7 @@ pub fn compile_expr(
         } => {
             let (left, right) = comp_binop(ctx, *left, *right)?;
             debug_assert_eq!(left.1, right.1);
-            Ok((binop_to_latex(left.0, operator, right.0), left.1))
+            Ok((binop_to_latex(left.0, operator, right.0), left.1, None))
         }
         Expression::UnaryExpr {
             val: v,
@@ -180,6 +180,7 @@ pub fn compile_expr(
                 },
             },
             Typ::Num,
+            None,
         )),
         Expression::Map(val) => {
             let (v, t, _) = compile_expr(ctx, *val)?;
@@ -189,7 +190,7 @@ pub fn compile_expr(
                     span,
                 });
             }
-            Ok((v, Typ::MappedList))
+            Ok((v, Typ::MappedList, None))
         }
         Expression::Call {
             modifier,
@@ -215,7 +216,7 @@ pub fn compile_expr(
                 })
                 .collect::<Result<Vec<Latex>, CompileError>>()?;
 
-            Ok((Latex::List(items), Typ::List))
+            Ok((Latex::List(items), Typ::List, None))
         }
         Expression::Range { first, second, end } => {
             let range = Latex::Range {
@@ -233,7 +234,7 @@ pub fn compile_expr(
                     comp_expect_num_strict(ctx, *end, CompileErrorKind::RangeExpectNumber)?.0,
                 ),
             };
-            Ok((range, Typ::List))
+            Ok((range, Typ::List, None))
         }
         Expression::Piecewise {
             first,
@@ -274,9 +275,10 @@ pub fn compile_expr(
                     default: Box::new(default),
                 },
                 ft,
+                None,
             ))
         }
-        Expression::RawLatex(ty, l) => Ok((Latex::Raw(l), ty.into())),
+        Expression::RawLatex(ty, l) => Ok((Latex::Raw(l), ty.into(), None)),
         Expression::Index { val, ind } => {
             unimplemented!();
             /*let valspan = val.0.clone();
@@ -297,8 +299,7 @@ pub fn compile_expr(
                 rt,
             ))*/
         }
-    }?;
-    Ok((r.0, r.1, None))
+    }
 }
 
 pub type CompileResult = Result<Vec<LatexStatement>, CompileError>;
