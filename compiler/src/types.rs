@@ -61,6 +61,18 @@ impl Typ {
     }
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum TypReason {
+    Expression,
+    Annotation,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct TypInfo {
+    pub span: types::Span,
+    pub reason: TypReason,
+}
+
 // heap version of core::runtime::Args
 #[derive(Clone, Debug, PartialEq)]
 pub enum FunctionArgs {

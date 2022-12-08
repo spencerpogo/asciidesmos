@@ -1,4 +1,4 @@
-use crate::types::Typ;
+use crate::types::{Typ, TypInfo};
 
 use super::{
     error::{CompileError, CompileErrorKind},
@@ -49,7 +49,7 @@ pub fn comp_expect_num(
     kind: CompileErrorKind,
 ) -> Result<(Latex, Typ), CompileError> {
     let s = expr.0.clone();
-    let (v, t) = compile_expr(ctx, expr)?;
+    let (v, t, _) = compile_expr(ctx, expr)?;
     if !t.is_num_weak() {
         return Err(CompileError { kind, span: s });
     }
@@ -62,7 +62,7 @@ pub fn comp_expect_num_strict(
     kind: CompileErrorKind,
 ) -> Result<(Latex, Typ), CompileError> {
     let span = expr.0.clone();
-    let (v, t) = compile_expr(ctx, expr)?;
+    let (v, t, _) = compile_expr(ctx, expr)?;
     if t != Typ::Num {
         return Err(CompileError { kind, span });
     }
@@ -76,8 +76,8 @@ pub fn comp_binop(
 ) -> Result<((Latex, Typ), (Latex, Typ)), CompileError> {
     let ls = left.0.clone();
     let rs = left.0.clone();
-    let (lv, lt) = compile_expr(ctx, left)?;
-    let (rv, rt) = compile_expr(ctx, right)?;
+    let (lv, lt, _) = compile_expr(ctx, left)?;
+    let (rv, rt, _) = compile_expr(ctx, right)?;
     if !lt.eq_weak(rt) {
         return Err(CompileError {
             kind: CompileErrorKind::ExpectedSameTypes {
@@ -130,10 +130,10 @@ pub fn compile_variable_ref(
 pub fn compile_expr(
     ctx: &mut Context,
     expr: LocatedExpression,
-) -> Result<(Latex, Typ), CompileError> {
+) -> Result<(Latex, Typ, Option<TypInfo>), CompileError> {
     let span = expr.0;
 
-    match expr.1 {
+    let r = match expr.1 {
         Expression::Error => unimplemented!(),
         Expression::Num(val) => Ok((Latex::Num(val.to_string()), Typ::Num)),
         Expression::Variable(name) => compile_variable_ref(ctx, span, name),
@@ -182,7 +182,7 @@ pub fn compile_expr(
             Typ::Num,
         )),
         Expression::Map(val) => {
-            let (v, t) = compile_expr(ctx, *val)?;
+            let (v, t, _) = compile_expr(ctx, *val)?;
             if t != Typ::List {
                 return Err(CompileError {
                     kind: CompileErrorKind::MapNonList,
@@ -200,7 +200,7 @@ pub fn compile_expr(
                 .into_iter()
                 .map(
                     |(s, e)| -> Result<(types::Span, Latex, Typ), CompileError> {
-                        let (latex, t) = compile_expr(ctx, (s.clone(), e))?;
+                        let (latex, t, _) = compile_expr(ctx, (s.clone(), e))?;
                         Ok((s, latex, t))
                     },
                 )
@@ -257,7 +257,7 @@ pub fn compile_expr(
                 })
                 .collect::<Result<Vec<_>, _>>()?;
             let dspan = default.0.clone();
-            let (default, dt) = compile_expr(ctx, *default)?;
+            let (default, dt, _) = compile_expr(ctx, *default)?;
             if ft != dt {
                 return Err(CompileError {
                     kind: CompileErrorKind::ExpectedSameTypes {
@@ -297,7 +297,8 @@ pub fn compile_expr(
                 rt,
             ))*/
         }
-    }
+    }?;
+    Ok((r.0, r.1, None))
 }
 
 pub type CompileResult = Result<Vec<LatexStatement>, CompileError>;
