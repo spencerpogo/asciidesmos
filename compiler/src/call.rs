@@ -82,7 +82,7 @@ pub fn compile_static_call(
                 if got_type.eq_weak((*expect_type).into()) {
                     return Err(CompileError {
                         kind: CompileErrorKind::ArgTypeMismatch {
-                            got: got_type,
+                            got: todo!(),
                             expected: *expect_type,
                         },
                         span: aspan,
@@ -415,7 +415,7 @@ mod tests {
             compile(inp.clone()),
             Err(CompileError {
                 kind: CompileErrorKind::ArgTypeMismatch {
-                    got: Typ::List,
+                    got: (Typ::List, None),
                     expected: ValType::Number
                 },
                 span: spn()
@@ -537,7 +537,7 @@ mod tests {
             .unwrap_err()
             .kind,
             CompileErrorKind::ArgTypeMismatch {
-                got: Typ::List,
+                got: (Typ::List, None),
                 expected: ValType::Number
             }
         );

@@ -102,8 +102,8 @@ pub fn comp_binop(
     if !lt.eq_weak(rt) {
         return Err(CompileError {
             kind: CompileErrorKind::ExpectedSameTypes {
-                left: lt,
-                right: rt,
+                left: (lt, li),
+                right: (rt, ri),
             },
             span: ls.with_end_of(&rs).unwrap_or(ls),
         });
@@ -266,15 +266,18 @@ pub fn compile_expr(
         } => {
             unimplemented!();
             // TODO: Improve typechecking here
-            let (first, ft, _) = branch_to_cond(ctx, *first)?;
+            let (first, ft, fi) = branch_to_cond(ctx, *first)?;
             let rest = rest
                 .into_iter()
                 .map(|b| {
                     let span = b.0.clone();
-                    let (cond, t, _) = branch_to_cond(ctx, b)?;
+                    let (cond, t, ti) = branch_to_cond(ctx, b)?;
                     if ft != t {
                         return Err(CompileError {
-                            kind: CompileErrorKind::ExpectedSameTypes { left: ft, right: t },
+                            kind: CompileErrorKind::ExpectedSameTypes {
+                                left: (ft, fi.clone()),
+                                right: (t, ti),
+                            },
                             span,
                         });
                     }
@@ -282,12 +285,12 @@ pub fn compile_expr(
                 })
                 .collect::<Result<Vec<_>, _>>()?;
             let dspan = default.0.clone();
-            let (default, dt, _) = compile_expr(ctx, *default)?;
+            let (default, dt, di) = compile_expr(ctx, *default)?;
             if ft != dt {
                 return Err(CompileError {
                     kind: CompileErrorKind::ExpectedSameTypes {
-                        left: ft,
-                        right: dt,
+                        left: (ft, fi),
+                        right: (dt, di),
                     },
                     span: dspan,
                 });
@@ -629,8 +632,8 @@ pub mod tests {
             .unwrap_err()
             .kind,
             CompileErrorKind::ExpectedSameTypes {
-                left: Typ::List,
-                right: Typ::Num
+                left: (Typ::List, None),
+                right: (Typ::Num, None)
             }
         );
     }
@@ -917,7 +920,7 @@ pub mod tests {
                 span: spn(),
                 kind: CompileErrorKind::ArgTypeMismatch {
                     expected: ValType::Number,
-                    got: Typ::List
+                    got: (Typ::List, None)
                 }
             }
         );

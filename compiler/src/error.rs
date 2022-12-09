@@ -1,7 +1,7 @@
 use std::fmt;
 use types::{ArgCount, ValType};
 
-use crate::types::Typ;
+use crate::types::{Typ, TypInfo};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ExpectedArgCount {
@@ -17,7 +17,7 @@ pub enum CompileErrorKind {
         expected: ExpectedArgCount,
     },
     ArgTypeMismatch {
-        got: Typ,
+        got: (Typ, Option<TypInfo>),
         expected: ValType,
     },
     NegateList,
@@ -31,8 +31,8 @@ pub enum CompileErrorKind {
         expected: ValType,
     },
     ExpectedSameTypes {
-        left: Typ,
-        right: Typ,
+        left: (Typ, Option<TypInfo>),
+        right: (Typ, Option<TypInfo>),
     },
     UndefinedVariable(String),
     DuplicateVariable(String),
