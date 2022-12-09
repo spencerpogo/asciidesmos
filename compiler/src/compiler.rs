@@ -13,10 +13,10 @@ use latex::{
 };
 use types::ValType;
 
-pub fn resolve_variable(ctx: &Context, var: String) -> Option<ValType> {
+pub fn resolve_variable(ctx: &Context, var: String) -> Option<(ValType, Option<TypInfo>)> {
     match ctx.variables.get::<str>(var.as_ref()) {
-        Some(r) => Some(*r),
-        None => ctx.locals.get(&*var).map(|v| *v),
+        Some(r) => Some(r.clone()),
+        None => ctx.locals.get::<str>(var.as_ref()).cloned(),
     }
 }
 
@@ -114,9 +114,9 @@ pub fn compile_variable_ref(
     name: String,
 ) -> Result<(Latex, Typ, Option<TypInfo>), CompileError> {
     match ctx.inline_vals.get(&name) {
-        Some((t, v)) => Ok((v.clone(), *t, None)),
+        Some((t, v, i)) => Ok((v.clone(), *t, i.clone())),
         None => match resolve_variable(ctx, name.clone()) {
-            Some(var_type) => Ok((Latex::Variable(name), var_type.into(), None)),
+            Some((var_type, info)) => Ok((Latex::Variable(name), var_type.into(), info)),
             None => Err(CompileError {
                 kind: CompileErrorKind::UndefinedVariable(name),
                 span,
@@ -482,9 +482,13 @@ pub mod tests {
         assert_eq!(compile(exp).unwrap(), r);
     }
 
+    pub fn tinfo() -> Option<TypInfo> {
+        Some(TypInfo::Expression(spn()))
+    }
+
     pub fn comp_with_var(v: &str, vtype: ValType, exp: Expression) -> Result<Latex, CompileError> {
         let mut ctx = new_ctx();
-        ctx.variables.insert(v.to_string(), vtype);
+        ctx.variables.insert(v.to_string(), (vtype, tinfo()));
         compile_with_ctx(&mut ctx, exp)
     }
 
@@ -902,7 +906,8 @@ pub mod tests {
     #[test]
     fn funcdef_catch_shadow() {
         let mut ctx = new_ctx();
-        ctx.variables.insert("a".to_string(), ValType::Number);
+        ctx.variables
+            .insert("a".to_string(), (ValType::Number, tinfo()));
         assert_eq!(
             compile_stmt_with_ctx(
                 &mut ctx,
@@ -926,7 +931,8 @@ pub mod tests {
     #[test]
     fn piecewise_single() {
         let mut ctx = new_ctx();
-        ctx.variables.insert("a".to_string(), ValType::Number);
+        ctx.variables
+            .insert("a".to_string(), (ValType::Number, tinfo()));
         // input taken from parser test output
         assert_eq!(
             compile_with_ctx(
@@ -961,7 +967,8 @@ pub mod tests {
     #[test]
     fn piecewise_multi() {
         let mut ctx = new_ctx();
-        ctx.variables.insert("a".to_string(), ValType::Number);
+        ctx.variables
+            .insert("a".to_string(), (ValType::Number, tinfo()));
         let firstbranch = Branch {
             cond_left: (spn(), Expression::Variable("a".to_string())),
             cond: CompareOperator::GreaterThanEqual,
@@ -1069,10 +1076,17 @@ pub mod tests {
     #[test]
     fn module_reference() {
         let mut submodule = new_ctx();
-        submodule.variables.insert("a".to_string(), ValType::Number);
         submodule
-            .inline_vals
-            .insert("b".to_string(), (Typ::Num, Latex::Num("1".to_string())));
+            .variables
+            .insert("a".to_string(), (ValType::Number, tinfo()));
+        submodule.inline_vals.insert(
+            "b".to_string(),
+            (
+                Typ::Num,
+                Latex::Num("1".to_string()),
+                Some(TypInfo::Expression(spn())),
+            ),
+        );
         let mut ctx = new_ctx();
         ctx.modules.insert("lib".to_owned(), submodule);
         let comp_var = |v| {

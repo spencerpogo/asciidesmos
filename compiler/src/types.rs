@@ -128,10 +128,10 @@ impl Loader for UnimplementedLoader {
 
 #[derive(Clone, Debug)]
 pub struct Context {
-    pub variables: HashMap<String, ValType>,
-    pub locals: HashMap<String, ValType>,
+    pub variables: HashMap<String, (ValType, Option<TypInfo>)>,
+    pub locals: HashMap<String, (ValType, Option<TypInfo>)>,
     pub defined_functions: HashMap<String, Rc<FunctionSignature>>,
-    pub inline_vals: HashMap<String, (Typ, latex::Latex)>,
+    pub inline_vals: HashMap<String, (Typ, latex::Latex, Option<TypInfo>)>,
     pub inline_fns: HashMap<String, Rc<InlineFunction>>,
     // can't support submodules (yet)
     pub modules: HashMap<String, Context>,
