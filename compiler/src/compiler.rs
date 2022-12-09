@@ -43,7 +43,7 @@ pub fn binop_to_latex(lv: Latex, operator: BinaryOperator, rv: Latex) -> Latex {
     }
 }
 
-pub fn comp_expect_num(
+pub fn comp_unop(
     ctx: &mut Context,
     expr: LocatedExpression,
     kind: CompileErrorKind,
@@ -190,10 +190,8 @@ pub fn compile_expr(
             operator: op,
         } => {
             let (l, t, i) = match op {
-                UnaryOperator::Negate => comp_expect_num(ctx, *v, CompileErrorKind::NegateList)?,
-                UnaryOperator::Factorial => {
-                    comp_expect_num(ctx, *v, CompileErrorKind::FactorialList)?
-                }
+                UnaryOperator::Negate => comp_unop(ctx, *v, CompileErrorKind::NegateList)?,
+                UnaryOperator::Factorial => comp_unop(ctx, *v, CompileErrorKind::FactorialList)?,
             };
             Ok((
                 Latex::UnaryExpression {
