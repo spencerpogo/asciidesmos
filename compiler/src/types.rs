@@ -71,7 +71,8 @@ impl Typ {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypInfo {
-    Expression(types::Span),
+    Literal(types::Span),
+    BinOp(types::Span, types::Span),
 }
 
 // heap version of core::runtime::Args

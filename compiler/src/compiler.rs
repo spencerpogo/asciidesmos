@@ -73,12 +73,11 @@ pub fn comp_expect_num_strict(
 }
 
 pub fn combine_types(
-    left: (Typ, Option<TypInfo>),
-    right: (Typ, Option<TypInfo>),
-    both: types::Span,
+    left: (types::Span, Typ, Option<TypInfo>),
+    right: (types::Span, Typ, Option<TypInfo>),
 ) -> (Typ, Option<TypInfo>) {
-    let (lt, li) = left;
-    let (rt, ri) = right;
+    let (ls, lt, li) = left;
+    let (rs, rt, ri) = right;
     if lt.is_list_weak() {
         return (Typ::List, li);
     }
@@ -88,9 +87,7 @@ pub fn combine_types(
     // only possibilities left:
     debug_assert_eq!(lt, Typ::Num);
     debug_assert_eq!(rt, Typ::Num);
-    // when both sides are the same type, it is useful to think of the type as being
-    //  caused by the entire expression rather than one arbitrary side
-    (lt, Some(TypInfo::Expression(both)))
+    (lt, Some(TypInfo::BinOp(ls, rs)))
 }
 
 pub fn comp_binop(
@@ -102,17 +99,16 @@ pub fn comp_binop(
     let rs = left.0.clone();
     let (lv, lt, li) = compile_expr(ctx, left)?;
     let (rv, rt, ri) = compile_expr(ctx, right)?;
-    let combined_span = ls.with_end_of(&rs).unwrap_or(ls);
     if !lt.eq_weak(rt) {
         return Err(CompileError {
             kind: CompileErrorKind::ExpectedSameTypes {
                 left: lt,
                 right: rt,
             },
-            span: combined_span,
+            span: ls.with_end_of(&rs).unwrap_or(ls),
         });
     }
-    let (t, i) = combine_types((lt, li), (rt, ri), combined_span);
+    let (t, i) = combine_types((ls, lt, li), (rs, rt, ri));
     Ok((lv, rv, t, i))
 }
 
@@ -163,7 +159,7 @@ pub fn compile_expr(
         Expression::Num(val) => Ok((
             Latex::Num(val.to_string()),
             Typ::Num,
-            Some(TypInfo::Expression(span)),
+            Some(TypInfo::Literal(span)),
         )),
         Expression::Variable(name) => compile_variable_ref(ctx, span, name),
         Expression::FullyQualifiedVariable { path, item } => {
@@ -509,7 +505,7 @@ pub mod tests {
     }
 
     pub fn tinfo() -> Option<TypInfo> {
-        Some(TypInfo::Expression(spn()))
+        Some(TypInfo::Literal(spn()))
     }
 
     pub fn comp_with_var(v: &str, vtype: ValType, exp: Expression) -> Result<Latex, CompileError> {
@@ -1107,11 +1103,7 @@ pub mod tests {
             .insert("a".to_string(), (ValType::Number, tinfo()));
         submodule.inline_vals.insert(
             "b".to_string(),
-            (
-                Typ::Num,
-                Latex::Num("1".to_string()),
-                Some(TypInfo::Expression(spn())),
-            ),
+            (Typ::Num, Latex::Num("1".to_string()), tinfo()),
         );
         let mut ctx = new_ctx();
         ctx.modules.insert("lib".to_owned(), submodule);
