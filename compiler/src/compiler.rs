@@ -223,9 +223,9 @@ pub fn compile_expr(
             let compiled_args = args
                 .into_iter()
                 .map(
-                    |(s, e)| -> Result<(types::Span, Latex, Typ), CompileError> {
-                        let (latex, t, _) = compile_expr(ctx, (s.clone(), e))?;
-                        Ok((s, latex, t))
+                    |(s, e)| -> Result<(types::Span, Latex, Typ, Option<TypInfo>), CompileError> {
+                        let (latex, t, i) = compile_expr(ctx, (s.clone(), e))?;
+                        Ok((s, latex, t, i))
                     },
                 )
                 .collect::<Result<Vec<_>, CompileError>>()?;

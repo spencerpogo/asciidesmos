@@ -233,7 +233,7 @@ pub fn compile_call(
     span: types::Span,
     func: ast::Function,
     modifier: ast::CallModifier,
-    args: Vec<(types::Span, latex::Latex, Typ)>,
+    args: Vec<(types::Span, latex::Latex, Typ, Option<TypInfo>)>,
 ) -> Result<(latex::Latex, Typ, Option<TypInfo>), CompileError> {
     let rfunc = resolve_function(ctx, func.clone()).ok_or(CompileError {
         kind: CompileErrorKind::UnknownFunction(func.clone()),
@@ -254,9 +254,8 @@ pub fn compile_call(
                 });
             }
 
-            unimplemented!();
-            /*let mut vars = HashMap::new();
-            for ((name, typ), (arg_span, arg_lat, got_typ)) in
+            let mut vars = HashMap::with_capacity(rfunc.args.len());
+            for ((name, typ), (arg_span, arg_lat, got_typ, _info)) in
                 rfunc.args.into_iter().zip(args.into_iter())
             {
                 if typ.into() != got_typ {
@@ -269,9 +268,9 @@ pub fn compile_call(
                     });
                 }
                 vars.insert(name, arg_lat);
-            }*/
+            }
 
-            //Ok((replace_variables(rfunc.body, &vars), rfunc.ret))
+            Ok((replace_variables(rfunc.body, &vars), rfunc.ret, todo!()))
         }
         ResolvedFunction::Normal {
             func: rfunc,
