@@ -254,7 +254,8 @@ pub fn compile_call(
                 });
             }
 
-            let mut vars = HashMap::with_capacity(rfunc.args.len());
+            todo!();
+            /*let mut vars = HashMap::with_capacity(rfunc.args.len());
             for ((name, typ), (arg_span, arg_lat, got_typ, _info)) in
                 rfunc.args.into_iter().zip(args.into_iter())
             {
@@ -270,26 +271,26 @@ pub fn compile_call(
                 vars.insert(name, arg_lat);
             }
 
-            Ok((replace_variables(rfunc.body, &vars), rfunc.ret, todo!()))
+            Ok((replace_variables(rfunc.body, &vars), rfunc.ret, todo!()))*/
         }
         ResolvedFunction::Normal {
             func: rfunc,
             is_builtin,
-        } => match &rfunc.args {
-            FunctionArgs::Static(rargs) => compile_static_call(
-                span,
-                func,
-                modifier,
-                args,
-                (*rfunc).clone(),
-                rargs,
-                is_builtin,
-            ),
-            FunctionArgs::Variadic => {
-                unimplemented!()
-                //compile_variadic_call(span, func, modifier, args, (*rfunc).clone(), is_builtin)
-            }
-        },
+        } => todo!(), /*match &rfunc.args {
+                          FunctionArgs::Static(rargs) => compile_static_call(
+                              span,
+                              func,
+                              modifier,
+                              args,
+                              (*rfunc).clone(),
+                              rargs,
+                              is_builtin,
+                          ),
+                          FunctionArgs::Variadic => {
+                              unimplemented!()
+                              //compile_variadic_call(span, func, modifier, args, (*rfunc).clone(), is_builtin)
+                          }
+                      }*/
     }
 }
 
