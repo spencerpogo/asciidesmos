@@ -213,7 +213,7 @@ pub fn compile_expr(
                     span,
                 });
             }
-            Ok((v, Typ::MappedList, None))
+            Ok((v, Typ::MappedList, Some(TypInfo::Map(span))))
         }
         Expression::Call {
             modifier,

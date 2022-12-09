@@ -73,6 +73,7 @@ impl Typ {
 pub enum TypInfo {
     Literal(types::Span),
     BinOp(types::Span, types::Span),
+    Map(types::Span),
 }
 
 // heap version of core::runtime::Args
