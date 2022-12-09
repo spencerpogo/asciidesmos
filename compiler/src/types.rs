@@ -59,6 +59,14 @@ impl Typ {
         // both sides are strictly Self::Num
         Self::Num
     }
+
+    pub fn unop_result(self) -> Self {
+        match self {
+            Self::Num => Self::Num,
+            Self::List => Self::List,
+            Self::MappedList => Self::List,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]

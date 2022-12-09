@@ -47,13 +47,16 @@ pub fn comp_expect_num(
     ctx: &mut Context,
     expr: LocatedExpression,
     kind: CompileErrorKind,
-) -> Result<(Latex, Typ), CompileError> {
+) -> Result<(Latex, Typ, Option<TypInfo>), CompileError> {
     let s = expr.0.clone();
-    let (v, t, _) = compile_expr(ctx, expr)?;
+    let (v, t, i) = compile_expr(ctx, expr)?;
     if !t.is_num_weak() {
         return Err(CompileError { kind, span: s });
     }
-    Ok((v, t))
+    // we want to have to explicitly map at every step, so don't
+    //  return List instead of MappedList
+    // Pass the inner option's typeinfo through
+    Ok((v, t.unop_result(), i))
 }
 
 pub fn comp_expect_num_strict(
@@ -77,10 +80,10 @@ pub fn combine_types(
     let (lt, li) = left;
     let (rt, ri) = right;
     if lt.is_list_weak() {
-        return (lt, li);
+        return (Typ::List, li);
     }
     if rt.is_list_weak() {
-        return (rt, ri);
+        return (Typ::List, ri);
     }
     // only possibilities left:
     debug_assert_eq!(lt, Typ::Num);
@@ -189,24 +192,25 @@ pub fn compile_expr(
         Expression::UnaryExpr {
             val: v,
             operator: op,
-        } => Ok((
-            Latex::UnaryExpression {
-                left: Box::new(match op {
-                    UnaryOperator::Negate => {
-                        comp_expect_num(ctx, *v, CompileErrorKind::NegateList)?.0
-                    }
-                    UnaryOperator::Factorial => {
-                        comp_expect_num(ctx, *v, CompileErrorKind::FactorialList)?.0
-                    }
-                }),
-                operator: match op {
-                    UnaryOperator::Negate => LatexUnaryOperator::Negate,
-                    UnaryOperator::Factorial => LatexUnaryOperator::Factorial,
+        } => {
+            let (l, t, i) = match op {
+                UnaryOperator::Negate => comp_expect_num(ctx, *v, CompileErrorKind::NegateList)?,
+                UnaryOperator::Factorial => {
+                    comp_expect_num(ctx, *v, CompileErrorKind::FactorialList)?
+                }
+            };
+            Ok((
+                Latex::UnaryExpression {
+                    left: Box::new(l),
+                    operator: match op {
+                        UnaryOperator::Negate => LatexUnaryOperator::Negate,
+                        UnaryOperator::Factorial => LatexUnaryOperator::Factorial,
+                    },
                 },
-            },
-            Typ::Num,
-            None,
-        )),
+                t,
+                i,
+            ))
+        }
         Expression::Map(val) => {
             let (v, t, _) = compile_expr(ctx, *val)?;
             if t != Typ::List {
