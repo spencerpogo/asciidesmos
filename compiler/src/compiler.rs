@@ -69,42 +69,64 @@ pub fn comp_expect_num_strict(
     Ok((v, t))
 }
 
+pub fn combine_types(
+    left: (Typ, Option<TypInfo>),
+    right: (Typ, Option<TypInfo>),
+    both: types::Span,
+) -> (Typ, Option<TypInfo>) {
+    let (lt, li) = left;
+    let (rt, ri) = right;
+    if lt.is_list_weak() {
+        return (lt, li);
+    }
+    if rt.is_list_weak() {
+        return (rt, ri);
+    }
+    // only possibilities left:
+    debug_assert_eq!(lt, Typ::Num);
+    debug_assert_eq!(rt, Typ::Num);
+    // when both sides are the same type, it is useful to think of the type as being
+    //  caused by the entire expression rather than one arbitrary side
+    (lt, Some(TypInfo::Expression(both)))
+}
+
 pub fn comp_binop(
     ctx: &mut Context,
     left: LocatedExpression,
     right: LocatedExpression,
-) -> Result<((Latex, Typ), (Latex, Typ)), CompileError> {
+) -> Result<(Latex, Latex, Typ, Option<TypInfo>), CompileError> {
     let ls = left.0.clone();
     let rs = left.0.clone();
-    let (lv, lt, _) = compile_expr(ctx, left)?;
-    let (rv, rt, _) = compile_expr(ctx, right)?;
+    let (lv, lt, li) = compile_expr(ctx, left)?;
+    let (rv, rt, ri) = compile_expr(ctx, right)?;
+    let combined_span = ls.with_end_of(&rs).unwrap_or(ls);
     if !lt.eq_weak(rt) {
         return Err(CompileError {
             kind: CompileErrorKind::ExpectedSameTypes {
                 left: lt,
                 right: rt,
             },
-            span: ls.with_end_of(&rs).unwrap_or(ls),
+            span: combined_span,
         });
     }
-    Ok(((lv, lt), (rv, rt)))
+    let (t, i) = combine_types((lt, li), (rt, ri), combined_span);
+    Ok((lv, rv, t, i))
 }
 
 pub fn branch_to_cond(
     ctx: &mut Context,
     (_spn, branch): ast::Spanned<ast::Branch>,
-) -> Result<(Cond, Typ), CompileError> {
-    let (left, right) = comp_binop(ctx, branch.cond_left, branch.cond_right)?;
+) -> Result<(Cond, Typ, Option<TypInfo>), CompileError> {
+    let (left, right, t, i) = comp_binop(ctx, branch.cond_left, branch.cond_right)?;
     Ok((
         Cond {
-            left: left.0,
+            left: left,
             op: branch.cond,
-            right: right.0,
+            right: right,
             result: compile_expr(ctx, branch.val)?.0,
         },
-        // condtions are mapped as well, e.g.
-        //  [1,0] = [1,1] => [true, false]
-        left.1.binop_result(right.1),
+        t,
+        i,
     ))
 }
 
@@ -161,9 +183,8 @@ pub fn compile_expr(
             operator,
             right,
         } => {
-            let (left, right) = comp_binop(ctx, *left, *right)?;
-            debug_assert_eq!(left.1, right.1);
-            Ok((binop_to_latex(left.0, operator, right.0), left.1, None))
+            let (left, right, t, i) = comp_binop(ctx, *left, *right)?;
+            Ok((binop_to_latex(left, operator, right), t, i))
         }
         Expression::UnaryExpr {
             val: v,
@@ -245,13 +266,14 @@ pub fn compile_expr(
             rest,
             default,
         } => {
+            unimplemented!();
             // TODO: Improve typechecking here
-            let (first, ft) = branch_to_cond(ctx, *first)?;
+            let (first, ft, _) = branch_to_cond(ctx, *first)?;
             let rest = rest
                 .into_iter()
                 .map(|b| {
                     let span = b.0.clone();
-                    let (cond, t) = branch_to_cond(ctx, b)?;
+                    let (cond, t, _) = branch_to_cond(ctx, b)?;
                     if ft != t {
                         return Err(CompileError {
                             kind: CompileErrorKind::ExpectedSameTypes { left: ft, right: t },
