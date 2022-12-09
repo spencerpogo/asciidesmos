@@ -135,7 +135,11 @@ pub fn compile_expr(
 
     match expr.1 {
         Expression::Error => unimplemented!(),
-        Expression::Num(val) => Ok((Latex::Num(val.to_string()), Typ::Num, None)),
+        Expression::Num(val) => Ok((
+            Latex::Num(val.to_string()),
+            Typ::Num,
+            Some(TypInfo::Expression(span)),
+        )),
         Expression::Variable(name) => compile_variable_ref(ctx, span, name),
         Expression::FullyQualifiedVariable { path, item } => {
             if path.len() != 1 {
