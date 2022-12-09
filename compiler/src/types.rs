@@ -69,11 +69,34 @@ impl Typ {
     }
 }
 
+pub fn combine_types(
+    left: (types::Span, Typ, Option<TypInfo>),
+    right: (types::Span, Typ, Option<TypInfo>),
+) -> (types::Span, Typ, Option<TypInfo>) {
+    let (ls, lt, li) = left;
+    let (rs, rt, ri) = right;
+    if lt.is_list_weak() {
+        return (ls, Typ::List, li);
+    }
+    if rt.is_list_weak() {
+        return (rs, Typ::List, ri);
+    }
+    // only possibilities left:
+    debug_assert_eq!(lt, Typ::Num);
+    debug_assert_eq!(rt, Typ::Num);
+    (
+        ls.with_end_of(&rs).expect("Parsing same file"),
+        lt,
+        Some(TypInfo::BinOp(ls, rs)),
+    )
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypInfo {
     Literal(types::Span),
     BinOp(types::Span, types::Span),
     Map(types::Span),
+    Builtin(ast::Function),
 }
 
 // heap version of core::runtime::Args
@@ -87,7 +110,7 @@ pub enum FunctionArgs {
 #[derive(Clone, Debug, PartialEq)]
 pub struct FunctionSignature {
     pub args: FunctionArgs,
-    pub ret: ValType,
+    pub ret: (ValType, Option<TypInfo>),
 }
 
 #[derive(Clone, Debug, PartialEq)]

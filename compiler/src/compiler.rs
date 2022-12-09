@@ -1,4 +1,4 @@
-use crate::types::{Typ, TypInfo};
+use crate::types::{combine_types, Typ, TypInfo};
 
 use super::{
     error::{CompileError, CompileErrorKind},
@@ -72,24 +72,6 @@ pub fn comp_expect_num_strict(
     Ok((v, t))
 }
 
-pub fn combine_types(
-    left: (types::Span, Typ, Option<TypInfo>),
-    right: (types::Span, Typ, Option<TypInfo>),
-) -> (Typ, Option<TypInfo>) {
-    let (ls, lt, li) = left;
-    let (rs, rt, ri) = right;
-    if lt.is_list_weak() {
-        return (Typ::List, li);
-    }
-    if rt.is_list_weak() {
-        return (Typ::List, ri);
-    }
-    // only possibilities left:
-    debug_assert_eq!(lt, Typ::Num);
-    debug_assert_eq!(rt, Typ::Num);
-    (lt, Some(TypInfo::BinOp(ls, rs)))
-}
-
 pub fn comp_binop(
     ctx: &mut Context,
     left: LocatedExpression,
@@ -108,7 +90,7 @@ pub fn comp_binop(
             span: ls.with_end_of(&rs).unwrap_or(ls),
         });
     }
-    let (t, i) = combine_types((ls, lt, li), (rs, rt, ri));
+    let (_s, t, i) = combine_types((ls, lt, li), (rs, rt, ri));
     Ok((lv, rv, t, i))
 }
 

@@ -6,7 +6,9 @@ use types::{self, ValType};
 use crate::{
     builtins,
     error::{CompileError, CompileErrorKind, ExpectedArgCount},
-    types::{Context, FunctionArgs, FunctionSignature, ResolvedFunction, Typ, TypInfo},
+    types::{
+        combine_types, Context, FunctionArgs, FunctionSignature, ResolvedFunction, Typ, TypInfo,
+    },
 };
 
 pub fn func_to_latex(func: ast::Function) -> latex::Function {
@@ -22,14 +24,14 @@ pub fn resolve_function<'a>(ctx: &'a mut Context, func: ast::Function) -> Option
         ast::Function::Log { base: _ } => Some(ResolvedFunction::Normal {
             func: Rc::new(FunctionSignature {
                 args: FunctionArgs::Static(vec![types::ValType::Number]),
-                ret: types::ValType::Number,
+                ret: (types::ValType::Number, Some(TypInfo::Builtin(func))),
             }),
             is_builtin: true,
         }),
-        ast::Function::Normal { name } => match ctx.defined_functions.get(&*name) {
-            None => match ctx.inline_fns.get(&*name) {
+        ast::Function::Normal { name } => match ctx.defined_functions.get::<str>(name.as_ref()) {
+            None => match ctx.inline_fns.get::<str>(name.as_ref()) {
                 Some(f) => Some(ResolvedFunction::Inline(f.clone())),
-                None => match builtins::BUILTIN_FUNCTIONS.get(&*name) {
+                None => match builtins::BUILTIN_FUNCTIONS.get::<str>(name.as_ref()) {
                     None => None,
                     Some(f) => Some(ResolvedFunction::Normal {
                         func: Rc::new(FunctionSignature {
@@ -37,7 +39,10 @@ pub fn resolve_function<'a>(ctx: &'a mut Context, func: ast::Function) -> Option
                                 types::Args::Static(args) => FunctionArgs::Static(args.to_vec()),
                                 types::Args::Variadic => FunctionArgs::Variadic,
                             },
-                            ret: f.ret,
+                            ret: (
+                                f.ret,
+                                Some(TypInfo::Builtin(ast::Function::Normal { name })),
+                            ),
                         }),
                         is_builtin: true,
                     }),
@@ -55,46 +60,58 @@ pub fn compile_static_call(
     span: types::Span,
     func: ast::Function,
     modifier: ast::CallModifier,
-    args: Vec<(types::Span, latex::Latex, Typ)>,
+    args: Vec<(types::Span, latex::Latex, Typ, Option<TypInfo>)>,
     rfunc: FunctionSignature,
     rargs: &Vec<types::ValType>,
     is_builtin: bool,
 ) -> Result<(latex::Latex, Typ, Option<TypInfo>), CompileError> {
     // Validate arg count
-    let got = args.len();
-    let expect = rargs.len();
+    {
+        let got = args.len();
+        let expect = rargs.len();
 
-    if got != expect {
-        return Err(CompileError {
-            kind: CompileErrorKind::WrongArgCount {
-                got,
-                expected: ExpectedArgCount::Exact(expect),
-            },
-            span,
-        });
+        if got != expect {
+            return Err(CompileError {
+                kind: CompileErrorKind::WrongArgCount {
+                    got,
+                    expected: ExpectedArgCount::Exact(expect),
+                },
+                span,
+            });
+        }
     }
     let args_results = args
         .into_iter()
         .zip(rargs.iter())
         .map(
-            |(got_type, expect_type)| -> Result<(latex::Latex, Typ), _> {
-                let (aspan, arg_latex, got_type) = got_type;
-                if got_type.eq_weak((*expect_type).into()) {
+            |(got_type, expect_type)| -> Result<(latex::Latex, (types::Span, Typ, Option<TypInfo>)), _> {
+                let (aspan, arg_latex, gt, gi) = got_type;
+                if gt.eq_weak((*expect_type).into()) {
                     return Err(CompileError {
                         kind: CompileErrorKind::ArgTypeMismatch {
-                            got: todo!(),
+                            got: (gt, gi),
                             expected: *expect_type,
                         },
                         span: aspan,
                     });
                 }
-                Ok((arg_latex, got_type))
+                Ok((arg_latex, (aspan, gt, gi)))
             },
         )
-        .collect::<Result<Vec<(latex::Latex, Typ)>, _>>()?;
+        .collect::<Result<Vec<_>, _>>()?;
 
     let (args_latex, args_types): (Vec<_>, Vec<_>) = args_results.into_iter().unzip();
-    let ret_typ = args_types.into_iter().reduce(|l, r| l.binop_result(r));
+    let ret = args_types
+        .into_iter()
+        .reduce(|left, right| combine_types(left, right));
+    let (rt, ri) = match ret {
+        None => {
+            // there were no args
+            let (t, i) = rfunc.ret;
+            (t.into(), i)
+        }
+        Some((_s, t, i)) => (t, i),
+    };
 
     Ok((
         latex::Latex::Call {
@@ -102,11 +119,8 @@ pub fn compile_static_call(
             is_builtin,
             args: args_latex,
         },
-        match ret_typ {
-            None => rfunc.ret.into(), // there were no args
-            Some(ret_typ) => ret_typ.binop_result(ret_typ.into()),
-        },
-        None,
+        rt,
+        ri,
     ))
 }
 
