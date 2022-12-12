@@ -20,40 +20,45 @@ pub fn func_to_latex(func: ast::Function) -> latex::Function {
 
 // Returns function and whether it is builtin
 pub fn resolve_function<'a>(ctx: &'a mut Context, func: ast::Function) -> Option<ResolvedFunction> {
-    match func {
-        ast::Function::Log { base: _ } => Some(ResolvedFunction::Normal {
+    if let ast::Function::Log { base: _ } = func {
+        return Some(ResolvedFunction::Normal {
             func: Rc::new(FunctionSignature {
                 args: FunctionArgs::Static(vec![types::ValType::Number]),
                 ret: (types::ValType::Number, Some(TypInfo::Builtin(func))),
             }),
             is_builtin: true,
-        }),
-        ast::Function::Normal { name } => match ctx.defined_functions.get::<str>(name.as_ref()) {
-            None => match ctx.inline_fns.get::<str>(name.as_ref()) {
-                Some(f) => Some(ResolvedFunction::Inline(f.clone())),
-                None => match builtins::BUILTIN_FUNCTIONS.get::<str>(name.as_ref()) {
-                    None => None,
-                    Some(f) => Some(ResolvedFunction::Normal {
-                        func: Rc::new(FunctionSignature {
-                            args: match f.args {
-                                types::Args::Static(args) => FunctionArgs::Static(args.to_vec()),
-                                types::Args::Variadic => FunctionArgs::Variadic,
-                            },
-                            ret: (
-                                f.ret,
-                                Some(TypInfo::Builtin(ast::Function::Normal { name })),
-                            ),
-                        }),
-                        is_builtin: true,
-                    }),
-                },
-            },
-            Some(f) => Some(ResolvedFunction::Normal {
-                func: f.clone(),
-                is_builtin: false,
-            }),
-        },
+        });
+    };
+    let name = if let ast::Function::Normal { name } = func {
+        name
+    } else {
+        unreachable!()
+    };
+    if let Some(f) = ctx.inline_fns.get::<str>(name.as_ref()) {
+        return Some(ResolvedFunction::Inline(f.clone()));
     }
+    if let Some(f) = ctx.defined_functions.get::<str>(name.as_ref()) {
+        return Some(ResolvedFunction::Normal {
+            func: f.clone(),
+            is_builtin: false,
+        });
+    }
+    if let Some(f) = builtins::BUILTIN_FUNCTIONS.get::<str>(name.as_ref()) {
+        return Some(ResolvedFunction::Normal {
+            func: Rc::new(FunctionSignature {
+                args: match f.args {
+                    types::Args::Static(args) => FunctionArgs::Static(args.to_vec()),
+                    types::Args::Variadic => FunctionArgs::Variadic,
+                },
+                ret: (
+                    f.ret,
+                    Some(TypInfo::Builtin(ast::Function::Normal { name })),
+                ),
+            }),
+            is_builtin: true,
+        });
+    }
+    None
 }
 
 fn reduce_types(types: Vec<(types::Span, Typ, Option<TypInfo>)>) -> Option<(Typ, Option<TypInfo>)> {
