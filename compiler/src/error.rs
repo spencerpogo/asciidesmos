@@ -34,6 +34,7 @@ pub enum CompileErrorKind {
         left: (Typ, Option<TypInfo>),
         right: (Typ, Option<TypInfo>),
     },
+    VariadicList,
     UndefinedVariable(String),
     DuplicateVariable(String),
     ExpectedFunction,
@@ -104,6 +105,9 @@ impl CompileErrorKind {
                     "Expected left type {:#?} to match right type {:#?}",
                     left, right
                 )
+            }
+            CompileErrorKind::VariadicList => {
+                "Variadic functions expect all numerical arguments".to_string()
             }
             CompileErrorKind::UndefinedVariable(var) => {
                 format!("Undefined variable '{}'", var)

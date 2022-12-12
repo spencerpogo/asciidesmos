@@ -56,6 +56,20 @@ pub fn resolve_function<'a>(ctx: &'a mut Context, func: ast::Function) -> Option
     }
 }
 
+fn reduce_types(types: Vec<(types::Span, Typ, Option<TypInfo>)>) -> Option<(Typ, Option<TypInfo>)> {
+    types
+        .into_iter()
+        .reduce(|left, right| combine_types(left, right))
+        .map(|(_s, t, i)| (t, i))
+}
+
+fn resolve_func_type(
+    args_types: Vec<(types::Span, Typ, Option<TypInfo>)>,
+    rfunc: FunctionSignature,
+) -> (Typ, Option<TypInfo>) {
+    reduce_types(args_types).unwrap_or((rfunc.ret.0.into(), rfunc.ret.1))
+}
+
 pub fn compile_static_call(
     span: types::Span,
     func: ast::Function,
@@ -101,17 +115,7 @@ pub fn compile_static_call(
         .collect::<Result<Vec<_>, _>>()?;
 
     let (args_latex, args_types): (Vec<_>, Vec<_>) = args_results.into_iter().unzip();
-    let ret = args_types
-        .into_iter()
-        .reduce(|left, right| combine_types(left, right));
-    let (rt, ri) = match ret {
-        None => {
-            // there were no args
-            let (t, i) = rfunc.ret;
-            (t.into(), i)
-        }
-        Some((_s, t, i)) => (t, i),
-    };
+    let (rt, ri) = resolve_func_type(args_types, rfunc);
 
     Ok((
         latex::Latex::Call {
@@ -124,14 +128,46 @@ pub fn compile_static_call(
     ))
 }
 
+fn variadic_call_types(
+    func: ast::Function,
+    args: Vec<(types::Span, latex::Latex, Typ, Option<TypInfo>)>,
+    rfunc: FunctionSignature,
+) -> Result<(Vec<Latex>, Typ, Option<TypInfo>), CompileError> {
+    if args.len() == 1 {
+        let first = args.first().unwrap();
+        if first.2.is_list_weak() {
+            let (rt, ri) = rfunc.ret;
+            return Ok((vec![first.1.clone()], rt.into(), ri));
+        }
+    }
+    let (args_latex, args_types) = args
+        .into_iter()
+        .map(
+            |(span, latex, t, ti)| -> Result<(Latex, (types::Span, Typ, Option<TypInfo>)), CompileError> {
+                if !t.is_num_weak() {
+                    return Err(CompileError {
+                        span,
+                        kind: CompileErrorKind::VariadicList,
+                    });
+                }
+                Ok((latex, (span, t, ti)))
+            },
+        )
+        .collect::<Result<Vec<_>, CompileError>>()?
+        .into_iter()
+        .unzip();
+    let (rt, ri) = resolve_func_type(args_types, rfunc);
+    Ok((args_latex, rt, ri))
+}
+
 pub fn compile_variadic_call(
     span: types::Span,
     func: ast::Function,
     modifier: ast::CallModifier,
-    args: Vec<(types::Span, latex::Latex, Typ)>,
+    args: Vec<(types::Span, latex::Latex, Typ, Option<TypInfo>)>,
     rfunc: FunctionSignature,
     is_builtin: bool,
-) -> Result<(latex::Latex, types::ValType), CompileError> {
+) -> Result<(latex::Latex, Typ, Option<TypInfo>), CompileError> {
     if args.is_empty() {
         return Err(CompileError {
             kind: CompileErrorKind::WrongArgCount {
@@ -141,28 +177,9 @@ pub fn compile_variadic_call(
             span: span,
         });
     }
-    unimplemented!();
-    /*// if variadic functions are passed a single list, they will return a single value
+    // if variadic functions are passed a single list, they will return a single value
     // if passed multiple lists, normal automatic mapping applies
-    let (args_latex, ret) = if args.len() == 1 && first.2.is_list_weak() {
-        (first.1, Typ::Num)
-    } else {
-        let args_results = args
-            .into_iter()
-            .try_reduce(|l, r| -> Result<Typ, CompileError> {
-                if !l.2.eq_weak(r.2) {
-                    return Err(CompileError {
-                        kind: CompileErrorKind::ExpectedSameTypes {
-                            left: l.2,
-                            right: r.2,
-                        },
-                        span: r.0,
-                    });
-                }
-                Ok(l.2.binop_result(r.2))
-            })?
-            .unwrap_or(rfunc.ret);
-    };
+    let (args_latex, ret, ri) = variadic_call_types(func.clone(), args, rfunc)?;
     Ok((
         latex::Latex::Call {
             func: func_to_latex(func),
@@ -170,7 +187,8 @@ pub fn compile_variadic_call(
             args: args_latex,
         },
         ret,
-    ))*/
+        ri,
+    ))
 }
 
 pub fn map_variables<F>(node: latex::Latex, replacer: &F) -> Latex
@@ -290,21 +308,20 @@ pub fn compile_call(
         ResolvedFunction::Normal {
             func: rfunc,
             is_builtin,
-        } => todo!(), /*match &rfunc.args {
-                          FunctionArgs::Static(rargs) => compile_static_call(
-                              span,
-                              func,
-                              modifier,
-                              args,
-                              (*rfunc).clone(),
-                              rargs,
-                              is_builtin,
-                          ),
-                          FunctionArgs::Variadic => {
-                              unimplemented!()
-                              //compile_variadic_call(span, func, modifier, args, (*rfunc).clone(), is_builtin)
-                          }
-                      }*/
+        } => match &rfunc.args {
+            FunctionArgs::Static(rargs) => compile_static_call(
+                span,
+                func,
+                modifier,
+                args,
+                (*rfunc).clone(),
+                rargs,
+                is_builtin,
+            ),
+            FunctionArgs::Variadic => {
+                compile_variadic_call(span, func, modifier, args, (*rfunc).clone(), is_builtin)
+            }
+        },
     }
 }
 
