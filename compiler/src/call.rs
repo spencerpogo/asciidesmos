@@ -70,9 +70,34 @@ fn reduce_types(types: Vec<(types::Span, Typ, Option<TypInfo>)>) -> Option<(Typ,
 
 fn resolve_func_type(
     args_types: Vec<(types::Span, Typ, Option<TypInfo>)>,
-    rfunc: FunctionSignature,
+    ret: (ValType, Option<TypInfo>),
 ) -> (Typ, Option<TypInfo>) {
-    reduce_types(args_types).unwrap_or((rfunc.ret.0.into(), rfunc.ret.1))
+    reduce_types(args_types).unwrap_or((ret.0.into(), ret.1))
+}
+
+fn check_arg_types(
+    args: Vec<(types::Span, latex::Latex, Typ, Option<TypInfo>)>,
+    rargs: &Vec<types::ValType>,
+) -> Result<Vec<(latex::Latex, (types::Span, Typ, Option<TypInfo>))>, CompileError> {
+    args
+        .into_iter()
+        .zip(rargs.iter())
+        .map(
+            |(got_type, expect_type)| -> Result<(latex::Latex, (types::Span, Typ, Option<TypInfo>)), _> {
+                let (aspan, arg_latex, gt, gi) = got_type;
+                if gt.eq_weak((*expect_type).into()) {
+                    return Err(CompileError {
+                        kind: CompileErrorKind::ArgTypeMismatch {
+                            got: (gt, gi),
+                            expected: *expect_type,
+                        },
+                        span: aspan,
+                    });
+                }
+                Ok((arg_latex, (aspan, gt, gi)))
+            },
+        )
+        .collect::<Result<Vec<_>, _>>()
 }
 
 pub fn compile_static_call(
@@ -99,28 +124,10 @@ pub fn compile_static_call(
             });
         }
     }
-    let args_results = args
-        .into_iter()
-        .zip(rargs.iter())
-        .map(
-            |(got_type, expect_type)| -> Result<(latex::Latex, (types::Span, Typ, Option<TypInfo>)), _> {
-                let (aspan, arg_latex, gt, gi) = got_type;
-                if gt.eq_weak((*expect_type).into()) {
-                    return Err(CompileError {
-                        kind: CompileErrorKind::ArgTypeMismatch {
-                            got: (gt, gi),
-                            expected: *expect_type,
-                        },
-                        span: aspan,
-                    });
-                }
-                Ok((arg_latex, (aspan, gt, gi)))
-            },
-        )
-        .collect::<Result<Vec<_>, _>>()?;
 
+    let args_results = check_arg_types(args, rargs)?;
     let (args_latex, args_types): (Vec<_>, Vec<_>) = args_results.into_iter().unzip();
-    let (rt, ri) = resolve_func_type(args_types, rfunc);
+    let (rt, ri) = resolve_func_type(args_types, rfunc.ret);
 
     Ok((
         latex::Latex::Call {
@@ -161,7 +168,7 @@ fn variadic_call_types(
         .collect::<Result<Vec<_>, CompileError>>()?
         .into_iter()
         .unzip();
-    let (rt, ri) = resolve_func_type(args_types, rfunc);
+    let (rt, ri) = resolve_func_type(args_types, rfunc.ret);
     Ok((args_latex, rt, ri))
 }
 
@@ -256,8 +263,6 @@ where
     }
 }
 
-//pub fn replace_variables
-//vars: &HashMap<String, latex::Latex>
 pub fn replace_variables(node: Latex, vars: &HashMap<String, Latex>) -> Latex {
     map_variables(node, &|name| match vars.get(&name) {
         Some(replacement) => replacement.clone(),
@@ -279,36 +284,47 @@ pub fn compile_call(
     match rfunc {
         ResolvedFunction::Inline(f_rc) => {
             let rfunc = (*f_rc).clone();
-            let got = args.len();
-            let expected = rfunc.args.len();
-            if got != expected {
-                return Err(CompileError {
-                    kind: CompileErrorKind::WrongArgCount {
-                        got,
-                        expected: ExpectedArgCount::Exact(expected),
-                    },
-                    span,
-                });
-            }
-
-            todo!();
-            /*let mut vars = HashMap::with_capacity(rfunc.args.len());
-            for ((name, typ), (arg_span, arg_lat, got_typ, _info)) in
-                rfunc.args.into_iter().zip(args.into_iter())
             {
-                if typ.into() != got_typ {
+                let got = args.len();
+                let expected = rfunc.args.len();
+                if got != expected {
                     return Err(CompileError {
-                        kind: CompileErrorKind::ArgTypeMismatch {
-                            got: got_typ,
-                            expected: typ,
+                        kind: CompileErrorKind::WrongArgCount {
+                            got,
+                            expected: ExpectedArgCount::Exact(expected),
                         },
-                        span: arg_span,
+                        span,
                     });
                 }
-                vars.insert(name, arg_lat);
             }
 
-            Ok((replace_variables(rfunc.body, &vars), rfunc.ret, todo!()))*/
+            let (entries, args_types): (Vec<_>, Vec<_>) = args
+                .into_iter()
+                .zip(rfunc.args.into_iter())
+                .map(
+                    |((arg_span, arg_lat, got_typ, got_info), (name, typ))| -> Result<
+                        ((String, Latex), (types::Span, Typ, Option<TypInfo>)),
+                        CompileError,
+                    > {
+                        if !got_typ.eq_weak(typ.into()) {
+                            return Err(CompileError {
+                                kind: CompileErrorKind::ArgTypeMismatch {
+                                    got: (got_typ, got_info),
+                                    expected: typ,
+                                },
+                                span: arg_span,
+                            });
+                        }
+                        Ok(((name, arg_lat), (arg_span, got_typ, got_info)))
+                    },
+                )
+                .collect::<Result<Vec<_>, CompileError>>()?
+                .into_iter()
+                .unzip();
+
+            let vars: HashMap<String, Latex> = entries.into_iter().collect();
+            let (rt, ri) = resolve_func_type(args_types, rfunc.ret);
+            Ok((replace_variables(rfunc.body, &vars), rt, ri))
         }
         ResolvedFunction::Normal {
             func: rfunc,

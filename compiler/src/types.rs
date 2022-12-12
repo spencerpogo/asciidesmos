@@ -116,7 +116,7 @@ pub struct FunctionSignature {
 #[derive(Clone, Debug, PartialEq)]
 pub struct InlineFunction {
     pub args: Vec<(String, ValType)>,
-    pub ret: ValType,
+    pub ret: (ValType, Option<TypInfo>),
     pub body: latex::Latex,
 }
 
