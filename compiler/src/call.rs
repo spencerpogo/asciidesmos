@@ -103,7 +103,6 @@ fn check_arg_types(
 pub fn compile_static_call(
     span: types::Span,
     func: ast::Function,
-    modifier: ast::CallModifier,
     args: Vec<(types::Span, latex::Latex, Typ, Option<TypInfo>)>,
     rfunc: FunctionSignature,
     rargs: &Vec<types::ValType>,
@@ -141,7 +140,6 @@ pub fn compile_static_call(
 }
 
 fn variadic_call_types(
-    func: ast::Function,
     args: Vec<(types::Span, latex::Latex, Typ, Option<TypInfo>)>,
     rfunc: FunctionSignature,
 ) -> Result<(Vec<Latex>, Typ, Option<TypInfo>), CompileError> {
@@ -175,7 +173,6 @@ fn variadic_call_types(
 pub fn compile_variadic_call(
     span: types::Span,
     func: ast::Function,
-    modifier: ast::CallModifier,
     args: Vec<(types::Span, latex::Latex, Typ, Option<TypInfo>)>,
     rfunc: FunctionSignature,
     is_builtin: bool,
@@ -191,7 +188,7 @@ pub fn compile_variadic_call(
     }
     // if variadic functions are passed a single list, they will return a single value
     // if passed multiple lists, normal automatic mapping applies
-    let (args_latex, ret, ri) = variadic_call_types(func.clone(), args, rfunc)?;
+    let (args_latex, ret, ri) = variadic_call_types(args, rfunc)?;
     Ok((
         latex::Latex::Call {
             func: func_to_latex(func),
@@ -274,7 +271,6 @@ pub fn compile_call(
     ctx: &mut Context,
     span: types::Span,
     func: ast::Function,
-    modifier: ast::CallModifier,
     args: Vec<(types::Span, latex::Latex, Typ, Option<TypInfo>)>,
 ) -> Result<(latex::Latex, Typ, Option<TypInfo>), CompileError> {
     let rfunc = resolve_function(ctx, func.clone()).ok_or(CompileError {
@@ -330,17 +326,11 @@ pub fn compile_call(
             func: rfunc,
             is_builtin,
         } => match &rfunc.args {
-            FunctionArgs::Static(rargs) => compile_static_call(
-                span,
-                func,
-                modifier,
-                args,
-                (*rfunc).clone(),
-                rargs,
-                is_builtin,
-            ),
+            FunctionArgs::Static(rargs) => {
+                compile_static_call(span, func, args, (*rfunc).clone(), rargs, is_builtin)
+            }
             FunctionArgs::Variadic => {
-                compile_variadic_call(span, func, modifier, args, (*rfunc).clone(), is_builtin)
+                compile_variadic_call(span, func, args, (*rfunc).clone(), is_builtin)
             }
         },
     }

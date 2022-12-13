@@ -198,7 +198,7 @@ pub fn compile_expr(
             Ok((v, Typ::MappedList, Some(TypInfo::Map(span))))
         }
         Expression::Call {
-            modifier,
+            modifier: _,
             func,
             args,
         } => {
@@ -211,7 +211,7 @@ pub fn compile_expr(
                     },
                 )
                 .collect::<Result<Vec<_>, CompileError>>()?;
-            super::call::compile_call(ctx, span, func, modifier, compiled_args)
+            super::call::compile_call(ctx, span, func, compiled_args)
         }
         Expression::List(values) => {
             let items = values
