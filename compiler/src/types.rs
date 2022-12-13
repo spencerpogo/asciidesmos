@@ -91,6 +91,16 @@ pub fn combine_types(
     )
 }
 
+pub fn reduce_types<I>(types: I) -> Option<(Typ, Option<TypInfo>)>
+where
+    I: IntoIterator<Item = (types::Span, Typ, Option<TypInfo>)>,
+{
+    types
+        .into_iter()
+        .reduce(|left, right| combine_types(left, right))
+        .map(|(_s, t, i)| (t, i))
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypInfo {
     Literal(types::Span),

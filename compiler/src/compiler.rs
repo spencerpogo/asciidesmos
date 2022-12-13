@@ -1,4 +1,4 @@
-use crate::types::{combine_types, Typ, TypInfo};
+use crate::types::{combine_types, reduce_types, Typ, TypInfo};
 
 use super::{
     error::{CompileError, CompileErrorKind},
@@ -96,8 +96,8 @@ pub fn comp_binop(
 
 pub fn branch_to_cond(
     ctx: &mut Context,
-    (_spn, branch): ast::Spanned<ast::Branch>,
-) -> Result<(Cond, Typ, Option<TypInfo>), CompileError> {
+    (spn, branch): ast::Spanned<ast::Branch>,
+) -> Result<(Cond, (types::Span, Typ, Option<TypInfo>)), CompileError> {
     let (left, right, t, i) = comp_binop(ctx, branch.cond_left, branch.cond_right)?;
     Ok((
         Cond {
@@ -106,8 +106,7 @@ pub fn branch_to_cond(
             right: right,
             result: compile_expr(ctx, branch.val)?.0,
         },
-        t,
-        i,
+        (spn, t, i),
     ))
 }
 
@@ -246,45 +245,29 @@ pub fn compile_expr(
             rest,
             default,
         } => {
-            unimplemented!();
-            // TODO: Improve typechecking here
-            let (first, ft, fi) = branch_to_cond(ctx, *first)?;
-            let rest = rest
+            let (first, ft) = branch_to_cond(ctx, *first)?;
+            let (rest, rest_types): (Vec<_>, Vec<_>) = rest
                 .into_iter()
-                .map(|b| {
-                    let span = b.0.clone();
-                    let (cond, t, ti) = branch_to_cond(ctx, b)?;
-                    if ft != t {
-                        return Err(CompileError {
-                            kind: CompileErrorKind::ExpectedSameTypes {
-                                left: (ft, fi.clone()),
-                                right: (t, ti),
-                            },
-                            span,
-                        });
-                    }
-                    Ok(cond)
-                })
-                .collect::<Result<Vec<_>, _>>()?;
+                .map(|b| branch_to_cond(ctx, b))
+                .collect::<Result<Vec<_>, _>>()?
+                .into_iter()
+                .unzip();
             let dspan = default.0.clone();
             let (default, dt, di) = compile_expr(ctx, *default)?;
-            if ft != dt {
-                return Err(CompileError {
-                    kind: CompileErrorKind::ExpectedSameTypes {
-                        left: (ft, fi),
-                        right: (dt, di),
-                    },
-                    span: dspan,
-                });
-            }
+            let (t, ti) = reduce_types(
+                std::iter::once(ft)
+                    .chain(rest_types)
+                    .chain(std::iter::once((dspan, dt, di))),
+            )
+            .unwrap();
             Ok((
                 Latex::Piecewise {
                     first: Box::new(first),
                     rest,
                     default: Box::new(default),
                 },
-                ft,
-                None,
+                t,
+                ti,
             ))
         }
         Expression::RawLatex(ty, l) => Ok((Latex::Raw(l), ty.into(), None)),

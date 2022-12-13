@@ -7,7 +7,8 @@ use crate::{
     builtins,
     error::{CompileError, CompileErrorKind, ExpectedArgCount},
     types::{
-        combine_types, Context, FunctionArgs, FunctionSignature, ResolvedFunction, Typ, TypInfo,
+        combine_types, reduce_types, Context, FunctionArgs, FunctionSignature, ResolvedFunction,
+        Typ, TypInfo,
     },
 };
 
@@ -59,13 +60,6 @@ pub fn resolve_function<'a>(ctx: &'a mut Context, func: ast::Function) -> Option
         });
     }
     None
-}
-
-fn reduce_types(types: Vec<(types::Span, Typ, Option<TypInfo>)>) -> Option<(Typ, Option<TypInfo>)> {
-    types
-        .into_iter()
-        .reduce(|left, right| combine_types(left, right))
-        .map(|(_s, t, i)| (t, i))
 }
 
 fn resolve_func_type(
