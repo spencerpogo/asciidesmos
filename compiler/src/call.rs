@@ -79,7 +79,7 @@ fn check_arg_types(
         .map(
             |(got_type, expect_type)| -> Result<(latex::Latex, (types::Span, Typ, Option<TypInfo>)), _> {
                 let (aspan, arg_latex, gt, gi) = got_type;
-                if gt.eq_weak((*expect_type).into()) {
+                if !gt.eq_weak((*expect_type).into()) {
                     return Err(CompileError {
                         kind: CompileErrorKind::ArgTypeMismatch {
                             got: (gt, gi),
