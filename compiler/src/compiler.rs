@@ -217,11 +217,7 @@ pub fn compile_expr(
             }
             Ok((v, Typ::MappedList, Some(TypInfo::Map(span))))
         }
-        Expression::Call {
-            modifier: _,
-            func,
-            args,
-        } => {
+        Expression::Call { func, args } => {
             let compiled_args = args
                 .into_iter()
                 .map(
@@ -820,7 +816,6 @@ pub mod tests {
         compile_stmt_with_ctx(
             &mut ctx,
             Statement::Expression(Expression::Call {
-                modifier: ast::CallModifier::NormalCall,
                 func: ast::Function::Normal {
                     name: "f".to_string(),
                 },
@@ -850,7 +845,6 @@ pub mod tests {
             compile_stmt_with_ctx(
                 &mut ctx,
                 Statement::Expression(Expression::Call {
-                    modifier: ast::CallModifier::NormalCall,
                     func: ast::Function::Normal {
                         name: "f".to_string()
                     },
@@ -888,7 +882,6 @@ pub mod tests {
             compile_stmt_with_ctx(
                 &mut ctx,
                 Statement::Expression(Expression::Call {
-                    modifier: ast::CallModifier::NormalCall,
                     func: ast::Function::Normal {
                         name: "f".to_string()
                     },

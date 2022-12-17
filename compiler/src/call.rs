@@ -344,7 +344,6 @@ mod tests {
                     base: "".to_string(),
                 },
                 args: vec![(spn(), Expression::Num("10".to_string()))],
-                modifier: ast::CallModifier::NormalCall,
             },
             Latex::Call {
                 func: latex::Function::Log {
@@ -364,7 +363,6 @@ mod tests {
                     base: "5".to_string(),
                 },
                 args: vec![(spn(), Expression::Num("25".to_string()))],
-                modifier: ast::CallModifier::NormalCall,
             },
             Latex::Call {
                 func: latex::Function::Log {
@@ -384,7 +382,6 @@ mod tests {
         );
         assert_eq!(
             compile(Expression::Call {
-                modifier: ast::CallModifier::NormalCall,
                 func: ast::Function::Normal {
                     name: "lcm".to_string()
                 },
@@ -400,7 +397,6 @@ mod tests {
         );
         check(
             Expression::Call {
-                modifier: ast::CallModifier::NormalCall,
                 func: ast::Function::Normal {
                     name: "lcm".to_string(),
                 },
@@ -431,7 +427,6 @@ mod tests {
             types::Args::Variadic
         );
         let inp = Expression::Call {
-            modifier: ast::CallModifier::NormalCall,
             func: ast::Function::Normal {
                 name: "lcm".to_string(),
             },
@@ -456,7 +451,6 @@ mod tests {
         );
         check(
             Expression::Call {
-                modifier: ast::CallModifier::MapCall,
                 func: ast::Function::Normal {
                     name: "lcm".to_string(),
                 },
@@ -487,7 +481,6 @@ mod tests {
     fn call_resolution() {
         check(
             Expression::Call {
-                modifier: ast::CallModifier::NormalCall,
                 func: ast::Function::Normal {
                     name: "sin".to_string(),
                 },
@@ -503,7 +496,6 @@ mod tests {
         );
         assert_eq!(
             compile(Expression::Call {
-                modifier: ast::CallModifier::NormalCall,
                 func: ast::Function::Normal {
                     name: "abc".to_string()
                 },
@@ -521,7 +513,6 @@ mod tests {
     fn argc_validation() {
         assert_eq!(
             compile(Expression::Call {
-                modifier: ast::CallModifier::NormalCall,
                 func: ast::Function::Normal {
                     name: "sin".to_string()
                 },
@@ -536,7 +527,6 @@ mod tests {
         );
         assert_eq!(
             compile(Expression::Call {
-                modifier: ast::CallModifier::NormalCall,
                 func: ast::Function::Normal {
                     name: "sin".to_string()
                 },
@@ -558,7 +548,6 @@ mod tests {
     fn call_arg_checking() {
         assert_eq!(
             compile(Expression::Call {
-                modifier: ast::CallModifier::NormalCall,
                 func: ast::Function::Normal {
                     name: "sin".to_string()
                 },
@@ -583,7 +572,6 @@ mod tests {
                 val: Box::new((
                     spn(),
                     Expression::Call {
-                        modifier: ast::CallModifier::MapCall,
                         func: ast::Function::Normal {
                             name: "sin".to_string(),
                         },

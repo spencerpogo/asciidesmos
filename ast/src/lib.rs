@@ -60,7 +60,6 @@ pub enum Expression {
     },
     Map(Box<LocatedExpression>),
     Call {
-        modifier: CallModifier,
         func: Function,
         args: Vec<LocatedExpression>,
     },
