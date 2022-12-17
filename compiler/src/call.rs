@@ -7,8 +7,7 @@ use crate::{
     builtins,
     error::{CompileError, CompileErrorKind, ExpectedArgCount},
     types::{
-        combine_types, reduce_types, Context, FunctionArgs, FunctionSignature, ResolvedFunction,
-        Typ, TypInfo,
+        reduce_types, Context, FunctionArgs, FunctionSignature, ResolvedFunction, Typ, TypInfo,
     },
 };
 
