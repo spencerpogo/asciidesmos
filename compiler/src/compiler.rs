@@ -286,7 +286,7 @@ pub fn compile_expr(ctx: &mut Context, expr: LocatedExpression) -> Cesult<(Latex
                 ti,
             ))
         }
-        Expression::RawLatex(ty, l) => Ok((Latex::Raw(l), ty.into(), todo!())),
+        Expression::RawLatex(ty, l) => Ok((Latex::Raw(l), ty.into(), TypInfo::RawLatex(span))),
         Expression::Index { val, ind } => {
             let (r, rt, ri) = comp_expect_num(ctx, *ind, CompileErrorKind::IndexWithNonNumber)?;
             Ok((

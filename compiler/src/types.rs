@@ -97,6 +97,7 @@ pub enum TypInfo {
     BinOp(types::Span, types::Span),
     Map(types::Span),
     Builtin(ast::Function),
+    RawLatex(types::Span),
 }
 
 // heap version of core::runtime::Args
