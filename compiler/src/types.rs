@@ -2,7 +2,7 @@ use ast::LStatements;
 use std::{collections::HashMap, fmt::Debug, rc::Rc};
 use types::ValType;
 
-use crate::stdlib::StdlibLoader;
+use crate::{error::CompileError, stdlib::StdlibLoader};
 
 // ValType that supports list mapping
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -221,3 +221,5 @@ pub enum ResolvedFunction {
     },
     Inline(Rc<InlineFunction>),
 }
+
+pub type Cesult<T> = Result<T, CompileError>;

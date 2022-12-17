@@ -1,4 +1,4 @@
-use crate::types::{combine_types, reduce_types, Typ, TypInfo};
+use crate::types::{combine_types, reduce_types, Cesult, Typ, TypInfo};
 
 use super::{
     error::{CompileError, CompileErrorKind},
@@ -47,7 +47,7 @@ pub fn comp_unop(
     ctx: &mut Context,
     expr: LocatedExpression,
     kind: CompileErrorKind,
-) -> Result<(Latex, Typ, Option<TypInfo>), CompileError> {
+) -> Cesult<(Latex, Typ, Option<TypInfo>)> {
     let s = expr.0.clone();
     let (v, t, i) = compile_expr(ctx, expr)?;
     if !t.is_num_weak() {
@@ -64,7 +64,7 @@ pub fn comp_expect<F>(
     expr: LocatedExpression,
     check: F,
     kind: CompileErrorKind,
-) -> Result<(Latex, Typ, Option<TypInfo>), CompileError>
+) -> Cesult<(Latex, Typ, Option<TypInfo>)>
 where
     F: Fn(Typ) -> bool,
 {
@@ -80,7 +80,7 @@ pub fn comp_expect_num_strict(
     ctx: &mut Context,
     expr: LocatedExpression,
     kind: CompileErrorKind,
-) -> Result<(Latex, Typ, Option<TypInfo>), CompileError> {
+) -> Cesult<(Latex, Typ, Option<TypInfo>)> {
     comp_expect(ctx, expr, |t| t == Typ::Num, kind)
 }
 
@@ -88,7 +88,7 @@ pub fn comp_expect_num(
     ctx: &mut Context,
     expr: LocatedExpression,
     kind: CompileErrorKind,
-) -> Result<(Latex, Typ, Option<TypInfo>), CompileError> {
+) -> Cesult<(Latex, Typ, Option<TypInfo>)> {
     comp_expect(ctx, expr, |t| t.is_num_weak(), kind)
 }
 
@@ -96,7 +96,7 @@ pub fn comp_expect_list_strict(
     ctx: &mut Context,
     expr: LocatedExpression,
     kind: CompileErrorKind,
-) -> Result<(Latex, Typ, Option<TypInfo>), CompileError> {
+) -> Cesult<(Latex, Typ, Option<TypInfo>)> {
     comp_expect(ctx, expr, |t| t == Typ::List, kind)
 }
 
@@ -104,7 +104,7 @@ pub fn comp_binop(
     ctx: &mut Context,
     left: LocatedExpression,
     right: LocatedExpression,
-) -> Result<(Latex, Latex, Typ, Option<TypInfo>), CompileError> {
+) -> Cesult<(Latex, Latex, Typ, Option<TypInfo>)> {
     let ls = left.0.clone();
     let rs = left.0.clone();
     let (lv, lt, li) = compile_expr(ctx, left)?;
@@ -125,7 +125,7 @@ pub fn comp_binop(
 pub fn branch_to_cond(
     ctx: &mut Context,
     (spn, branch): ast::Spanned<ast::Branch>,
-) -> Result<(Cond, (types::Span, Typ, Option<TypInfo>)), CompileError> {
+) -> Cesult<(Cond, (types::Span, Typ, Option<TypInfo>))> {
     let (left, right, t, i) = comp_binop(ctx, branch.cond_left, branch.cond_right)?;
     Ok((
         Cond {
@@ -142,7 +142,7 @@ pub fn compile_variable_ref(
     ctx: &Context,
     span: types::Span,
     name: String,
-) -> Result<(Latex, Typ, Option<TypInfo>), CompileError> {
+) -> Cesult<(Latex, Typ, Option<TypInfo>)> {
     match ctx.inline_vals.get(&name) {
         Some((t, v, i)) => Ok((v.clone(), *t, i.clone())),
         None => match resolve_variable(ctx, name.clone()) {
@@ -160,7 +160,7 @@ pub fn compile_variable_ref(
 pub fn compile_expr(
     ctx: &mut Context,
     expr: LocatedExpression,
-) -> Result<(Latex, Typ, Option<TypInfo>), CompileError> {
+) -> Cesult<(Latex, Typ, Option<TypInfo>)> {
     let span = expr.0;
 
     match expr.1 {
@@ -232,21 +232,21 @@ pub fn compile_expr(
             let compiled_args = args
                 .into_iter()
                 .map(
-                    |(s, e)| -> Result<(types::Span, Latex, Typ, Option<TypInfo>), CompileError> {
+                    |(s, e)| -> Cesult<(types::Span, Latex, Typ, Option<TypInfo>)> {
                         let (latex, t, i) = compile_expr(ctx, (s.clone(), e))?;
                         Ok((s, latex, t, i))
                     },
                 )
-                .collect::<Result<Vec<_>, CompileError>>()?;
+                .collect::<Cesult<Vec<_>>>()?;
             super::call::compile_call(ctx, span, func, compiled_args)
         }
         Expression::List(values) => {
             let items = values
                 .into_iter()
-                .map(|e| -> Result<Latex, CompileError> {
+                .map(|e| -> Cesult<Latex> {
                     Ok(comp_expect_num_strict(ctx, e, CompileErrorKind::NoNestedList)?.0)
                 })
-                .collect::<Result<Vec<Latex>, CompileError>>()?;
+                .collect::<Cesult<Vec<Latex>>>()?;
 
             Ok((Latex::List(items), Typ::List, None))
         }
@@ -316,7 +316,7 @@ pub fn compile_expr(
     }
 }
 
-pub type CompileResult = Result<Vec<LatexStatement>, CompileError>;
+pub type CompileResult = Cesult<Vec<LatexStatement>>;
 
 pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult {
     let s = expr.0;
@@ -425,7 +425,7 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult 
 pub fn compile_stmts(
     ctx: &mut Context,
     ast: Vec<ast::Spanned<ast::Statement>>,
-) -> Result<Vec<LatexStatement>, CompileError> {
+) -> Cesult<Vec<LatexStatement>> {
     Ok(ast
         .into_iter()
         .map(|s| compile_stmt(ctx, s))
@@ -438,11 +438,11 @@ pub fn compile_stmts(
 pub fn stmts_to_graph(
     ctx: &mut Context,
     stmts: Vec<ast::Spanned<ast::Statement>>,
-) -> Result<graph::CalcState, CompileError> {
+) -> Cesult<graph::CalcState> {
     let latex_exprs = stmts
         .into_iter()
         .map(|s| compile_stmt(ctx, s))
-        .collect::<Result<Vec<_>, CompileError>>()?;
+        .collect::<Cesult<Vec<_>>>()?;
     Ok(graph::CalcState {
         expressions: graph::Expressions::from_latex_strings(
             latex_exprs
@@ -465,22 +465,22 @@ pub mod tests {
         Context::new()
     }
 
-    pub fn compile(exp: Expression) -> Result<Latex, CompileError> {
+    pub fn compile(exp: Expression) -> Cesult<Latex> {
         compile_with_ctx(&mut new_ctx(), exp)
     }
 
-    pub fn compile_with_ctx(ctx: &mut Context, exp: Expression) -> Result<Latex, CompileError> {
+    pub fn compile_with_ctx(ctx: &mut Context, exp: Expression) -> Cesult<Latex> {
         Ok(compile_expr(ctx, (spn(), exp))?.0)
     }
 
-    pub fn compile_stmt(stmt: Statement) -> Result<Vec<LatexStatement>, CompileError> {
+    pub fn compile_stmt(stmt: Statement) -> Cesult<Vec<LatexStatement>> {
         compile_stmt_with_ctx(&mut new_ctx(), stmt)
     }
 
     pub fn compile_stmt_with_ctx(
         ctx: &mut Context,
         stmt: Statement,
-    ) -> Result<Vec<LatexStatement>, CompileError> {
+    ) -> Cesult<Vec<LatexStatement>> {
         super::compile_stmt(ctx, (spn(), stmt))
     }
 
@@ -496,7 +496,7 @@ pub mod tests {
         Some(TypInfo::Literal(spn()))
     }
 
-    pub fn comp_with_var(v: &str, vtype: ValType, exp: Expression) -> Result<Latex, CompileError> {
+    pub fn comp_with_var(v: &str, vtype: ValType, exp: Expression) -> Cesult<Latex> {
         let mut ctx = new_ctx();
         ctx.variables.insert(v.to_string(), (vtype, tinfo()));
         compile_with_ctx(&mut ctx, exp)
