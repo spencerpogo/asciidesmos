@@ -46,19 +46,23 @@ pub fn binop_to_latex(lv: Latex, operator: BinaryOperator, rv: Latex) -> Latex {
     }
 }
 
-pub fn comp_expect<F>(
+pub fn comp_expect<C, K>(
     ctx: &mut Context,
     expr: LocatedExpression,
-    check: F,
-    kind: CompileErrorKind,
+    check: C,
+    kind: K,
 ) -> Cesult<(Latex, Typ, TypInfo)>
 where
-    F: Fn(Typ) -> bool,
+    C: Fn(Typ) -> bool,
+    K: Fn(TypInfo) -> CompileErrorKind,
 {
     let span = expr.0.clone();
     let (v, t, ti) = compile_expr(ctx, expr)?;
     if !check(t) {
-        return Err(CompileError { kind, span });
+        return Err(CompileError {
+            kind: kind(ti),
+            span,
+        });
     }
     Ok((v, t, ti))
 }
@@ -68,7 +72,7 @@ pub fn comp_expect_num_strict(
     expr: LocatedExpression,
     kind: CompileErrorKind,
 ) -> Cesult<(Latex, Typ, TypInfo)> {
-    comp_expect(ctx, expr, |t| t == Typ::Num, kind)
+    comp_expect(ctx, expr, |t| t == Typ::Num, |_| kind)
 }
 
 pub fn comp_expect_num(
@@ -76,7 +80,7 @@ pub fn comp_expect_num(
     expr: LocatedExpression,
     kind: CompileErrorKind,
 ) -> Cesult<(Latex, Typ, TypInfo)> {
-    comp_expect(ctx, expr, |t| t.is_num_weak(), kind)
+    comp_expect(ctx, expr, |t| t.is_num_weak(), |_| kind)
 }
 
 pub fn comp_expect_list_strict(
@@ -84,7 +88,7 @@ pub fn comp_expect_list_strict(
     expr: LocatedExpression,
     kind: CompileErrorKind,
 ) -> Cesult<(Latex, Typ, TypInfo)> {
-    comp_expect(ctx, expr, |t| t == Typ::List, kind)
+    comp_expect(ctx, expr, |t| t == Typ::List, |_| kind)
 }
 
 pub fn comp_binop(
