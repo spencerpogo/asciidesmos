@@ -314,8 +314,7 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult 
             compile_expr(ctx, (s, e))?.0,
         )]),
         Statement::FuncDef(fdef, e) => {
-            unimplemented!();
-            /*// Add args into locals
+            // Add args into locals
             for (aspan, aname, atype) in fdef.args.iter() {
                 if ctx.variables.contains_key(aname) || ctx.locals.contains_key(aname) {
                     return Err(CompileError {
@@ -323,16 +322,17 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult 
                         span: aspan.clone(),
                     });
                 }
-                ctx.locals.insert(aname.clone(), *atype);
+                ctx.locals
+                    .insert(aname.clone(), (*atype, TypInfo::FuncArg(aspan.clone())));
             }
             // Evaluate the body with the new ctx
-            let (body, ret) = compile_expr(ctx, e)?;
+            let (body, rt, ri) = compile_expr(ctx, e)?;
             // Validate the return type annotation
             if let Some(retann) = fdef.ret_annotation {
-                if ret != retann {
+                if !rt.eq_weak(retann.into()) {
                     return Err(CompileError {
                         kind: CompileErrorKind::RetAnnMismatch {
-                            got: ret,
+                            got: (rt, ri),
                             expected: retann,
                         },
                         span: s,
@@ -344,15 +344,6 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult 
                 ctx.locals.remove(aname);
             }
 
-            let sig = FunctionSignature {
-                args: FunctionArgs::Static(
-                    fdef.args
-                        .iter()
-                        .map(|(_span, _name, typ)| typ.clone())
-                        .collect(),
-                ),
-                ret,
-            };
             if fdef.inline {
                 ctx.inline_fns.insert(
                     fdef.name.clone(),
@@ -362,12 +353,22 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult 
                             .into_iter()
                             .map(|(_span, name, typ)| (name, typ))
                             .collect(),
-                        ret,
+                        ret: (rt, ri),
                         body,
                     }),
                 );
                 return Ok(vec![]);
             }
+
+            let sig = FunctionSignature {
+                args: FunctionArgs::Static(
+                    fdef.args
+                        .iter()
+                        .map(|(_span, _name, typ)| typ.clone())
+                        .collect(),
+                ),
+                ret: (rt, ri),
+            };
             ctx.defined_functions
                 .insert(fdef.name.clone(), std::rc::Rc::new(sig));
 
@@ -379,7 +380,7 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult 
                     .map(|(_span, name, _typ)| name)
                     .collect(),
                 body: Box::new(body),
-            }])*/
+            }])
         }
         Statement::VarDef { name, val, inline } => {
             unimplemented!();
@@ -759,7 +760,7 @@ pub mod tests {
             .unwrap_err(),
             CompileError {
                 kind: CompileErrorKind::RetAnnMismatch {
-                    got: Typ::Num,
+                    got: (Typ::Num, tinfo()),
                     expected: ValType::List
                 },
                 span: spn()

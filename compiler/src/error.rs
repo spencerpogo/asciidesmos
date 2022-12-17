@@ -27,7 +27,7 @@ pub enum CompileErrorKind {
     MapNonList,
     IndexWithNonNumber,
     RetAnnMismatch {
-        got: Typ,
+        got: (Typ, TypInfo),
         expected: ValType,
     },
     ExpectedSameTypes {

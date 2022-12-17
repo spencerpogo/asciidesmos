@@ -25,7 +25,7 @@ pub fn resolve_function<'a>(ctx: &'a mut Context, func: ast::Function) -> Option
             return Some(ResolvedFunction::Normal {
                 func: Rc::new(FunctionSignature {
                     args: FunctionArgs::Static(vec![types::ValType::Number]),
-                    ret: (types::ValType::Number, TypInfo::Builtin(func)),
+                    ret: (Typ::Num, TypInfo::Builtin(func)),
                 }),
                 is_builtin: true,
             });
@@ -48,7 +48,10 @@ pub fn resolve_function<'a>(ctx: &'a mut Context, func: ast::Function) -> Option
                     types::Args::Static(args) => FunctionArgs::Static(args.to_vec()),
                     types::Args::Variadic => FunctionArgs::Variadic,
                 },
-                ret: (f.ret, TypInfo::Builtin(ast::Function::Normal { name })),
+                ret: (
+                    f.ret.into(),
+                    TypInfo::Builtin(ast::Function::Normal { name }),
+                ),
             }),
             is_builtin: true,
         });
@@ -58,7 +61,7 @@ pub fn resolve_function<'a>(ctx: &'a mut Context, func: ast::Function) -> Option
 
 fn resolve_func_type(
     args_types: Vec<(types::Span, Typ, TypInfo)>,
-    ret: (ValType, TypInfo),
+    ret: (Typ, TypInfo),
 ) -> (Typ, TypInfo) {
     reduce_types(args_types).unwrap_or((ret.0.into(), ret.1))
 }
@@ -325,8 +328,11 @@ pub fn compile_call(
 
 #[cfg(test)]
 mod tests {
-    use super::super::compiler::tests::{check, compile, spn};
     use super::*;
+    use crate::{
+        compiler::tests::{check, compile, spn, tinfo},
+        types::Literal,
+    };
     use ast::Expression;
     use builtins::BUILTIN_FUNCTIONS;
     use latex::Latex;
@@ -439,7 +445,7 @@ mod tests {
             compile(inp.clone()),
             Err(CompileError {
                 kind: CompileErrorKind::ArgTypeMismatch {
-                    got: (Typ::List, todo!()),
+                    got: (Typ::List, TypInfo::Literal(Literal::List, spn())),
                     expected: ValType::Number
                 },
                 span: spn()
@@ -555,7 +561,7 @@ mod tests {
             .unwrap_err()
             .kind,
             CompileErrorKind::ArgTypeMismatch {
-                got: (Typ::List, todo!()),
+                got: (Typ::List, TypInfo::Literal(Literal::List, spn())),
                 expected: ValType::Number
             }
         );

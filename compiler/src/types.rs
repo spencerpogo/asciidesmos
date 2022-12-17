@@ -98,6 +98,7 @@ pub enum TypInfo {
     Map(types::Span),
     Builtin(ast::Function),
     RawLatex(types::Span),
+    FuncArg(types::Span),
 }
 
 // heap version of core::runtime::Args
@@ -111,13 +112,13 @@ pub enum FunctionArgs {
 #[derive(Clone, Debug, PartialEq)]
 pub struct FunctionSignature {
     pub args: FunctionArgs,
-    pub ret: (ValType, TypInfo),
+    pub ret: (Typ, TypInfo),
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct InlineFunction {
     pub args: Vec<(String, ValType)>,
-    pub ret: (ValType, TypInfo),
+    pub ret: (Typ, TypInfo),
     pub body: latex::Latex,
 }
 
