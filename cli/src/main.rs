@@ -281,20 +281,6 @@ fn process(name: String, inp: &str, flags: &Flags) -> i32 {
     }
 }
 
-fn lsp_main() -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
-    // Note that  we must have our logging only write out to stderr.
-    eprintln!("starting generic LSP server");
-
-    // Create the transport. Includes the stdio (stdin and stdout) versions but this could
-    // also be implemented to use sockets or HTTP.
-    let (connection, io_threads) = lsp_server::Connection::stdio();
-    lsp::start(connection)?;
-    // Shut down gracefully.
-    io_threads.join()?;
-    eprintln!("shutting down server");
-    Ok(())
-}
-
 fn main() {
     let app = App::new("desmosc")
         .version("0.1")
@@ -339,18 +325,9 @@ fn main() {
                 .takes_value(true)
                 .possible_values(&["latex", "state"])
                 .help("Output latex lines or calculator state"),
-        )
-        .arg(
-            Arg::with_name("lsp")
-                .long("lsp")
-                .help("Start LSP server (hack)"),
         );
 
     let matches = app.get_matches();
-    if matches.is_present("lsp") {
-        lsp_main().unwrap();
-        return;
-    }
     // flags
     let flags = Flags {
         tokens: matches.is_present("tokens"),
