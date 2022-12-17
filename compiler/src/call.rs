@@ -21,19 +21,17 @@ pub fn func_to_latex(func: ast::Function) -> latex::Function {
 
 // Returns function and whether it is builtin
 pub fn resolve_function<'a>(ctx: &'a mut Context, func: ast::Function) -> Option<ResolvedFunction> {
-    if let ast::Function::Log { base: _ } = func {
-        return Some(ResolvedFunction::Normal {
-            func: Rc::new(FunctionSignature {
-                args: FunctionArgs::Static(vec![types::ValType::Number]),
-                ret: (types::ValType::Number, Some(TypInfo::Builtin(func))),
-            }),
-            is_builtin: true,
-        });
-    };
-    let name = if let ast::Function::Normal { name } = func {
-        name
-    } else {
-        unreachable!()
+    let name = match func {
+        ast::Function::Log { base: _ } => {
+            return Some(ResolvedFunction::Normal {
+                func: Rc::new(FunctionSignature {
+                    args: FunctionArgs::Static(vec![types::ValType::Number]),
+                    ret: (types::ValType::Number, Some(TypInfo::Builtin(func))),
+                }),
+                is_builtin: true,
+            });
+        }
+        ast::Function::Normal { name } => name,
     };
     if let Some(f) = ctx.inline_fns.get::<str>(name.as_ref()) {
         return Some(ResolvedFunction::Inline(f.clone()));
