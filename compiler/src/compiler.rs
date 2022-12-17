@@ -59,17 +59,45 @@ pub fn comp_unop(
     Ok((v, t.unop_result(), i))
 }
 
+pub fn comp_expect<F>(
+    ctx: &mut Context,
+    expr: LocatedExpression,
+    check: F,
+    kind: CompileErrorKind,
+) -> Result<(Latex, Typ, Option<TypInfo>), CompileError>
+where
+    F: Fn(Typ) -> bool,
+{
+    let span = expr.0.clone();
+    let (v, t, ti) = compile_expr(ctx, expr)?;
+    if !check(t) {
+        return Err(CompileError { kind, span });
+    }
+    Ok((v, t, ti))
+}
+
 pub fn comp_expect_num_strict(
     ctx: &mut Context,
     expr: LocatedExpression,
     kind: CompileErrorKind,
-) -> Result<(Latex, Typ), CompileError> {
-    let span = expr.0.clone();
-    let (v, t, _) = compile_expr(ctx, expr)?;
-    if t != Typ::Num {
-        return Err(CompileError { kind, span });
-    }
-    Ok((v, t))
+) -> Result<(Latex, Typ, Option<TypInfo>), CompileError> {
+    comp_expect(ctx, expr, |t| t == Typ::Num, kind)
+}
+
+pub fn comp_expect_num(
+    ctx: &mut Context,
+    expr: LocatedExpression,
+    kind: CompileErrorKind,
+) -> Result<(Latex, Typ, Option<TypInfo>), CompileError> {
+    comp_expect(ctx, expr, |t| t.is_num_weak(), kind)
+}
+
+pub fn comp_expect_list_strict(
+    ctx: &mut Context,
+    expr: LocatedExpression,
+    kind: CompileErrorKind,
+) -> Result<(Latex, Typ, Option<TypInfo>), CompileError> {
+    comp_expect(ctx, expr, |t| t == Typ::List, kind)
 }
 
 pub fn comp_binop(
@@ -272,24 +300,18 @@ pub fn compile_expr(
         }
         Expression::RawLatex(ty, l) => Ok((Latex::Raw(l), ty.into(), None)),
         Expression::Index { val, ind } => {
-            unimplemented!();
-            /*let valspan = val.0.clone();
-            let (left, vt) = compile_expr(ctx, *val)?;
-            if vt != ValType::List {
-                return Err(CompileError {
-                    kind: CompileErrorKind::IndexNonList,
-                    span: valspan,
-                });
-            }
-            let (rl, rt) = comp_expect_num(ctx, *ind, CompileErrorKind::IndexWithNonNumber)?;
+            let (r, rt, ri) = comp_expect_num(ctx, *ind, CompileErrorKind::IndexWithNonNumber)?;
             Ok((
                 Latex::BinaryExpression {
-                    left: Box::new(left),
+                    left: Box::new(
+                        comp_expect_list_strict(ctx, *val, CompileErrorKind::IndexNonList)?.0,
+                    ),
                     operator: LatexBinaryOperator::Index,
-                    right: Box::new(rl),
+                    right: Box::new(r),
                 },
                 rt,
-            ))*/
+                ri,
+            ))
         }
     }
 }
