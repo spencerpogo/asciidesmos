@@ -1,4 +1,4 @@
-use crate::types::{combine_types, reduce_types, Cesult, Typ, TypInfo};
+use crate::types::{combine_types, reduce_types, Cesult, Literal, Typ, TypInfo};
 
 use super::{
     error::{CompileError, CompileErrorKind},
@@ -152,7 +152,7 @@ pub fn compile_expr(ctx: &mut Context, expr: LocatedExpression) -> Cesult<(Latex
         Expression::Num(val) => Ok((
             Latex::Num(val.to_string()),
             Typ::Num,
-            TypInfo::Literal(span),
+            TypInfo::Literal(Literal::Numeric, span),
         )),
         Expression::Variable(name) => compile_variable_ref(ctx, span, name),
         Expression::FullyQualifiedVariable { path, item } => {
@@ -232,7 +232,11 @@ pub fn compile_expr(ctx: &mut Context, expr: LocatedExpression) -> Cesult<(Latex
                 })
                 .collect::<Cesult<Vec<Latex>>>()?;
 
-            Ok((Latex::List(items), Typ::List, todo!()))
+            Ok((
+                Latex::List(items),
+                Typ::List,
+                TypInfo::Literal(Literal::List, span),
+            ))
         }
         Expression::Range { first, second, end } => {
             let range = Latex::Range {
@@ -250,7 +254,7 @@ pub fn compile_expr(ctx: &mut Context, expr: LocatedExpression) -> Cesult<(Latex
                     comp_expect_num_strict(ctx, *end, CompileErrorKind::RangeExpectNumber)?.0,
                 ),
             };
-            Ok((range, Typ::List, todo!()))
+            Ok((range, Typ::List, TypInfo::Literal(Literal::Range, span)))
         }
         Expression::Piecewise {
             first,
@@ -477,7 +481,7 @@ pub mod tests {
     }
 
     pub fn tinfo() -> TypInfo {
-        TypInfo::Literal(spn())
+        TypInfo::Literal(Literal::Numeric, spn())
     }
 
     pub fn comp_with_var(v: &str, vtype: ValType, exp: Expression) -> Cesult<Latex> {

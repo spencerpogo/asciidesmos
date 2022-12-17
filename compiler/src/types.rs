@@ -84,9 +84,16 @@ where
         .map(|(_s, t, i)| (t, i))
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Literal {
+    Numeric,
+    List,
+    Range,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum TypInfo {
-    Literal(types::Span),
+    Literal(Literal, types::Span),
     BinOp(types::Span, types::Span),
     Map(types::Span),
     Builtin(ast::Function),
