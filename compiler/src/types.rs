@@ -12,6 +12,20 @@ pub enum Typ {
     MappedList,
 }
 
+impl std::fmt::Display for Typ {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Num => "number",
+                Self::List => "list",
+                Self::MappedList => "mapped list",
+            }
+        )
+    }
+}
+
 impl From<ValType> for Typ {
     fn from(v: ValType) -> Self {
         match v {
