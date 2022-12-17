@@ -262,6 +262,11 @@ fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr>
             })
             .or(atom.clone());
 
+        let map = just(Token::CtrlMap)
+            .ignore_then(negate.clone())
+            .map_with_span(|v, s| (s, ast::Expression::Map(Box::new(v))))
+            .or(negate);
+
         macro_rules! binop {
             ($prev:expr, $op:expr) => {
                 $prev
@@ -280,7 +285,7 @@ fn expr_parser() -> impl Parser<Token, ast::LocatedExpression, Error = ParseErr>
             };
         }
 
-        let exponent = binop!(negate, just(Token::OpExp).to(ast::BinaryOperator::Exponent));
+        let exponent = binop!(map, just(Token::OpExp).to(ast::BinaryOperator::Exponent));
 
         let product = binop!(
             exponent,
