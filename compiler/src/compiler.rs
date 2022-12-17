@@ -53,8 +53,8 @@ pub fn comp_expect<C, K>(
     kind: K,
 ) -> Cesult<(Latex, Typ, TypInfo)>
 where
-    C: Fn(Typ) -> bool,
-    K: Fn(TypInfo) -> CompileErrorKind,
+    C: FnOnce(Typ) -> bool,
+    K: FnOnce(TypInfo) -> CompileErrorKind,
 {
     let span = expr.0.clone();
     let (v, t, ti) = compile_expr(ctx, expr)?;
@@ -83,12 +83,15 @@ pub fn comp_expect_num(
     comp_expect(ctx, expr, |t| t.is_num_weak(), |_| kind)
 }
 
-pub fn comp_expect_list_strict(
+pub fn comp_expect_list_strict<K>(
     ctx: &mut Context,
     expr: LocatedExpression,
-    kind: CompileErrorKind,
-) -> Cesult<(Latex, Typ, TypInfo)> {
-    comp_expect(ctx, expr, |t| t == Typ::List, |_| kind)
+    kind: K,
+) -> Cesult<(Latex, Typ, TypInfo)>
+where
+    K: Fn(TypInfo) -> CompileErrorKind,
+{
+    comp_expect(ctx, expr, |t| t == Typ::List, kind)
 }
 
 pub fn comp_binop(
