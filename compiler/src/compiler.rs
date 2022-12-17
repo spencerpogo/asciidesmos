@@ -1,3 +1,5 @@
+use crate::types::{combine_types, reduce_types, Typ, TypInfo};
+
 use super::{
     error::{CompileError, CompileErrorKind},
     types::{Context, FunctionArgs, FunctionSignature, InlineFunction},
@@ -6,42 +8,16 @@ use ast::{
     BinaryOperator, Expression, LocatedExpression, LocatedStatement, Statement, UnaryOperator,
 };
 use latex::{
-    self, BinaryOperator as LatexBinaryOperator, Cond, Latex, LatexStatement,
+    BinaryOperator as LatexBinaryOperator, Cond, Latex, LatexStatement,
     UnaryOperator as LatexUnaryOperator,
 };
 use types::ValType;
 
-pub fn resolve_variable(ctx: &Context, var: String) -> Option<ValType> {
-    match ctx.variables.get(&*var) {
-        Some(r) => Some(*r),
-        None => ctx.locals.get(&*var).map(|v| *v),
+pub fn resolve_variable(ctx: &Context, var: String) -> Option<(ValType, Option<TypInfo>)> {
+    match ctx.variables.get::<str>(var.as_ref()) {
+        Some(r) => Some(r.clone()),
+        None => ctx.locals.get::<str>(var.as_ref()).cloned(),
     }
-}
-
-pub fn check_type(span: types::Span, got: ValType, expect: ValType) -> Result<(), CompileError> {
-    if got != expect {
-        Err(CompileError {
-            kind: CompileErrorKind::TypeMismatch {
-                got,
-                expected: expect,
-            },
-            span,
-        })
-    } else {
-        Ok(())
-    }
-}
-
-// Combination of compile_expr and check_type
-pub fn compile_expect<'a>(
-    ctx: &mut Context,
-    span: types::Span,
-    expr: LocatedExpression,
-    expect: ValType,
-) -> Result<Latex, CompileError> {
-    let (s, t) = compile_expr(ctx, expr)?;
-    check_type(span, t, expect)?;
-    Ok(s)
 }
 
 pub fn binop_to_latex(lv: Latex, operator: BinaryOperator, rv: Latex) -> Latex {
@@ -67,35 +43,82 @@ pub fn binop_to_latex(lv: Latex, operator: BinaryOperator, rv: Latex) -> Latex {
     }
 }
 
-pub fn unop_to_latex(op: UnaryOperator) -> LatexUnaryOperator {
-    match op {
-        UnaryOperator::Negate => LatexUnaryOperator::Negate,
-        UnaryOperator::Factorial => LatexUnaryOperator::Factorial,
+pub fn comp_unop(
+    ctx: &mut Context,
+    expr: LocatedExpression,
+    kind: CompileErrorKind,
+) -> Result<(Latex, Typ, Option<TypInfo>), CompileError> {
+    let s = expr.0.clone();
+    let (v, t, i) = compile_expr(ctx, expr)?;
+    if !t.is_num_weak() {
+        return Err(CompileError { kind, span: s });
     }
+    // we want to have to explicitly map at every step, so don't
+    //  return List instead of MappedList
+    // Pass the inner option's typeinfo through
+    Ok((v, t.unop_result(), i))
 }
 
-pub fn branch_to_cond<'a>(
+pub fn comp_expect_num_strict(
     ctx: &mut Context,
-    (_spn, branch): ast::Spanned<ast::Branch>,
-) -> Result<Cond, CompileError> {
-    let leftcondspan = branch.cond_left.0.clone();
-    Ok(Cond {
-        left: compile_expect(ctx, leftcondspan, branch.cond_left, ValType::Number)?,
-        op: branch.cond,
-        right: compile_expr(ctx, branch.cond_right)?.0,
-        result: compile_expr(ctx, branch.val)?.0,
-    })
+    expr: LocatedExpression,
+    kind: CompileErrorKind,
+) -> Result<(Latex, Typ), CompileError> {
+    let span = expr.0.clone();
+    let (v, t, _) = compile_expr(ctx, expr)?;
+    if t != Typ::Num {
+        return Err(CompileError { kind, span });
+    }
+    Ok((v, t))
+}
+
+pub fn comp_binop(
+    ctx: &mut Context,
+    left: LocatedExpression,
+    right: LocatedExpression,
+) -> Result<(Latex, Latex, Typ, Option<TypInfo>), CompileError> {
+    let ls = left.0.clone();
+    let rs = left.0.clone();
+    let (lv, lt, li) = compile_expr(ctx, left)?;
+    let (rv, rt, ri) = compile_expr(ctx, right)?;
+    if !lt.eq_weak(rt) {
+        return Err(CompileError {
+            kind: CompileErrorKind::ExpectedSameTypes {
+                left: (lt, li),
+                right: (rt, ri),
+            },
+            span: ls.with_end_of(&rs).unwrap_or(ls),
+        });
+    }
+    let (_s, t, i) = combine_types((ls, lt, li), (rs, rt, ri));
+    Ok((lv, rv, t, i))
+}
+
+pub fn branch_to_cond(
+    ctx: &mut Context,
+    (spn, branch): ast::Spanned<ast::Branch>,
+) -> Result<(Cond, (types::Span, Typ, Option<TypInfo>)), CompileError> {
+    let (left, right, t, i) = comp_binop(ctx, branch.cond_left, branch.cond_right)?;
+    Ok((
+        Cond {
+            left: left,
+            op: branch.cond,
+            right: right,
+            result: compile_expr(ctx, branch.val)?.0,
+        },
+        (spn, t, i),
+    ))
 }
 
 pub fn compile_variable_ref(
     ctx: &Context,
     span: types::Span,
     name: String,
-) -> Result<(Latex, ValType), CompileError> {
+) -> Result<(Latex, Typ, Option<TypInfo>), CompileError> {
     match ctx.inline_vals.get(&name) {
-        Some((t, v)) => Ok((v.clone(), *t)),
+        Some((t, v, i)) => Ok((v.clone(), *t, i.clone())),
         None => match resolve_variable(ctx, name.clone()) {
-            Some(var_type) => Ok((Latex::Variable(name), var_type)),
+            Some((var_type, info)) => Ok((Latex::Variable(name), var_type.into(), info)),
             None => Err(CompileError {
                 kind: CompileErrorKind::UndefinedVariable(name),
                 span,
@@ -106,15 +129,19 @@ pub fn compile_variable_ref(
 
 // Ideally this would be functional and ctx would not need to be mutable, but rust
 //  support for immutable hashmaps isn't built in and mutation is much simpler.
-pub fn compile_expr<'a>(
+pub fn compile_expr(
     ctx: &mut Context,
     expr: LocatedExpression,
-) -> Result<(Latex, ValType), CompileError> {
+) -> Result<(Latex, Typ, Option<TypInfo>), CompileError> {
     let span = expr.0;
 
     match expr.1 {
         Expression::Error => unimplemented!(),
-        Expression::Num(val) => Ok((Latex::Num(val.to_string()), ValType::Number)),
+        Expression::Num(val) => Ok((
+            Latex::Num(val.to_string()),
+            Typ::Num,
+            Some(TypInfo::Literal(span)),
+        )),
         Expression::Variable(name) => compile_variable_ref(ctx, span, name),
         Expression::FullyQualifiedVariable { path, item } => {
             if path.len() != 1 {
@@ -136,87 +163,133 @@ pub fn compile_expr<'a>(
             operator,
             right,
         } => {
-            let span2 = span.clone();
-            let lv = compile_expect(ctx, span, *left, ValType::Number)?;
-            let rv = compile_expect(ctx, span2, *right, ValType::Number)?;
-            Ok((binop_to_latex(lv, operator, rv), ValType::Number))
+            let (left, right, t, i) = comp_binop(ctx, *left, *right)?;
+            Ok((binop_to_latex(left, operator, right), t, i))
         }
         Expression::UnaryExpr {
             val: v,
             operator: op,
-        } => Ok((
-            Latex::UnaryExpression {
-                left: Box::new(compile_expect(ctx, span, *v, ValType::Number)?),
-                operator: unop_to_latex(op),
-            },
-            ValType::Number,
-        )),
+        } => {
+            let (l, t, i) = match op {
+                UnaryOperator::Negate => comp_unop(ctx, *v, CompileErrorKind::NegateList)?,
+                UnaryOperator::Factorial => comp_unop(ctx, *v, CompileErrorKind::FactorialList)?,
+            };
+            Ok((
+                Latex::UnaryExpression {
+                    left: Box::new(l),
+                    operator: match op {
+                        UnaryOperator::Negate => LatexUnaryOperator::Negate,
+                        UnaryOperator::Factorial => LatexUnaryOperator::Factorial,
+                    },
+                },
+                t,
+                i,
+            ))
+        }
+        Expression::Map(val) => {
+            let (v, t, _) = compile_expr(ctx, *val)?;
+            if t != Typ::List {
+                return Err(CompileError {
+                    kind: CompileErrorKind::MapNonList,
+                    span,
+                });
+            }
+            Ok((v, Typ::MappedList, Some(TypInfo::Map(span))))
+        }
         Expression::Call {
-            modifier,
+            modifier: _,
             func,
             args,
         } => {
             let compiled_args = args
                 .into_iter()
                 .map(
-                    |(s, e)| -> Result<(types::Span, Latex, ValType), CompileError> {
-                        let (latex, t) = compile_expr(ctx, (s.clone(), e))?;
-                        Ok((s, latex, t))
+                    |(s, e)| -> Result<(types::Span, Latex, Typ, Option<TypInfo>), CompileError> {
+                        let (latex, t, i) = compile_expr(ctx, (s.clone(), e))?;
+                        Ok((s, latex, t, i))
                     },
                 )
-                .collect::<Result<Vec<(types::Span, Latex, ValType)>, CompileError>>()?;
-            super::call::compile_call(ctx, span, func, modifier, compiled_args)
+                .collect::<Result<Vec<_>, CompileError>>()?;
+            super::call::compile_call(ctx, span, func, compiled_args)
         }
         Expression::List(values) => {
             let items = values
                 .into_iter()
-                .map(|(s, e)| -> Result<Latex, CompileError> {
-                    let (latex, vtype) = compile_expr(ctx, (s.clone(), e))?;
-                    if vtype != ValType::Number {
-                        Err(CompileError {
-                            span: s,
-                            kind: CompileErrorKind::NoNestedList,
-                        })
-                    } else {
-                        Ok(latex)
-                    }
+                .map(|e| -> Result<Latex, CompileError> {
+                    Ok(comp_expect_num_strict(ctx, e, CompileErrorKind::NoNestedList)?.0)
                 })
                 .collect::<Result<Vec<Latex>, CompileError>>()?;
 
-            Ok((Latex::List(items), ValType::List))
+            Ok((Latex::List(items), Typ::List, None))
+        }
+        Expression::Range { first, second, end } => {
+            let range = Latex::Range {
+                first: Box::new(
+                    comp_expect_num_strict(ctx, *first, CompileErrorKind::RangeExpectNumber)?.0,
+                ),
+                second: match second {
+                    Some(second) => Some(Box::new(
+                        comp_expect_num_strict(ctx, *second, CompileErrorKind::RangeExpectNumber)?
+                            .0,
+                    )),
+                    None => None,
+                },
+                end: Box::new(
+                    comp_expect_num_strict(ctx, *end, CompileErrorKind::RangeExpectNumber)?.0,
+                ),
+            };
+            Ok((range, Typ::List, None))
         }
         Expression::Piecewise {
             first,
             rest,
             default,
         } => {
-            let def = *default;
-            let dspan = def.0.clone();
+            let (first, ft) = branch_to_cond(ctx, *first)?;
+            let (rest, rest_types): (Vec<_>, Vec<_>) = rest
+                .into_iter()
+                .map(|b| branch_to_cond(ctx, b))
+                .collect::<Result<Vec<_>, _>>()?
+                .into_iter()
+                .unzip();
+            let dspan = default.0.clone();
+            let (default, dt, di) = compile_expr(ctx, *default)?;
+            let (t, ti) = reduce_types(
+                std::iter::once(ft)
+                    .chain(rest_types)
+                    .chain(std::iter::once((dspan, dt, di))),
+            )
+            .unwrap();
             Ok((
                 Latex::Piecewise {
-                    first: Box::new(branch_to_cond(ctx, *first)?),
-                    rest: rest
-                        .into_iter()
-                        .map(|b| branch_to_cond(ctx, b))
-                        .collect::<Result<Vec<_>, _>>()?,
-                    default: Box::new(compile_expect(ctx, dspan, def, ValType::Number)?),
+                    first: Box::new(first),
+                    rest,
+                    default: Box::new(default),
                 },
-                ValType::Number,
+                t,
+                ti,
             ))
         }
-        Expression::RawLatex(ty, l) => Ok((Latex::Raw(l), ty)),
+        Expression::RawLatex(ty, l) => Ok((Latex::Raw(l), ty.into(), None)),
         Expression::Index { val, ind } => {
-            let (ls, lv) = *val;
-            let ll = compile_expect(ctx, ls.clone(), (ls, lv), ValType::List)?;
-            let (rl, rt) = compile_expr(ctx, *ind)?;
+            unimplemented!();
+            /*let valspan = val.0.clone();
+            let (left, vt) = compile_expr(ctx, *val)?;
+            if vt != ValType::List {
+                return Err(CompileError {
+                    kind: CompileErrorKind::IndexNonList,
+                    span: valspan,
+                });
+            }
+            let (rl, rt) = comp_expect_num(ctx, *ind, CompileErrorKind::IndexWithNonNumber)?;
             Ok((
                 Latex::BinaryExpression {
-                    left: Box::new(ll),
+                    left: Box::new(left),
                     operator: LatexBinaryOperator::Index,
                     right: Box::new(rl),
                 },
                 rt,
-            ))
+            ))*/
         }
     }
 }
@@ -231,7 +304,8 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult 
             compile_expr(ctx, (s, e))?.0,
         )]),
         Statement::FuncDef(fdef, e) => {
-            // Add args into locals
+            unimplemented!();
+            /*// Add args into locals
             for (aspan, aname, atype) in fdef.args.iter() {
                 if ctx.variables.contains_key(aname) || ctx.locals.contains_key(aname) {
                     return Err(CompileError {
@@ -245,7 +319,15 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult 
             let (body, ret) = compile_expr(ctx, e)?;
             // Validate the return type annotation
             if let Some(retann) = fdef.ret_annotation {
-                check_type(s, ret, retann)?;
+                if ret != retann {
+                    return Err(CompileError {
+                        kind: CompileErrorKind::RetAnnMismatch {
+                            got: ret,
+                            expected: retann,
+                        },
+                        span: s,
+                    });
+                };
             }
             // remove args from scope
             for (_span, aname, _atyp) in fdef.args.iter() {
@@ -287,10 +369,11 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult 
                     .map(|(_span, name, _typ)| name)
                     .collect(),
                 body: Box::new(body),
-            }])
+            }])*/
         }
         Statement::VarDef { name, val, inline } => {
-            if ctx.variables.contains_key(name.as_str())
+            unimplemented!();
+            /*if ctx.variables.contains_key(name.as_str())
                 || ctx.inline_vals.contains_key(name.as_str())
             {
                 return Err(CompileError {
@@ -311,9 +394,9 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult 
                         Box::new(val_latex),
                     )])
                 }
-            }
+            }*/
         }
-        Statement::Import(import) => crate::import::handle_import(ctx, s, import),
+        Statement::Import(import) => super::import::handle_import(ctx, s, import),
     }
 }
 
@@ -387,24 +470,24 @@ pub mod tests {
         assert_eq!(compile(exp).unwrap(), r);
     }
 
-    pub fn comp_with_var<'a>(
-        v: &str,
-        vtype: ValType,
-        exp: Expression,
-    ) -> Result<Latex, CompileError> {
+    pub fn tinfo() -> Option<TypInfo> {
+        Some(TypInfo::Literal(spn()))
+    }
+
+    pub fn comp_with_var(v: &str, vtype: ValType, exp: Expression) -> Result<Latex, CompileError> {
         let mut ctx = new_ctx();
-        ctx.variables.insert(v.to_string(), vtype);
+        ctx.variables.insert(v.to_string(), (vtype, tinfo()));
         compile_with_ctx(&mut ctx, exp)
     }
 
-    pub fn check_with_var<'a>(v: &str, vtype: ValType, exp: Expression, r: Latex) {
+    pub fn check_with_var(v: &str, vtype: ValType, exp: Expression, r: Latex) {
         assert_eq!(comp_with_var(v, vtype, exp), Ok(r));
     }
 
-    // generates a fake span to satisfy the type-checker as proper spans aren't
-    //  important for most tests
+    // generates a fake span to satisfy the type-checker
+    // accurate spans are relevant to testing the parser but not for the compiler
     #[inline]
-    pub fn spn<'a>() -> types::Span {
+    pub fn spn() -> types::Span {
         types::Span::new(1234, 0..0)
     }
 
@@ -513,9 +596,9 @@ pub mod tests {
             })
             .unwrap_err()
             .kind,
-            CompileErrorKind::TypeMismatch {
-                got: ValType::List,
-                expected: ValType::Number
+            CompileErrorKind::ExpectedSameTypes {
+                left: (Typ::List, None),
+                right: (Typ::Num, None)
             }
         );
     }
@@ -532,10 +615,7 @@ pub mod tests {
             })
             .unwrap_err()
             .kind,
-            CompileErrorKind::TypeMismatch {
-                got: ValType::List,
-                expected: ValType::Number
-            }
+            CompileErrorKind::FactorialList
         );
     }
 
@@ -668,8 +748,8 @@ pub mod tests {
             ))
             .unwrap_err(),
             CompileError {
-                kind: CompileErrorKind::TypeMismatch {
-                    got: ValType::Number,
+                kind: CompileErrorKind::RetAnnMismatch {
+                    got: Typ::Num,
                     expected: ValType::List
                 },
                 span: spn()
@@ -803,9 +883,9 @@ pub mod tests {
             .unwrap_err(),
             CompileError {
                 span: spn(),
-                kind: CompileErrorKind::TypeMismatch {
+                kind: CompileErrorKind::ArgTypeMismatch {
                     expected: ValType::Number,
-                    got: ValType::List
+                    got: (Typ::List, None)
                 }
             }
         );
@@ -814,7 +894,8 @@ pub mod tests {
     #[test]
     fn funcdef_catch_shadow() {
         let mut ctx = new_ctx();
-        ctx.variables.insert("a".to_string(), ValType::Number);
+        ctx.variables
+            .insert("a".to_string(), (ValType::Number, tinfo()));
         assert_eq!(
             compile_stmt_with_ctx(
                 &mut ctx,
@@ -838,7 +919,8 @@ pub mod tests {
     #[test]
     fn piecewise_single() {
         let mut ctx = new_ctx();
-        ctx.variables.insert("a".to_string(), ValType::Number);
+        ctx.variables
+            .insert("a".to_string(), (ValType::Number, tinfo()));
         // input taken from parser test output
         assert_eq!(
             compile_with_ctx(
@@ -873,53 +955,50 @@ pub mod tests {
     #[test]
     fn piecewise_multi() {
         let mut ctx = new_ctx();
-        ctx.variables.insert("a".to_string(), ValType::Number);
+        ctx.variables
+            .insert("a".to_string(), (ValType::Number, tinfo()));
+        let firstbranch = Branch {
+            cond_left: (spn(), Expression::Variable("a".to_string())),
+            cond: CompareOperator::GreaterThanEqual,
+            cond_right: (spn(), Expression::Num("1".to_string())),
+            val: (spn(), Expression::Num("2".to_string())),
+        };
+        let ast = Expression::Piecewise {
+            first: Box::new((spn(), firstbranch.clone())),
+            rest: vec![
+                (
+                    spn(),
+                    Branch {
+                        cond_left: (spn(), Expression::Variable("a".to_string())),
+                        cond: CompareOperator::LessThanEqual,
+                        cond_right: (spn(), Expression::Num("3".to_string())),
+                        val: (spn(), Expression::Num("4".to_string())),
+                    },
+                ),
+                (
+                    spn(),
+                    Branch {
+                        cond_left: (spn(), Expression::Variable("a".to_string())),
+                        cond: CompareOperator::LessThan,
+                        cond_right: (spn(), Expression::Num("5".to_string())),
+                        val: (spn(), Expression::Num("6".to_string())),
+                    },
+                ),
+                (
+                    spn(),
+                    Branch {
+                        cond_left: (spn(), Expression::Variable("a".to_string())),
+                        cond: CompareOperator::GreaterThan,
+                        cond_right: (spn(), Expression::Num("7".to_string())),
+                        val: (spn(), Expression::Num("8".to_string())),
+                    },
+                ),
+            ],
+            default: Box::new((spn(), Expression::Num("9".to_string()))),
+        };
         // input taken from parser test output
         assert_eq!(
-            compile_with_ctx(
-                &mut ctx,
-                Expression::Piecewise {
-                    first: Box::new((
-                        spn(),
-                        Branch {
-                            cond_left: (spn(), Expression::Variable("a".to_string())),
-                            cond: CompareOperator::GreaterThanEqual,
-                            cond_right: (spn(), Expression::Num("1".to_string())),
-                            val: (spn(), Expression::Num("2".to_string()))
-                        }
-                    )),
-                    rest: vec![
-                        (
-                            spn(),
-                            Branch {
-                                cond_left: (spn(), Expression::Variable("a".to_string())),
-                                cond: CompareOperator::LessThanEqual,
-                                cond_right: (spn(), Expression::Num("3".to_string())),
-                                val: (spn(), Expression::Num("4".to_string()))
-                            }
-                        ),
-                        (
-                            spn(),
-                            Branch {
-                                cond_left: (spn(), Expression::Variable("a".to_string())),
-                                cond: CompareOperator::LessThan,
-                                cond_right: (spn(), Expression::Num("5".to_string())),
-                                val: (spn(), Expression::Num("6".to_string()))
-                            }
-                        ),
-                        (
-                            spn(),
-                            Branch {
-                                cond_left: (spn(), Expression::Variable("a".to_string())),
-                                cond: CompareOperator::GreaterThan,
-                                cond_right: (spn(), Expression::Num("7".to_string())),
-                                val: (spn(), Expression::Num("8".to_string()))
-                            }
-                        )
-                    ],
-                    default: Box::new((spn(), Expression::Num("9".to_string())))
-                }
-            ),
+            compile_with_ctx(&mut ctx, ast.clone()),
             Ok(Latex::Piecewise {
                 first: Box::new(Cond {
                     left: Latex::Variable("a".to_string()),
@@ -985,10 +1064,12 @@ pub mod tests {
     #[test]
     fn module_reference() {
         let mut submodule = new_ctx();
-        submodule.variables.insert("a".to_string(), ValType::Number);
+        submodule
+            .variables
+            .insert("a".to_string(), (ValType::Number, tinfo()));
         submodule.inline_vals.insert(
             "b".to_string(),
-            (ValType::Number, Latex::Num("1".to_string())),
+            (Typ::Num, Latex::Num("1".to_string()), tinfo()),
         );
         let mut ctx = new_ctx();
         ctx.modules.insert("lib".to_owned(), submodule);

@@ -1,6 +1,8 @@
 use std::fmt;
 use types::{ArgCount, ValType};
 
+use crate::types::{Typ, TypInfo};
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum ExpectedArgCount {
     NonZero,
@@ -14,10 +16,25 @@ pub enum CompileErrorKind {
         got: ArgCount,
         expected: ExpectedArgCount,
     },
-    TypeMismatch {
-        got: ValType,
+    ArgTypeMismatch {
+        got: (Typ, Option<TypInfo>),
         expected: ValType,
     },
+    NegateList,
+    FactorialList,
+    RangeExpectNumber,
+    IndexNonList,
+    MapNonList,
+    IndexWithNonNumber,
+    RetAnnMismatch {
+        got: Typ,
+        expected: ValType,
+    },
+    ExpectedSameTypes {
+        left: (Typ, Option<TypInfo>),
+        right: (Typ, Option<TypInfo>),
+    },
+    VariadicList,
     UndefinedVariable(String),
     DuplicateVariable(String),
     ExpectedFunction,
@@ -54,8 +71,43 @@ impl CompileErrorKind {
                 };
                 format!("Expected {} arguments but got {}", ex_fmt, got)
             }
-            CompileErrorKind::TypeMismatch { got, expected } => {
+            CompileErrorKind::ArgTypeMismatch { got, expected } => {
                 format!("Expected type {:#?} but got {:#?}", expected, got)
+            }
+            CompileErrorKind::NegateList => {
+                // TODO: there will be syntax to map list
+                format!("Cannot negate a list")
+            }
+            CompileErrorKind::FactorialList => {
+                format!("Cannot take the factorial of a list")
+            }
+            CompileErrorKind::RangeExpectNumber => {
+                format!("Range argument must be numbers")
+            }
+            CompileErrorKind::IndexNonList => {
+                format!("Cannot index non-list")
+            }
+            CompileErrorKind::MapNonList => {
+                format!("Cannot map non-list")
+            }
+            CompileErrorKind::IndexWithNonNumber => {
+                format!("Index must be a number")
+            }
+            CompileErrorKind::RetAnnMismatch { got, expected } => {
+                format!(
+                    "Expected type {:#?} due to return type annotation, but function returned {:#?}", 
+                    expected,
+                    got
+                )
+            }
+            CompileErrorKind::ExpectedSameTypes { left, right } => {
+                format!(
+                    "Expected left type {:#?} to match right type {:#?}",
+                    left, right
+                )
+            }
+            CompileErrorKind::VariadicList => {
+                "Variadic functions expect all numerical arguments".to_string()
             }
             CompileErrorKind::UndefinedVariable(var) => {
                 format!("Undefined variable '{}'", var)
@@ -82,13 +134,6 @@ impl CompileErrorKind {
 
     pub fn help(&self) -> Option<String> {
         match &self {
-            CompileErrorKind::TypeMismatch { got, expected } => {
-                if *got == ValType::List && *expected == ValType::Number {
-                    Some("To map a function over a list use @, like `sin@([1])".to_string())
-                } else {
-                    None
-                }
-            }
             _ => None,
         }
     }

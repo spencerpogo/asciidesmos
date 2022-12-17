@@ -58,12 +58,18 @@ pub enum Expression {
         val: Box<LocatedExpression>,
         operator: UnaryOperator,
     },
+    Map(Box<LocatedExpression>),
     Call {
         modifier: CallModifier,
         func: Function,
         args: Vec<LocatedExpression>,
     },
     List(Vec<LocatedExpression>),
+    Range {
+        first: Box<LocatedExpression>,
+        second: Option<Box<LocatedExpression>>,
+        end: Box<LocatedExpression>,
+    },
     Piecewise {
         first: Box<Spanned<Branch>>,
         rest: Vec<Spanned<Branch>>,

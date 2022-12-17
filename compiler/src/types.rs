@@ -4,6 +4,111 @@ use types::ValType;
 
 use crate::stdlib::StdlibLoader;
 
+// ValType that supports list mapping
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Typ {
+    Num,
+    List,
+    MappedList,
+}
+
+impl From<ValType> for Typ {
+    fn from(v: ValType) -> Self {
+        match v {
+            ValType::Number => Self::Num,
+            ValType::List => Self::List,
+        }
+    }
+}
+
+impl Typ {
+    pub fn is_num_weak(self) -> bool {
+        match self {
+            Self::Num => true,
+            Self::List => false,
+            Self::MappedList => true,
+        }
+    }
+
+    pub fn is_list_weak(self) -> bool {
+        match self {
+            Self::Num => false,
+            Self::List => true,
+            Self::MappedList => true,
+        }
+    }
+
+    pub fn is_num_strict(self) -> bool {
+        self == Self::Num
+    }
+
+    pub fn eq_weak(self, rhs: Self) -> bool {
+        match self {
+            Self::Num => rhs.is_num_weak(),
+            Self::List => rhs == Self::List,
+            // todo: reject redundant cmp of mappedlist to mappedlist?
+            Self::MappedList => rhs.is_num_weak(),
+        }
+    }
+
+    // Given two types that are eq_weak, simulate the result of a desmos binop
+    pub fn binop_result(self, rhs: Self) -> Self {
+        if self.is_list_weak() || rhs.is_list_weak() {
+            return Self::List;
+        }
+        // both sides are strictly Self::Num
+        Self::Num
+    }
+
+    pub fn unop_result(self) -> Self {
+        match self {
+            Self::Num => Self::Num,
+            Self::List => Self::List,
+            Self::MappedList => Self::List,
+        }
+    }
+}
+
+pub fn combine_types(
+    left: (types::Span, Typ, Option<TypInfo>),
+    right: (types::Span, Typ, Option<TypInfo>),
+) -> (types::Span, Typ, Option<TypInfo>) {
+    let (ls, lt, li) = left;
+    let (rs, rt, ri) = right;
+    if lt.is_list_weak() {
+        return (ls, Typ::List, li);
+    }
+    if rt.is_list_weak() {
+        return (rs, Typ::List, ri);
+    }
+    // only possibilities left:
+    debug_assert_eq!(lt, Typ::Num);
+    debug_assert_eq!(rt, Typ::Num);
+    (
+        ls.with_end_of(&rs).expect("Parsing same file"),
+        lt,
+        Some(TypInfo::BinOp(ls, rs)),
+    )
+}
+
+pub fn reduce_types<I>(types: I) -> Option<(Typ, Option<TypInfo>)>
+where
+    I: IntoIterator<Item = (types::Span, Typ, Option<TypInfo>)>,
+{
+    types
+        .into_iter()
+        .reduce(|left, right| combine_types(left, right))
+        .map(|(_s, t, i)| (t, i))
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum TypInfo {
+    Literal(types::Span),
+    BinOp(types::Span, types::Span),
+    Map(types::Span),
+    Builtin(ast::Function),
+}
+
 // heap version of core::runtime::Args
 #[derive(Clone, Debug, PartialEq)]
 pub enum FunctionArgs {
@@ -15,13 +120,13 @@ pub enum FunctionArgs {
 #[derive(Clone, Debug, PartialEq)]
 pub struct FunctionSignature {
     pub args: FunctionArgs,
-    pub ret: ValType,
+    pub ret: (ValType, Option<TypInfo>),
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct InlineFunction {
     pub args: Vec<(String, ValType)>,
-    pub ret: ValType,
+    pub ret: (ValType, Option<TypInfo>),
     pub body: latex::Latex,
 }
 
@@ -66,10 +171,10 @@ impl Loader for UnimplementedLoader {
 
 #[derive(Clone, Debug)]
 pub struct Context {
-    pub variables: HashMap<String, ValType>,
-    pub locals: HashMap<String, ValType>,
+    pub variables: HashMap<String, (ValType, Option<TypInfo>)>,
+    pub locals: HashMap<String, (ValType, Option<TypInfo>)>,
     pub defined_functions: HashMap<String, Rc<FunctionSignature>>,
-    pub inline_vals: HashMap<String, (ValType, latex::Latex)>,
+    pub inline_vals: HashMap<String, (Typ, latex::Latex, Option<TypInfo>)>,
     pub inline_fns: HashMap<String, Rc<InlineFunction>>,
     // can't support submodules (yet)
     pub modules: HashMap<String, Context>,
