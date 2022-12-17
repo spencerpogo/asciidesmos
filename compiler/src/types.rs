@@ -53,9 +53,9 @@ impl Typ {
 }
 
 pub fn combine_types(
-    left: (types::Span, Typ, Option<TypInfo>),
-    right: (types::Span, Typ, Option<TypInfo>),
-) -> (types::Span, Typ, Option<TypInfo>) {
+    left: (types::Span, Typ, TypInfo),
+    right: (types::Span, Typ, TypInfo),
+) -> (types::Span, Typ, TypInfo) {
     let (ls, lt, li) = left;
     let (rs, rt, ri) = right;
     if lt.is_list_weak() {
@@ -70,13 +70,13 @@ pub fn combine_types(
     (
         ls.with_end_of(&rs).expect("Parsing same file"),
         lt,
-        Some(TypInfo::BinOp(ls, rs)),
+        TypInfo::BinOp(ls, rs),
     )
 }
 
-pub fn reduce_types<I>(types: I) -> Option<(Typ, Option<TypInfo>)>
+pub fn reduce_types<I>(types: I) -> Option<(Typ, TypInfo)>
 where
-    I: IntoIterator<Item = (types::Span, Typ, Option<TypInfo>)>,
+    I: IntoIterator<Item = (types::Span, Typ, TypInfo)>,
 {
     types
         .into_iter()
@@ -103,13 +103,13 @@ pub enum FunctionArgs {
 #[derive(Clone, Debug, PartialEq)]
 pub struct FunctionSignature {
     pub args: FunctionArgs,
-    pub ret: (ValType, Option<TypInfo>),
+    pub ret: (ValType, TypInfo),
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct InlineFunction {
     pub args: Vec<(String, ValType)>,
-    pub ret: (ValType, Option<TypInfo>),
+    pub ret: (ValType, TypInfo),
     pub body: latex::Latex,
 }
 
@@ -154,10 +154,10 @@ impl Loader for UnimplementedLoader {
 
 #[derive(Clone, Debug)]
 pub struct Context {
-    pub variables: HashMap<String, (ValType, Option<TypInfo>)>,
-    pub locals: HashMap<String, (ValType, Option<TypInfo>)>,
+    pub variables: HashMap<String, (ValType, TypInfo)>,
+    pub locals: HashMap<String, (ValType, TypInfo)>,
     pub defined_functions: HashMap<String, Rc<FunctionSignature>>,
-    pub inline_vals: HashMap<String, (Typ, latex::Latex, Option<TypInfo>)>,
+    pub inline_vals: HashMap<String, (Typ, latex::Latex, TypInfo)>,
     pub inline_fns: HashMap<String, Rc<InlineFunction>>,
     // can't support submodules (yet)
     pub modules: HashMap<String, Context>,

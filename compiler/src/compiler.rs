@@ -13,7 +13,7 @@ use latex::{
 };
 use types::ValType;
 
-pub fn resolve_variable(ctx: &Context, var: String) -> Option<(ValType, Option<TypInfo>)> {
+pub fn resolve_variable(ctx: &Context, var: String) -> Option<(ValType, TypInfo)> {
     if let Some(r) = ctx.variables.get::<str>(var.as_ref()) {
         return Some(r.clone());
     }
@@ -51,7 +51,7 @@ pub fn comp_expect<F>(
     expr: LocatedExpression,
     check: F,
     kind: CompileErrorKind,
-) -> Cesult<(Latex, Typ, Option<TypInfo>)>
+) -> Cesult<(Latex, Typ, TypInfo)>
 where
     F: Fn(Typ) -> bool,
 {
@@ -67,7 +67,7 @@ pub fn comp_expect_num_strict(
     ctx: &mut Context,
     expr: LocatedExpression,
     kind: CompileErrorKind,
-) -> Cesult<(Latex, Typ, Option<TypInfo>)> {
+) -> Cesult<(Latex, Typ, TypInfo)> {
     comp_expect(ctx, expr, |t| t == Typ::Num, kind)
 }
 
@@ -75,7 +75,7 @@ pub fn comp_expect_num(
     ctx: &mut Context,
     expr: LocatedExpression,
     kind: CompileErrorKind,
-) -> Cesult<(Latex, Typ, Option<TypInfo>)> {
+) -> Cesult<(Latex, Typ, TypInfo)> {
     comp_expect(ctx, expr, |t| t.is_num_weak(), kind)
 }
 
@@ -83,7 +83,7 @@ pub fn comp_expect_list_strict(
     ctx: &mut Context,
     expr: LocatedExpression,
     kind: CompileErrorKind,
-) -> Cesult<(Latex, Typ, Option<TypInfo>)> {
+) -> Cesult<(Latex, Typ, TypInfo)> {
     comp_expect(ctx, expr, |t| t == Typ::List, kind)
 }
 
@@ -91,7 +91,7 @@ pub fn comp_binop(
     ctx: &mut Context,
     left: LocatedExpression,
     right: LocatedExpression,
-) -> Cesult<(Latex, Latex, Typ, Option<TypInfo>)> {
+) -> Cesult<(Latex, Latex, Typ, TypInfo)> {
     let ls = left.0.clone();
     let rs = left.0.clone();
     let (lv, lt, li) = compile_expr(ctx, left)?;
@@ -112,7 +112,7 @@ pub fn comp_binop(
 pub fn branch_to_cond(
     ctx: &mut Context,
     (spn, branch): ast::Spanned<ast::Branch>,
-) -> Cesult<(Cond, (types::Span, Typ, Option<TypInfo>))> {
+) -> Cesult<(Cond, (types::Span, Typ, TypInfo))> {
     let (left, right, t, i) = comp_binop(ctx, branch.cond_left, branch.cond_right)?;
     Ok((
         Cond {
@@ -129,7 +129,7 @@ pub fn compile_variable_ref(
     ctx: &Context,
     span: types::Span,
     name: String,
-) -> Cesult<(Latex, Typ, Option<TypInfo>)> {
+) -> Cesult<(Latex, Typ, TypInfo)> {
     match ctx.inline_vals.get(&name) {
         Some((t, v, i)) => Ok((v.clone(), *t, i.clone())),
         None => match resolve_variable(ctx, name.clone()) {
@@ -144,10 +144,7 @@ pub fn compile_variable_ref(
 
 // Ideally this would be functional and ctx would not need to be mutable, but rust
 //  support for immutable hashmaps isn't built in and mutation is much simpler.
-pub fn compile_expr(
-    ctx: &mut Context,
-    expr: LocatedExpression,
-) -> Cesult<(Latex, Typ, Option<TypInfo>)> {
+pub fn compile_expr(ctx: &mut Context, expr: LocatedExpression) -> Cesult<(Latex, Typ, TypInfo)> {
     let span = expr.0;
 
     match expr.1 {
@@ -155,7 +152,7 @@ pub fn compile_expr(
         Expression::Num(val) => Ok((
             Latex::Num(val.to_string()),
             Typ::Num,
-            Some(TypInfo::Literal(span)),
+            TypInfo::Literal(span),
         )),
         Expression::Variable(name) => compile_variable_ref(ctx, span, name),
         Expression::FullyQualifiedVariable { path, item } => {
@@ -215,17 +212,15 @@ pub fn compile_expr(
                     span,
                 });
             }
-            Ok((v, Typ::MappedList, Some(TypInfo::Map(span))))
+            Ok((v, Typ::MappedList, TypInfo::Map(span)))
         }
         Expression::Call { func, args } => {
             let compiled_args = args
                 .into_iter()
-                .map(
-                    |(s, e)| -> Cesult<(types::Span, Latex, Typ, Option<TypInfo>)> {
-                        let (latex, t, i) = compile_expr(ctx, (s.clone(), e))?;
-                        Ok((s, latex, t, i))
-                    },
-                )
+                .map(|(s, e)| -> Cesult<(types::Span, Latex, Typ, TypInfo)> {
+                    let (latex, t, i) = compile_expr(ctx, (s.clone(), e))?;
+                    Ok((s, latex, t, i))
+                })
                 .collect::<Cesult<Vec<_>>>()?;
             super::call::compile_call(ctx, span, func, compiled_args)
         }
@@ -237,7 +232,7 @@ pub fn compile_expr(
                 })
                 .collect::<Cesult<Vec<Latex>>>()?;
 
-            Ok((Latex::List(items), Typ::List, None))
+            Ok((Latex::List(items), Typ::List, todo!()))
         }
         Expression::Range { first, second, end } => {
             let range = Latex::Range {
@@ -255,7 +250,7 @@ pub fn compile_expr(
                     comp_expect_num_strict(ctx, *end, CompileErrorKind::RangeExpectNumber)?.0,
                 ),
             };
-            Ok((range, Typ::List, None))
+            Ok((range, Typ::List, todo!()))
         }
         Expression::Piecewise {
             first,
@@ -287,7 +282,7 @@ pub fn compile_expr(
                 ti,
             ))
         }
-        Expression::RawLatex(ty, l) => Ok((Latex::Raw(l), ty.into(), None)),
+        Expression::RawLatex(ty, l) => Ok((Latex::Raw(l), ty.into(), todo!())),
         Expression::Index { val, ind } => {
             let (r, rt, ri) = comp_expect_num(ctx, *ind, CompileErrorKind::IndexWithNonNumber)?;
             Ok((
@@ -481,8 +476,8 @@ pub mod tests {
         assert_eq!(compile(exp).unwrap(), r);
     }
 
-    pub fn tinfo() -> Option<TypInfo> {
-        Some(TypInfo::Literal(spn()))
+    pub fn tinfo() -> TypInfo {
+        TypInfo::Literal(spn())
     }
 
     pub fn comp_with_var(v: &str, vtype: ValType, exp: Expression) -> Cesult<Latex> {
@@ -608,8 +603,8 @@ pub mod tests {
             .unwrap_err()
             .kind,
             CompileErrorKind::ExpectedSameTypes {
-                left: (Typ::List, None),
-                right: (Typ::Num, None)
+                left: (Typ::List, todo!()),
+                right: (Typ::Num, todo!())
             }
         );
     }
@@ -893,7 +888,7 @@ pub mod tests {
                 span: spn(),
                 kind: CompileErrorKind::ArgTypeMismatch {
                     expected: ValType::Number,
-                    got: (Typ::List, None)
+                    got: (Typ::List, todo!())
                 }
             }
         );

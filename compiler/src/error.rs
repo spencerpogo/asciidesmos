@@ -17,7 +17,7 @@ pub enum CompileErrorKind {
         expected: ExpectedArgCount,
     },
     ArgTypeMismatch {
-        got: (Typ, Option<TypInfo>),
+        got: (Typ, TypInfo),
         expected: ValType,
     },
     NegateList,
@@ -31,8 +31,8 @@ pub enum CompileErrorKind {
         expected: ValType,
     },
     ExpectedSameTypes {
-        left: (Typ, Option<TypInfo>),
-        right: (Typ, Option<TypInfo>),
+        left: (Typ, TypInfo),
+        right: (Typ, TypInfo),
     },
     VariadicList,
     UndefinedVariable(String),

@@ -25,7 +25,7 @@ pub fn resolve_function<'a>(ctx: &'a mut Context, func: ast::Function) -> Option
             return Some(ResolvedFunction::Normal {
                 func: Rc::new(FunctionSignature {
                     args: FunctionArgs::Static(vec![types::ValType::Number]),
-                    ret: (types::ValType::Number, Some(TypInfo::Builtin(func))),
+                    ret: (types::ValType::Number, TypInfo::Builtin(func)),
                 }),
                 is_builtin: true,
             });
@@ -48,10 +48,7 @@ pub fn resolve_function<'a>(ctx: &'a mut Context, func: ast::Function) -> Option
                     types::Args::Static(args) => FunctionArgs::Static(args.to_vec()),
                     types::Args::Variadic => FunctionArgs::Variadic,
                 },
-                ret: (
-                    f.ret,
-                    Some(TypInfo::Builtin(ast::Function::Normal { name })),
-                ),
+                ret: (f.ret, TypInfo::Builtin(ast::Function::Normal { name })),
             }),
             is_builtin: true,
         });
@@ -60,21 +57,20 @@ pub fn resolve_function<'a>(ctx: &'a mut Context, func: ast::Function) -> Option
 }
 
 fn resolve_func_type(
-    args_types: Vec<(types::Span, Typ, Option<TypInfo>)>,
-    ret: (ValType, Option<TypInfo>),
-) -> (Typ, Option<TypInfo>) {
+    args_types: Vec<(types::Span, Typ, TypInfo)>,
+    ret: (ValType, TypInfo),
+) -> (Typ, TypInfo) {
     reduce_types(args_types).unwrap_or((ret.0.into(), ret.1))
 }
 
 fn check_arg_types(
-    args: Vec<(types::Span, latex::Latex, Typ, Option<TypInfo>)>,
+    args: Vec<(types::Span, latex::Latex, Typ, TypInfo)>,
     rargs: &Vec<types::ValType>,
-) -> Result<Vec<(latex::Latex, (types::Span, Typ, Option<TypInfo>))>, CompileError> {
-    args
-        .into_iter()
+) -> Result<Vec<(latex::Latex, (types::Span, Typ, TypInfo))>, CompileError> {
+    args.into_iter()
         .zip(rargs.iter())
         .map(
-            |(got_type, expect_type)| -> Result<(latex::Latex, (types::Span, Typ, Option<TypInfo>)), _> {
+            |(got_type, expect_type)| -> Result<(latex::Latex, (types::Span, Typ, TypInfo)), _> {
                 let (aspan, arg_latex, gt, gi) = got_type;
                 if !gt.eq_weak((*expect_type).into()) {
                     return Err(CompileError {
@@ -94,11 +90,11 @@ fn check_arg_types(
 pub fn compile_static_call(
     span: types::Span,
     func: ast::Function,
-    args: Vec<(types::Span, latex::Latex, Typ, Option<TypInfo>)>,
+    args: Vec<(types::Span, latex::Latex, Typ, TypInfo)>,
     rfunc: FunctionSignature,
     rargs: &Vec<types::ValType>,
     is_builtin: bool,
-) -> Result<(latex::Latex, Typ, Option<TypInfo>), CompileError> {
+) -> Result<(latex::Latex, Typ, TypInfo), CompileError> {
     // Validate arg count
     {
         let got = args.len();
@@ -131,9 +127,9 @@ pub fn compile_static_call(
 }
 
 fn variadic_call_types(
-    args: Vec<(types::Span, latex::Latex, Typ, Option<TypInfo>)>,
+    args: Vec<(types::Span, latex::Latex, Typ, TypInfo)>,
     rfunc: FunctionSignature,
-) -> Result<(Vec<Latex>, Typ, Option<TypInfo>), CompileError> {
+) -> Result<(Vec<Latex>, Typ, TypInfo), CompileError> {
     if args.len() == 1 {
         let first = args.first().unwrap();
         if first.2.is_list_weak() {
@@ -144,7 +140,7 @@ fn variadic_call_types(
     let (args_latex, args_types) = args
         .into_iter()
         .map(
-            |(span, latex, t, ti)| -> Result<(Latex, (types::Span, Typ, Option<TypInfo>)), CompileError> {
+            |(span, latex, t, ti)| -> Result<(Latex, (types::Span, Typ, TypInfo)), CompileError> {
                 if !t.is_num_weak() {
                     return Err(CompileError {
                         span,
@@ -164,10 +160,10 @@ fn variadic_call_types(
 pub fn compile_variadic_call(
     span: types::Span,
     func: ast::Function,
-    args: Vec<(types::Span, latex::Latex, Typ, Option<TypInfo>)>,
+    args: Vec<(types::Span, latex::Latex, Typ, TypInfo)>,
     rfunc: FunctionSignature,
     is_builtin: bool,
-) -> Result<(latex::Latex, Typ, Option<TypInfo>), CompileError> {
+) -> Result<(latex::Latex, Typ, TypInfo), CompileError> {
     if args.is_empty() {
         return Err(CompileError {
             kind: CompileErrorKind::WrongArgCount {
@@ -262,8 +258,8 @@ pub fn compile_call(
     ctx: &mut Context,
     span: types::Span,
     func: ast::Function,
-    args: Vec<(types::Span, latex::Latex, Typ, Option<TypInfo>)>,
-) -> Result<(latex::Latex, Typ, Option<TypInfo>), CompileError> {
+    args: Vec<(types::Span, latex::Latex, Typ, TypInfo)>,
+) -> Result<(latex::Latex, Typ, TypInfo), CompileError> {
     let rfunc = resolve_function(ctx, func.clone()).ok_or(CompileError {
         kind: CompileErrorKind::UnknownFunction(func.clone()),
         span: span.clone(),
@@ -285,29 +281,29 @@ pub fn compile_call(
                 }
             }
 
-            let (entries, args_types): (Vec<_>, Vec<_>) = args
-                .into_iter()
-                .zip(rfunc.args.into_iter())
-                .map(
-                    |((arg_span, arg_lat, got_typ, got_info), (name, typ))| -> Result<
-                        ((String, Latex), (types::Span, Typ, Option<TypInfo>)),
-                        CompileError,
-                    > {
-                        if !got_typ.eq_weak(typ.into()) {
-                            return Err(CompileError {
-                                kind: CompileErrorKind::ArgTypeMismatch {
-                                    got: (got_typ, got_info),
-                                    expected: typ,
-                                },
-                                span: arg_span,
-                            });
-                        }
-                        Ok(((name, arg_lat), (arg_span, got_typ, got_info)))
-                    },
-                )
-                .collect::<Result<Vec<_>, CompileError>>()?
-                .into_iter()
-                .unzip();
+            let (entries, args_types): (Vec<_>, Vec<_>) =
+                args.into_iter()
+                    .zip(rfunc.args.into_iter())
+                    .map(
+                        |((arg_span, arg_lat, got_typ, got_info), (name, typ))| -> Result<
+                            ((String, Latex), (types::Span, Typ, TypInfo)),
+                            CompileError,
+                        > {
+                            if !got_typ.eq_weak(typ.into()) {
+                                return Err(CompileError {
+                                    kind: CompileErrorKind::ArgTypeMismatch {
+                                        got: (got_typ, got_info),
+                                        expected: typ,
+                                    },
+                                    span: arg_span,
+                                });
+                            }
+                            Ok(((name, arg_lat), (arg_span, got_typ, got_info)))
+                        },
+                    )
+                    .collect::<Result<Vec<_>, CompileError>>()?
+                    .into_iter()
+                    .unzip();
 
             let vars: HashMap<String, Latex> = entries.into_iter().collect();
             let (rt, ri) = resolve_func_type(args_types, rfunc.ret);
@@ -443,7 +439,7 @@ mod tests {
             compile(inp.clone()),
             Err(CompileError {
                 kind: CompileErrorKind::ArgTypeMismatch {
-                    got: (Typ::List, None),
+                    got: (Typ::List, todo!()),
                     expected: ValType::Number
                 },
                 span: spn()
@@ -559,7 +555,7 @@ mod tests {
             .unwrap_err()
             .kind,
             CompileErrorKind::ArgTypeMismatch {
-                got: (Typ::List, None),
+                got: (Typ::List, todo!()),
                 expected: ValType::Number
             }
         );
