@@ -50,23 +50,6 @@ impl Typ {
             Self::MappedList => rhs.is_num_weak(),
         }
     }
-
-    // Given two types that are eq_weak, simulate the result of a desmos binop
-    pub fn binop_result(self, rhs: Self) -> Self {
-        if self.is_list_weak() || rhs.is_list_weak() {
-            return Self::List;
-        }
-        // both sides are strictly Self::Num
-        Self::Num
-    }
-
-    pub fn unop_result(self) -> Self {
-        match self {
-            Self::Num => Self::Num,
-            Self::List => Self::List,
-            Self::MappedList => Self::List,
-        }
-    }
 }
 
 pub fn combine_types(
