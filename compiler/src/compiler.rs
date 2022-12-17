@@ -14,10 +14,13 @@ use latex::{
 use types::ValType;
 
 pub fn resolve_variable(ctx: &Context, var: String) -> Option<(ValType, Option<TypInfo>)> {
-    match ctx.variables.get::<str>(var.as_ref()) {
-        Some(r) => Some(r.clone()),
-        None => ctx.locals.get::<str>(var.as_ref()).cloned(),
+    if let Some(r) = ctx.variables.get::<str>(var.as_ref()) {
+        return Some(r.clone());
     }
+    if let Some(r) = ctx.locals.get::<str>(var.as_ref()) {
+        return Some(r.clone());
+    }
+    None
 }
 
 pub fn binop_to_latex(lv: Latex, operator: BinaryOperator, rv: Latex) -> Latex {
