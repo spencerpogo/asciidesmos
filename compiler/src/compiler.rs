@@ -43,22 +43,6 @@ pub fn binop_to_latex(lv: Latex, operator: BinaryOperator, rv: Latex) -> Latex {
     }
 }
 
-pub fn comp_unop(
-    ctx: &mut Context,
-    expr: LocatedExpression,
-    kind: CompileErrorKind,
-) -> Cesult<(Latex, Typ, Option<TypInfo>)> {
-    let s = expr.0.clone();
-    let (v, t, i) = compile_expr(ctx, expr)?;
-    if !t.is_num_weak() {
-        return Err(CompileError { kind, span: s });
-    }
-    // we want to have to explicitly map at every step, so don't
-    //  return List instead of MappedList
-    // Pass the inner option's typeinfo through
-    Ok((v, t.unop_result(), i))
-}
-
 pub fn comp_expect<F>(
     ctx: &mut Context,
     expr: LocatedExpression,
@@ -198,10 +182,16 @@ pub fn compile_expr(
             val: v,
             operator: op,
         } => {
-            let (l, t, i) = match op {
-                UnaryOperator::Negate => comp_unop(ctx, *v, CompileErrorKind::NegateList)?,
-                UnaryOperator::Factorial => comp_unop(ctx, *v, CompileErrorKind::FactorialList)?,
-            };
+            let (l, t, i) = compile_expr(ctx, *v)?;
+            if !t.is_num_weak() {
+                return Err(CompileError {
+                    kind: match op {
+                        UnaryOperator::Negate => CompileErrorKind::NegateList,
+                        UnaryOperator::Factorial => CompileErrorKind::FactorialList,
+                    },
+                    span,
+                });
+            }
             Ok((
                 Latex::UnaryExpression {
                     left: Box::new(l),
