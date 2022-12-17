@@ -54,13 +54,13 @@ pub fn comp_expect<C, K>(
 ) -> Cesult<(Latex, Typ, TypInfo)>
 where
     C: FnOnce(Typ) -> bool,
-    K: FnOnce(TypInfo) -> CompileErrorKind,
+    K: FnOnce(Typ, TypInfo) -> CompileErrorKind,
 {
     let span = expr.0.clone();
     let (v, t, ti) = compile_expr(ctx, expr)?;
     if !check(t) {
         return Err(CompileError {
-            kind: kind(ti),
+            kind: kind(t, ti),
             span,
         });
     }
@@ -72,7 +72,7 @@ pub fn comp_expect_num_strict(
     expr: LocatedExpression,
     kind: CompileErrorKind,
 ) -> Cesult<(Latex, Typ, TypInfo)> {
-    comp_expect(ctx, expr, |t| t == Typ::Num, |_| kind)
+    comp_expect(ctx, expr, |t| t == Typ::Num, |_, _| kind)
 }
 
 pub fn comp_expect_num(
@@ -80,7 +80,7 @@ pub fn comp_expect_num(
     expr: LocatedExpression,
     kind: CompileErrorKind,
 ) -> Cesult<(Latex, Typ, TypInfo)> {
-    comp_expect(ctx, expr, |t| t.is_num_weak(), |_| kind)
+    comp_expect(ctx, expr, |t| t.is_num_weak(), |_, _| kind)
 }
 
 pub fn comp_expect_list_strict<K>(
@@ -89,7 +89,7 @@ pub fn comp_expect_list_strict<K>(
     kind: K,
 ) -> Cesult<(Latex, Typ, TypInfo)>
 where
-    K: Fn(TypInfo) -> CompileErrorKind,
+    K: FnOnce(Typ, TypInfo) -> CompileErrorKind,
 {
     comp_expect(ctx, expr, |t| t == Typ::List, kind)
 }
@@ -299,7 +299,10 @@ pub fn compile_expr(ctx: &mut Context, expr: LocatedExpression) -> Cesult<(Latex
             Ok((
                 Latex::BinaryExpression {
                     left: Box::new(
-                        comp_expect_list_strict(ctx, *val, CompileErrorKind::IndexNonList)?.0,
+                        comp_expect_list_strict(ctx, *val, |t, ti| {
+                            CompileErrorKind::IndexNonList(t, ti)
+                        })?
+                        .0,
                     ),
                     operator: LatexBinaryOperator::Index,
                     right: Box::new(r),

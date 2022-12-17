@@ -23,7 +23,7 @@ pub enum CompileErrorKind {
     NegateList,
     FactorialList,
     RangeExpectNumber,
-    IndexNonList,
+    IndexNonList(Typ, TypInfo),
     MapNonList,
     IndexWithNonNumber,
     RetAnnMismatch {
@@ -52,6 +52,14 @@ pub struct CompileError {
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Copy, PartialOrd, Ord)]
 struct DummyRuleType {}
+
+fn typinfo_labels(ti: TypInfo) -> Vec<(types::Span, String)> {
+    match ti {
+        TypInfo::Literal(_, span) => vec![(span, "Literally you are stupd.. ".to_owned())],
+        TypInfo::Map(span) => vec![(span, "Mapped here".to_string())],
+        _ => vec![],
+    }
+}
 
 impl CompileErrorKind {
     pub fn as_msg(&self) -> String {
@@ -84,8 +92,8 @@ impl CompileErrorKind {
             CompileErrorKind::RangeExpectNumber => {
                 format!("Range argument must be numbers")
             }
-            CompileErrorKind::IndexNonList => {
-                format!("Cannot index non-list")
+            CompileErrorKind::IndexNonList(t, _) => {
+                format!("Cannot index non-list type {}", t)
             }
             CompileErrorKind::MapNonList => {
                 format!("Cannot map non-list")
@@ -132,10 +140,24 @@ impl CompileErrorKind {
         }
     }
 
-    pub fn help(&self) -> Option<String> {
+    pub fn help(&self) -> Vec<String> {
         match &self {
-            _ => None,
+            _ => vec![],
         }
+    }
+
+    pub fn typinfos(self) -> Vec<TypInfo> {
+        match self {
+            CompileErrorKind::IndexNonList(t, ti) => vec![ti],
+            _ => vec![],
+        }
+    }
+
+    pub fn labels(self) -> Vec<(types::Span, String)> {
+        self.typinfos()
+            .into_iter()
+            .flat_map(|ti| typinfo_labels(ti))
+            .collect()
     }
 }
 

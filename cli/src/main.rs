@@ -246,14 +246,24 @@ where
 }
 
 fn print_compile_error_report(sources: &mut Sources, err: CompileError) {
-    let mut report =
-        Report::<types::Span>::build(ReportKind::Error, err.span.file_id, err.span.range.start)
-            .with_message(format!("{}", err.kind))
-            .with_label(Label::new(err.span).with_color(Color::Red));
+    let mut report = Report::<types::Span>::build(
+        ReportKind::Custom("error", Color::Red),
+        err.span.file_id,
+        err.span.range.start,
+    )
+    .with_message(format!("{}", err.kind))
+    .with_label(Label::new(err.span).with_color(Color::Red));
 
-    if let Some(help) = err.kind.help() {
+    /*if let Some(help) = err.kind.help() {
         report.set_help(help);
-    }
+    }*/
+    err.kind.labels().into_iter().for_each(|(span, msg)| {
+        report.add_label(
+            Label::new(span)
+                .with_color(ariadne::Color::Blue)
+                .with_message(msg),
+        )
+    });
     report.finish().eprint(sources).unwrap();
 }
 
