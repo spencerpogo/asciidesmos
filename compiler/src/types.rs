@@ -100,14 +100,15 @@ pub fn combine_types(
     )
 }
 
-pub fn reduce_types<I>(types: I) -> Option<(Typ, TypInfo)>
+pub fn reduce_types<I>(types: I) -> Option<(types::Span, Typ, TypInfo)>
 where
     I: IntoIterator<Item = (types::Span, Typ, TypInfo)>,
 {
+    let types = types.into_iter().collect::<Vec<_>>();
+    eprintln!("{:#?}", types);
     types
         .into_iter()
         .reduce(|left, right| combine_types(left, right))
-        .map(|(_s, t, i)| (t, i))
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -124,7 +125,15 @@ pub enum TypInfo {
     Map(types::Span),
     Builtin(types::Span, ast::Function),
     RawLatex(types::Span),
-    FuncArg(types::Span),
+    InlineFuncArg(types::Span),
+    Call {
+        call_span: types::Span,
+        ret: Box<TypInfo>,
+    },
+    MappedCall {
+        call_span: types::Span,
+        mapped_arg: Box<TypInfo>,
+    },
 }
 
 // heap version of core::runtime::Args

@@ -279,7 +279,7 @@ pub fn compile_expr(ctx: &mut Context, expr: LocatedExpression) -> Cesult<(Latex
                 .unzip();
             let dspan = default.0.clone();
             let (default, dt, di) = compile_expr(ctx, *default)?;
-            let (t, ti) = reduce_types(
+            let (_s, t, ti) = reduce_types(
                 std::iter::once(ft)
                     .chain(rest_types)
                     .chain(std::iter::once((dspan, dt, di))),
@@ -334,8 +334,10 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult 
                         span: aspan.clone(),
                     });
                 }
-                ctx.locals
-                    .insert(aname.clone(), (*atype, TypInfo::FuncArg(aspan.clone())));
+                ctx.locals.insert(
+                    aname.clone(),
+                    (*atype, TypInfo::InlineFuncArg(aspan.clone())),
+                );
             }
             // Evaluate the body with the new ctx
             let (body, rt, ri) = compile_expr(ctx, e)?;

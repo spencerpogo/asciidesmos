@@ -61,7 +61,12 @@ fn typinfo_labels(ti: TypInfo) -> Vec<(types::Span, String)> {
         TypInfo::Map(s) => vec![(s, "Mapped list here".to_string())],
         TypInfo::Builtin(s, _) => vec![(s, "Call to builtin function".to_string())],
         TypInfo::RawLatex(s) => vec![(s, "Raw latex".to_string())],
-        TypInfo::FuncArg(s) => vec![(s, "Argument".to_string().to_string())],
+        TypInfo::InlineFuncArg(s) => vec![(s, "Inline function argument".to_string().to_string())],
+        TypInfo::Call { call_span, ret } => todo!(),
+        TypInfo::MappedCall {
+            call_span,
+            mapped_arg,
+        } => todo!(),
     }
 }
 

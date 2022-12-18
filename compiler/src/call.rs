@@ -6,7 +6,8 @@ use crate::{
     builtins,
     error::{CompileError, CompileErrorKind, ExpectedArgCount},
     types::{
-        reduce_types, Context, FunctionArgs, FunctionSignature, ResolvedFunction, Typ, TypInfo,
+        combine_types, reduce_types, Context, FunctionArgs, FunctionSignature, ResolvedFunction,
+        Typ, TypInfo,
     },
 };
 
@@ -62,13 +63,6 @@ pub fn resolve_function<'a>(
     None
 }
 
-fn resolve_func_type(
-    args_types: Vec<(types::Span, Typ, TypInfo)>,
-    ret: (Typ, TypInfo),
-) -> (Typ, TypInfo) {
-    reduce_types(args_types).unwrap_or((ret.0.into(), ret.1))
-}
-
 fn check_arg_types(
     args: Vec<(types::Span, latex::Latex, Typ, TypInfo)>,
     rargs: &Vec<types::ValType>,
@@ -119,7 +113,8 @@ pub fn compile_static_call(
 
     let args_results = check_arg_types(args, rargs)?;
     let (args_latex, args_types): (Vec<_>, Vec<_>) = args_results.into_iter().unzip();
-    let (rt, ri) = resolve_func_type(args_types, rfunc.ret);
+    todo!();
+    /*let (rt, ri) = resolve_func_type(args_types, rfunc.ret);
 
     Ok((
         latex::Latex::Call {
@@ -129,7 +124,7 @@ pub fn compile_static_call(
         },
         rt,
         ri,
-    ))
+    ))*/
 }
 
 fn variadic_call_types(
@@ -143,7 +138,8 @@ fn variadic_call_types(
             return Ok((vec![first.1.clone()], rt.into(), ri));
         }
     }
-    let (args_latex, args_types) = args
+    todo!();
+    /*let (args_latex, args_types) = args
         .into_iter()
         .map(
             |(span, latex, t, ti)| -> Result<(Latex, (types::Span, Typ, TypInfo)), CompileError> {
@@ -160,7 +156,7 @@ fn variadic_call_types(
         .into_iter()
         .unzip();
     let (rt, ri) = resolve_func_type(args_types, rfunc.ret);
-    Ok((args_latex, rt, ri))
+    Ok((args_latex, rt, ri))*/
 }
 
 pub fn compile_variadic_call(
@@ -312,8 +308,9 @@ pub fn compile_call(
                     .unzip();
 
             let vars: HashMap<String, Latex> = entries.into_iter().collect();
-            let (rt, ri) = resolve_func_type(args_types, rfunc.ret);
-            Ok((replace_variables(rfunc.body, &vars), rt, ri))
+            todo!();
+            //let (rt, ri) = resolve_func_type(args_types, rfunc.ret);
+            //Ok((replace_variables(rfunc.body, &vars), rt, ri))
         }
         ResolvedFunction::Normal {
             func: rfunc,
