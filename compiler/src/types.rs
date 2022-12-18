@@ -1,10 +1,5 @@
 use ast::LStatements;
-use std::{
-    collections::HashMap,
-    convert::{TryFrom, TryInto},
-    fmt::Debug,
-    rc::Rc,
-};
+use std::{collections::HashMap, convert::TryFrom, fmt::Debug, rc::Rc};
 use types::ValType;
 
 use crate::{error::CompileError, stdlib::StdlibLoader};

@@ -1,7 +1,6 @@
 use ast;
 use latex::{self, Latex};
 use std::{collections::HashMap, rc::Rc};
-use types::{self, ValType};
 
 use crate::{
     builtins,
@@ -330,7 +329,7 @@ pub fn compile_call(
 mod tests {
     use super::*;
     use crate::{
-        compiler::tests::{check, compile, spn, tinfo},
+        compiler::tests::{check, compile, spn},
         types::Literal,
     };
     use ast::Expression;
