@@ -56,9 +56,12 @@ struct DummyRuleType {}
 
 fn typinfo_labels(ti: TypInfo) -> Vec<(types::Span, String)> {
     match ti {
-        TypInfo::Literal(_, span) => vec![(span, "Literally you are stupd.. ".to_owned())],
-        TypInfo::Map(span) => vec![(span, "Mapped here".to_string())],
-        _ => vec![],
+        TypInfo::Literal(l, s) => vec![(s, format!("{:#?} literal here", l))],
+        TypInfo::BinOp(l, r) => vec![(l, format!("Left")), (r, "Right".to_owned())], // FIXME: This can be much better
+        TypInfo::Map(s) => vec![(s, "Mapped list here".to_string())],
+        TypInfo::Builtin(s, _) => vec![(s, "Call to builtin function".to_string())],
+        TypInfo::RawLatex(s) => vec![(s, "Raw latex".to_string())],
+        TypInfo::FuncArg(s) => vec![(s, "Argument".to_string().to_string())],
     }
 }
 
@@ -152,8 +155,38 @@ impl CompileErrorKind {
 
     pub fn typinfos(self) -> Vec<TypInfo> {
         match self {
-            CompileErrorKind::IndexNonList(t, ti) => vec![ti],
-            _ => vec![],
+            CompileErrorKind::UnknownFunction(_) => vec![],
+            CompileErrorKind::WrongArgCount {
+                got: _,
+                expected: _,
+            } => vec![],
+            CompileErrorKind::ArgTypeMismatch {
+                got: (_, ti),
+                expected: _,
+            } => vec![ti],
+            CompileErrorKind::NegateList => vec![],
+            CompileErrorKind::FactorialList => vec![],
+            CompileErrorKind::RangeExpectNumber => vec![],
+            CompileErrorKind::IndexNonList(_, ti) => vec![ti],
+            CompileErrorKind::MapNonList => vec![],
+            CompileErrorKind::IndexWithNonNumber => vec![],
+            CompileErrorKind::RetAnnMismatch {
+                got: (_, ti),
+                expected: _,
+            } => vec![ti],
+            CompileErrorKind::ExpectedSameTypes {
+                left: (_, lti),
+                right: (_, rti),
+            } => vec![lti, rti],
+            CompileErrorKind::VariadicList => vec![],
+            CompileErrorKind::UndefinedVariable(_) => vec![],
+            CompileErrorKind::DuplicateVariable(_) => vec![],
+            CompileErrorKind::ExpectedFunction => vec![],
+            CompileErrorKind::NoNestedList => vec![],
+            CompileErrorKind::NoInlineVariadic => vec![],
+            CompileErrorKind::UnresolvedNamespace(_) => vec![],
+            CompileErrorKind::ModuleNotFound(_) => vec![],
+            CompileErrorKind::MapAsVariable => vec![],
         }
     }
 

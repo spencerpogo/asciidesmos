@@ -18,13 +18,17 @@ pub fn func_to_latex(func: ast::Function) -> latex::Function {
 }
 
 // Returns function and whether it is builtin
-pub fn resolve_function<'a>(ctx: &'a mut Context, func: ast::Function) -> Option<ResolvedFunction> {
+pub fn resolve_function<'a>(
+    ctx: &'a mut Context,
+    span: types::Span,
+    func: ast::Function,
+) -> Option<ResolvedFunction> {
     let name = match func {
         ast::Function::Log { base: _ } => {
             return Some(ResolvedFunction::Normal {
                 func: Rc::new(FunctionSignature {
                     args: FunctionArgs::Static(vec![types::ValType::Number]),
-                    ret: (Typ::Num, TypInfo::Builtin(func)),
+                    ret: (Typ::Num, TypInfo::Builtin(span, func)),
                 }),
                 is_builtin: true,
             });
@@ -49,7 +53,7 @@ pub fn resolve_function<'a>(ctx: &'a mut Context, func: ast::Function) -> Option
                 },
                 ret: (
                     f.ret.into(),
-                    TypInfo::Builtin(ast::Function::Normal { name }),
+                    TypInfo::Builtin(span, ast::Function::Normal { name }),
                 ),
             }),
             is_builtin: true,
@@ -262,7 +266,7 @@ pub fn compile_call(
     func: ast::Function,
     args: Vec<(types::Span, latex::Latex, Typ, TypInfo)>,
 ) -> Result<(latex::Latex, Typ, TypInfo), CompileError> {
-    let rfunc = resolve_function(ctx, func.clone()).ok_or(CompileError {
+    let rfunc = resolve_function(ctx, span.clone(), func.clone()).ok_or(CompileError {
         kind: CompileErrorKind::UnknownFunction(func.clone()),
         span: span.clone(),
     })?;

@@ -122,7 +122,7 @@ pub enum TypInfo {
     Literal(Literal, types::Span),
     BinOp(types::Span, types::Span),
     Map(types::Span),
-    Builtin(ast::Function),
+    Builtin(types::Span, ast::Function),
     RawLatex(types::Span),
     FuncArg(types::Span),
 }
