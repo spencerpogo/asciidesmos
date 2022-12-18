@@ -1,3 +1,5 @@
+use std::convert::TryInto;
+
 use crate::types::{combine_types, reduce_types, Cesult, Literal, Typ, TypInfo};
 
 use super::{
@@ -137,16 +139,16 @@ pub fn compile_variable_ref(
     span: types::Span,
     name: String,
 ) -> Cesult<(Latex, Typ, TypInfo)> {
-    match ctx.inline_vals.get(&name) {
-        Some((t, v, i)) => Ok((v.clone(), *t, i.clone())),
-        None => match resolve_variable(ctx, name.clone()) {
-            Some((var_type, info)) => Ok((Latex::Variable(name), var_type.into(), info)),
-            None => Err(CompileError {
-                kind: CompileErrorKind::UndefinedVariable(name),
-                span,
-            }),
-        },
+    if let Some((l, t, ti)) = ctx.inline_vals.get(&name) {
+        return Ok((l.clone(), *t, ti.clone()));
     }
+    if let Some((var_type, info)) = resolve_variable(ctx, name.clone()) {
+        return Ok((Latex::Variable(name), var_type.into(), info));
+    }
+    Err(CompileError {
+        kind: CompileErrorKind::UndefinedVariable(name),
+        span,
+    })
 }
 
 // Ideally this would be functional and ctx would not need to be mutable, but rust
@@ -393,8 +395,7 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult 
             }])
         }
         Statement::VarDef { name, val, inline } => {
-            unimplemented!();
-            /*if ctx.variables.contains_key(name.as_str())
+            if ctx.variables.contains_key(name.as_str())
                 || ctx.inline_vals.contains_key(name.as_str())
             {
                 return Err(CompileError {
@@ -402,20 +403,26 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult 
                     span: s,
                 });
             };
-            let (val_latex, t) = compile_expr(ctx, val)?;
-            match inline {
-                true => {
-                    ctx.inline_vals.insert(name.clone(), (t, val_latex));
-                    Ok(vec![])
+            let val_span = val.0.clone();
+            let (val_latex, t, ti) = compile_expr(ctx, val)?;
+            if inline {
+                ctx.inline_vals.insert(name.clone(), (val_latex, t, ti));
+                return Ok(vec![]);
+            }
+            let t: ValType = match t.try_into() {
+                Ok(t) => t,
+                Err(_) => {
+                    return Err(CompileError {
+                        kind: CompileErrorKind::MapAsVariable,
+                        span: val_span,
+                    })
                 }
-                false => {
-                    ctx.variables.insert(name.clone(), t);
-                    Ok(vec![LatexStatement::Assignment(
-                        Box::new(Latex::Variable(name)),
-                        Box::new(val_latex),
-                    )])
-                }
-            }*/
+            };
+            ctx.variables.insert(name.clone(), (t, ti));
+            Ok(vec![LatexStatement::Assignment(
+                Box::new(Latex::Variable(name)),
+                Box::new(val_latex),
+            )])
         }
         Statement::Import(import) => super::import::handle_import(ctx, s, import),
     }
@@ -1087,7 +1094,7 @@ pub mod tests {
             .insert("a".to_string(), (ValType::Number, tinfo()));
         submodule.inline_vals.insert(
             "b".to_string(),
-            (Typ::Num, Latex::Num("1".to_string()), tinfo()),
+            (Latex::Num("1".to_string()), Typ::Num, tinfo()),
         );
         let mut ctx = new_ctx();
         ctx.modules.insert("lib".to_owned(), submodule);

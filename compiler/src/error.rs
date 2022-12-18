@@ -42,6 +42,7 @@ pub enum CompileErrorKind {
     NoInlineVariadic,
     UnresolvedNamespace(Vec<String>),
     ModuleNotFound(String),
+    MapAsVariable,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -136,6 +137,9 @@ impl CompileErrorKind {
             }
             CompileErrorKind::ModuleNotFound(path) => {
                 format!("Module not found: '{}'", path)
+            }
+            CompileErrorKind::MapAsVariable => {
+                format!("Cannot assign a mapped list to a variable: delete this map")
             }
         }
     }

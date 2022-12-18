@@ -1,5 +1,10 @@
 use ast::LStatements;
-use std::{collections::HashMap, fmt::Debug, rc::Rc};
+use std::{
+    collections::HashMap,
+    convert::{TryFrom, TryInto},
+    fmt::Debug,
+    rc::Rc,
+};
 use types::ValType;
 
 use crate::{error::CompileError, stdlib::StdlibLoader};
@@ -31,6 +36,18 @@ impl From<ValType> for Typ {
         match v {
             ValType::Number => Self::Num,
             ValType::List => Self::List,
+        }
+    }
+}
+
+impl TryFrom<Typ> for ValType {
+    type Error = ();
+
+    fn try_from(value: Typ) -> Result<Self, Self::Error> {
+        match value {
+            Typ::Num => Ok(ValType::Number),
+            Typ::List => Ok(ValType::List),
+            Typ::MappedList => Err(()),
         }
     }
 }
@@ -180,7 +197,7 @@ pub struct Context {
     pub variables: HashMap<String, (ValType, TypInfo)>,
     pub locals: HashMap<String, (ValType, TypInfo)>,
     pub defined_functions: HashMap<String, Rc<FunctionSignature>>,
-    pub inline_vals: HashMap<String, (Typ, latex::Latex, TypInfo)>,
+    pub inline_vals: HashMap<String, (latex::Latex, Typ, TypInfo)>,
     pub inline_fns: HashMap<String, Rc<InlineFunction>>,
     // can't support submodules (yet)
     pub modules: HashMap<String, Context>,
