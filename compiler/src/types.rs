@@ -78,7 +78,7 @@ impl Typ {
     }
 }
 
-pub fn combine_types(
+pub fn binop_exprs(
     left: (types::Span, Typ, TypInfo),
     right: (types::Span, Typ, TypInfo),
 ) -> (types::Span, Typ, TypInfo) {
@@ -100,15 +100,23 @@ pub fn combine_types(
     )
 }
 
-pub fn reduce_types<I>(types: I) -> Option<(types::Span, Typ, TypInfo)>
+pub fn combine_types(left: Typ, right: Typ) -> Typ {
+    if left.is_list_weak() || right.is_list_weak() {
+        return Typ::List;
+    }
+    // only possibilities left:
+    debug_assert_eq!(left, Typ::Num);
+    debug_assert_eq!(right, Typ::Num);
+    Typ::Num
+}
+
+pub fn reduce_with_binop_exprs<I>(types: I) -> Option<(types::Span, Typ, TypInfo)>
 where
     I: IntoIterator<Item = (types::Span, Typ, TypInfo)>,
 {
-    let types = types.into_iter().collect::<Vec<_>>();
-    eprintln!("{:#?}", types);
     types
         .into_iter()
-        .reduce(|left, right| combine_types(left, right))
+        .reduce(|left, right| binop_exprs(left, right))
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

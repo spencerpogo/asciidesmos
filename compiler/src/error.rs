@@ -43,6 +43,7 @@ pub enum CompileErrorKind {
     UnresolvedNamespace(Vec<String>),
     ModuleNotFound(String),
     MapAsVariable,
+    ReturnMap,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -62,17 +63,17 @@ fn typinfo_labels(ti: TypInfo) -> Vec<(types::Span, String)> {
         TypInfo::Builtin(s, _) => vec![(s, "Call to builtin function".to_string())],
         TypInfo::RawLatex(s) => vec![(s, "Raw latex".to_string())],
         TypInfo::InlineFuncArg(s) => vec![(s, "Inline function argument".to_string().to_string())],
-        TypInfo::Call { call_span, ret } => todo!(),
+        TypInfo::Call { call_span, ret: _ } => vec![(call_span, "Call here".to_string())], // FIXME: Expose ret better
         TypInfo::MappedCall {
             call_span,
-            mapped_arg,
-        } => todo!(),
+            mapped_arg: _,
+        } => vec![(call_span, "In this call".to_string())],
     }
 }
 
 impl CompileErrorKind {
     pub fn as_msg(&self) -> String {
-        match &self {
+        match self {
             CompileErrorKind::UnknownFunction(func) => format!(
                 "Unknown function '{}'",
                 // TODO: move this formatting into the AST crate
@@ -149,6 +150,9 @@ impl CompileErrorKind {
             CompileErrorKind::MapAsVariable => {
                 format!("Cannot assign a mapped list to a variable: delete this map")
             }
+            CompileErrorKind::ReturnMap => {
+                format!("Cannot return a mapped list from a function: delete this map")
+            }
         }
     }
 
@@ -192,6 +196,7 @@ impl CompileErrorKind {
             CompileErrorKind::UnresolvedNamespace(_) => vec![],
             CompileErrorKind::ModuleNotFound(_) => vec![],
             CompileErrorKind::MapAsVariable => vec![],
+            CompileErrorKind::ReturnMap => vec![],
         }
     }
 

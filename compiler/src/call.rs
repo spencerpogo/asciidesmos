@@ -1,13 +1,13 @@
 use ast;
 use latex::{self, Latex};
 use std::{collections::HashMap, rc::Rc};
+use types::ValType;
 
 use crate::{
     builtins,
     error::{CompileError, CompileErrorKind, ExpectedArgCount},
     types::{
-        combine_types, reduce_types, Context, FunctionArgs, FunctionSignature, ResolvedFunction,
-        Typ, TypInfo,
+        combine_types, Context, FunctionArgs, FunctionSignature, ResolvedFunction, Typ, TypInfo,
     },
 };
 
@@ -29,7 +29,7 @@ pub fn resolve_function<'a>(
             return Some(ResolvedFunction::Normal {
                 func: Rc::new(FunctionSignature {
                     args: FunctionArgs::Static(vec![types::ValType::Number]),
-                    ret: (Typ::Num, TypInfo::Builtin(span, func)),
+                    ret: (ValType::Number, TypInfo::Builtin(span, func)),
                 }),
                 is_builtin: true,
             });
@@ -66,13 +66,24 @@ pub fn resolve_function<'a>(
 fn check_arg_types(
     args: Vec<(types::Span, latex::Latex, Typ, TypInfo)>,
     rargs: &Vec<types::ValType>,
-) -> Result<Vec<(latex::Latex, (types::Span, Typ, TypInfo))>, CompileError> {
-    args.into_iter()
+    ret: ValType,
+) -> Result<
+    (
+        Vec<latex::Latex>,
+        Vec<(types::Span, Typ, TypInfo)>,
+        Option<TypInfo>,
+    ),
+    CompileError,
+> {
+    let mut mapped_arg = None;
+    let (args_latex, args_types) = args
+        .into_iter()
         .zip(rargs.iter())
         .map(
             |(got_type, expect_type)| -> Result<(latex::Latex, (types::Span, Typ, TypInfo)), _> {
                 let (aspan, arg_latex, gt, gi) = got_type;
-                if !gt.eq_weak((*expect_type).into()) {
+                let et = (*expect_type).into();
+                if !gt.eq_weak(et) {
                     return Err(CompileError {
                         kind: CompileErrorKind::ArgTypeMismatch {
                             got: (gt, gi),
@@ -81,10 +92,37 @@ fn check_arg_types(
                         span: aspan,
                     });
                 }
+
+                // Keep track of the first argument to cause the function to implicitly map
+                if mapped_arg.is_none() && gt != et {
+                    mapped_arg = Some(gi.clone());
+                }
                 Ok((arg_latex, (aspan, gt, gi)))
             },
         )
-        .collect::<Result<Vec<_>, _>>()
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .unzip();
+
+    // Map does not occur if function returns a list anyway
+    let mapped_arg = if ret == ValType::List {
+        None
+    } else {
+        mapped_arg
+    };
+    Ok((args_latex, args_types, mapped_arg))
+}
+
+pub fn ret_type<I>(args_types: I, ret: ValType) -> Typ
+where
+    I: IntoIterator<Item = Typ>,
+{
+    let ret: Typ = ret.into();
+    args_types
+        .into_iter()
+        .chain(std::iter::once(ret))
+        .reduce(|l, r| combine_types(l, r))
+        .unwrap_or(ret)
 }
 
 pub fn compile_static_call(
@@ -111,10 +149,18 @@ pub fn compile_static_call(
         }
     }
 
-    let args_results = check_arg_types(args, rargs)?;
-    let (args_latex, args_types): (Vec<_>, Vec<_>) = args_results.into_iter().unzip();
-    todo!();
-    /*let (rt, ri) = resolve_func_type(args_types, rfunc.ret);
+    let (args_latex, args_types, mapped_arg) = check_arg_types(args, rargs, rfunc.ret.0)?;
+    let rt = ret_type(args_types.into_iter().map(|i| i.1), rfunc.ret.0);
+    let ri = match mapped_arg {
+        Some(mapped_arg) => TypInfo::MappedCall {
+            call_span: span,
+            mapped_arg: Box::new(mapped_arg),
+        },
+        None => TypInfo::Call {
+            call_span: span,
+            ret: Box::new(rfunc.ret.1),
+        },
+    };
 
     Ok((
         latex::Latex::Call {
@@ -124,7 +170,7 @@ pub fn compile_static_call(
         },
         rt,
         ri,
-    ))*/
+    ))
 }
 
 fn variadic_call_types(

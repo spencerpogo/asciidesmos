@@ -1,6 +1,6 @@
 use std::convert::TryInto;
 
-use crate::types::{combine_types, reduce_types, Cesult, Literal, Typ, TypInfo};
+use crate::types::{binop_exprs, reduce_with_binop_exprs, Cesult, Literal, Typ, TypInfo};
 
 use super::{
     error::{CompileError, CompileErrorKind},
@@ -114,7 +114,7 @@ pub fn comp_binop(
             span: ls.with_end_of(&rs).unwrap_or(ls),
         });
     }
-    let (_s, t, i) = combine_types((ls, lt, li), (rs, rt, ri));
+    let (_s, t, i) = binop_exprs((ls, lt, li), (rs, rt, ri));
     Ok((lv, rv, t, i))
 }
 
@@ -279,7 +279,8 @@ pub fn compile_expr(ctx: &mut Context, expr: LocatedExpression) -> Cesult<(Latex
                 .unzip();
             let dspan = default.0.clone();
             let (default, dt, di) = compile_expr(ctx, *default)?;
-            let (_s, t, ti) = reduce_types(
+            // FIXME: Fix TypInfos here
+            let (_s, t, ti) = reduce_with_binop_exprs(
                 std::iter::once(ft)
                     .chain(rest_types)
                     .chain(std::iter::once((dspan, dt, di))),
