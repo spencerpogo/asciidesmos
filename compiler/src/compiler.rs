@@ -381,7 +381,13 @@ pub fn compile_stmt(ctx: &mut Context, expr: LocatedStatement) -> CompileResult 
                         .map(|(_span, _name, typ)| typ.clone())
                         .collect(),
                 ),
-                ret: (rt, ri),
+                ret: (
+                    rt.try_into().map_err(|_| CompileError {
+                        kind: CompileErrorKind::ReturnMap,
+                        span: s,
+                    })?,
+                    ri,
+                ),
             };
             ctx.defined_functions
                 .insert(fdef.name.clone(), std::rc::Rc::new(sig));

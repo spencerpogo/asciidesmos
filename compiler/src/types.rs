@@ -147,7 +147,7 @@ pub enum FunctionArgs {
 #[derive(Clone, Debug, PartialEq)]
 pub struct FunctionSignature {
     pub args: FunctionArgs,
-    pub ret: (Typ, TypInfo),
+    pub ret: (ValType, TypInfo),
 }
 
 #[derive(Clone, Debug, PartialEq)]
