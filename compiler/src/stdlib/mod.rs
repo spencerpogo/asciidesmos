@@ -37,3 +37,9 @@ impl StdlibLoader {
         }
     }
 }
+
+impl Default for StdlibLoader {
+    fn default() -> Self {
+        Self::new()
+    }
+}

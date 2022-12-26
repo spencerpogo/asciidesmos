@@ -204,7 +204,13 @@ impl Loader for UnimplementedLoader {
     }
 }
 
-#[derive(Clone, Debug)]
+impl Default for Box<dyn Loader> {
+    fn default() -> Self {
+        Box::new(UnimplementedLoader)
+    }
+}
+
+#[derive(Clone, Debug, Default)]
 pub struct Context {
     pub variables: HashMap<String, (ValType, TypInfo)>,
     pub locals: HashMap<String, (ValType, TypInfo)>,
@@ -228,22 +234,6 @@ impl Context {
         Self {
             loader,
             ..Default::default()
-        }
-    }
-}
-
-impl Default for Context {
-    fn default() -> Self {
-        let loader = Box::new(UnimplementedLoader);
-        Self {
-            variables: HashMap::new(),
-            locals: HashMap::new(),
-            defined_functions: HashMap::new(),
-            inline_vals: HashMap::new(),
-            inline_fns: HashMap::new(),
-            modules: HashMap::new(),
-            stdlib: StdlibLoader::new(),
-            loader,
         }
     }
 }
