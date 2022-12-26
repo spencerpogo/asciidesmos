@@ -55,19 +55,30 @@ pub struct CompileError {
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Copy, PartialOrd, Ord)]
 struct DummyRuleType {}
 
-fn typinfo_labels(ti: TypInfo) -> Vec<(types::Span, String)> {
+fn typinfo_labels(ti: TypInfo) -> (types::Span, String) {
     match ti {
-        TypInfo::Literal(l, s) => vec![(s, format!("{:#?} literal here", l))],
-        TypInfo::BinOp(l, r) => vec![(l, format!("Left")), (r, "Right".to_owned())], // FIXME: This can be much better
-        TypInfo::Map(s) => vec![(s, "Mapped list here".to_string())],
-        TypInfo::Builtin(s, _) => vec![(s, "Call to builtin function".to_string())],
-        TypInfo::RawLatex(s) => vec![(s, "Raw latex".to_string())],
-        TypInfo::InlineFuncArg(s) => vec![(s, "Inline function argument".to_string().to_string())],
-        TypInfo::Call { call_span, ret: _ } => vec![(call_span, "Call here".to_string())], // FIXME: Expose ret better
+        TypInfo::Literal(l, s) => (s, format!("{:#?} literal here", l)),
+        TypInfo::BinOp(l, r) => todo!(),
+        TypInfo::Map(s) => (s, "mapped list here".to_string()),
+        TypInfo::Builtin(s, _) => (s, "call to builtin function".to_string()),
+        TypInfo::RawLatex(s) => (s, "raw latex".to_string()),
+        TypInfo::InlineFuncArg(s) => (s, "inline function argument".to_string().to_string()),
+        TypInfo::Call { call_span, ret: _ } => (call_span, "call here".to_string()), // FIXME: Expose ret better
         TypInfo::MappedCall {
-            call_span,
-            mapped_arg: _,
-        } => vec![(call_span, "In this call".to_string())],
+            call_span: _,
+            func,
+            mapped_arg,
+        } => {
+            let arg_typ = typinfo_labels(*mapped_arg);
+            (
+                arg_typ.0,
+                format!(
+                    "'{}' returns a list due to being passed {}",
+                    ast::func_name(func),
+                    arg_typ.1
+                ),
+            )
+        }
     }
 }
 
@@ -89,8 +100,11 @@ impl CompileErrorKind {
                 };
                 format!("Expected {} arguments but got {}", ex_fmt, got)
             }
-            CompileErrorKind::ArgTypeMismatch { got, expected } => {
-                format!("Expected type {:#?} but got {:#?}", expected, got)
+            CompileErrorKind::ArgTypeMismatch {
+                got: (gt, _gi),
+                expected,
+            } => {
+                format!("Expected type {:#?} but got {:#?}", expected, gt)
             }
             CompileErrorKind::NegateList => {
                 // TODO: there will be syntax to map list
@@ -203,7 +217,7 @@ impl CompileErrorKind {
     pub fn labels(self) -> Vec<(types::Span, String)> {
         self.typinfos()
             .into_iter()
-            .flat_map(|ti| typinfo_labels(ti))
+            .map(|ti| typinfo_labels(ti))
             .collect()
     }
 }

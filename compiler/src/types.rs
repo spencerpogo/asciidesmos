@@ -140,6 +140,7 @@ pub enum TypInfo {
     },
     MappedCall {
         call_span: types::Span,
+        func: ast::Function,
         mapped_arg: Box<TypInfo>,
     },
 }

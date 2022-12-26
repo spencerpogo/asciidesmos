@@ -125,3 +125,10 @@ pub type LStatements = Vec<LocatedStatement>;
 pub fn fmt_namespace(path: &Vec<String>) -> String {
     path.join(".")
 }
+
+pub fn func_name(func: Function) -> String {
+    match func {
+        Function::Normal { name } => name,
+        Function::Log { base } => format!("log_{}", base),
+    }
+}

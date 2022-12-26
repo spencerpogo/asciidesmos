@@ -154,6 +154,7 @@ pub fn compile_static_call(
     let ri = match mapped_arg {
         Some(mapped_arg) => TypInfo::MappedCall {
             call_span: span,
+            func: func.clone(),
             mapped_arg: Box::new(mapped_arg),
         },
         None => TypInfo::Call {
