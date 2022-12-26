@@ -257,12 +257,9 @@ fn print_compile_error_report(sources: &mut Sources, err: CompileError) {
     /*if let Some(help) = err.kind.help() {
         report.set_help(help);
     }*/
+    let mut colors = ariadne::ColorGenerator::new();
     err.kind.labels().into_iter().for_each(|(span, msg)| {
-        report.add_label(
-            Label::new(span)
-                .with_color(ariadne::Color::Blue)
-                .with_message(msg),
-        )
+        report.add_label(Label::new(span).with_color(colors.next()).with_message(msg))
     });
     report.finish().eprint(sources).unwrap();
 }
